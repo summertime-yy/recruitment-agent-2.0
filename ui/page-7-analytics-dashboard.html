@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能招聘 Agent — 基础数据看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ========== CSS VARIABLES ========== */
+:root {
+  --primary: #0D9488;
+  --primary-dark: #0F766E;
+  --primary-light: #99F6E4;
+  --primary-bg: rgba(13,148,136,0.06);
+  --accent: #EA580C;
+  --accent-bg: rgba(234,88,12,0.06);
+  --success: #16A34A;
+  --success-bg: rgba(22,163,74,0.06);
+  --warning: #D97706;
+  --warning-bg: rgba(217,119,6,0.06);
+  --bg: #F8F7F6;
+  --bg-secondary: #F0EFED;
+  --bg-elevated: #FFFFFF;
+  --ink: #1C1917;
+  --ink-secondary: #78716C;
+  --ink-tertiary: #A8A29E;
+  --border: #E7E5E4;
+  --border-light: #F5F5F4;
+  --shadow-sm: 0 1px 2px rgba(28,25,23,0.04);
+  --shadow-md: 0 4px 12px rgba(28,25,23,0.06);
+  --shadow-lg: 0 8px 24px rgba(28,25,23,0.08);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --sidebar-w: 260px;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Space Grotesk', 'DM Sans', sans-serif;
+  /* Chart colors */
+  --chart-1: #0D9488;
+  --chart-2: #EA580C;
+  --chart-3: #6366F1;
+  --chart-4: #F59E0B;
+  --chart-5: #EC4899;
+}
+
+/* ========== RESET ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--ink); height: 100vh; overflow: hidden; }
+button { font-family: var(--font-body); cursor: pointer; border: none; background: none; }
+input, textarea, select { font-family: var(--font-body); }
+
+/* ========== CUSTOM SCROLLBAR ========== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--primary-light); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+/* ========== APP SHELL ========== */
+.app-shell { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+/* ========== LEFT SIDEBAR ========== */
+.sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  background: var(--bg-elevated); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 10;
+}
+.sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+.sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+.brand-icon { width: 34px; height: 34px; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: flex; align-items: center; justify-content: center; color: #fff; font-family: var(--font-heading); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
+.brand-text { font-family: var(--font-heading); font-size: 1rem; font-weight: 700; color: var(--ink); letter-spacing: -0.3px; line-height: 1.2; }
+.brand-sub { font-size: 0.72rem; color: var(--ink-tertiary); margin-top: 1px; font-weight: 400; }
+
+/* Sidebar nav */
+.sidebar-nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+.nav-section-label {
+  font-size: 0.7rem; font-weight: 600; color: var(--ink-tertiary);
+  text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  font-size: 0.88rem; color: var(--ink-secondary);
+  transition: all 0.15s; margin-bottom: 2px; text-decoration: none;
+}
+.nav-item:hover { background: var(--primary-bg); color: var(--primary-dark); }
+.nav-item.active { background: var(--primary-bg); color: var(--primary-dark); font-weight: 600; }
+.nav-item .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-item .nav-badge {
+  margin-left: auto; background: var(--accent); color: #fff;
+  font-size: 0.68rem; font-weight: 600; padding: 1px 7px;
+  border-radius: 10px; min-width: 20px; text-align: center;
+}
+
+/* Phase 2 nav items */
+.nav-item.phase2 { opacity: 0.7; }
+.nav-item.phase2:hover { opacity: 1; }
+.nav-item.phase2 .nav-icon { opacity: 0.5; }
+.nav-item.phase2:hover .nav-icon { opacity: 0.8; }
+.nav-item.phase2.active { opacity: 1; }
+.nav-item.phase2.active .nav-icon { opacity: 1; }
+.nav-badge--phase2 { background: var(--bg-secondary); color: var(--ink-tertiary); border: 1px solid var(--border); margin-left: auto; font-size: 0.65rem; font-weight: 600; padding: 1px 7px; border-radius: 10px; line-height: 1.5; white-space: nowrap; }
+
+.sidebar-footer {
+  padding: 14px 16px; border-top: 1px solid var(--border-light);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-footer .avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; color: var(--primary-dark);
+}
+.sidebar-footer .user-info { flex: 1; }
+.sidebar-footer .user-name { font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+.sidebar-footer .user-role { font-size: 0.72rem; color: var(--ink-tertiary); }
+
+/* ========== MAIN AREA ========== */
+.main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; z-index: 1; }
+
+/* ========== TOP NAV BAR ========== */
+.top-nav {
+  display: flex; align-items: center; padding: 12px 24px;
+  border-bottom: 1px solid var(--border); background: var(--bg-elevated);
+  gap: 16px; flex-shrink: 0; min-height: 54px;
+}
+.breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; color: var(--ink-tertiary); white-space: nowrap;
+}
+.breadcrumb a { color: var(--ink-tertiary); text-decoration: none; transition: color 0.15s; }
+.breadcrumb a:hover { color: var(--primary); }
+.breadcrumb .bc-sep { opacity: 0.4; }
+.breadcrumb .bc-current { color: var(--ink-secondary); font-weight: 500; }
+
+.top-nav-title {
+  font-family: var(--font-heading); font-size: 1.15rem; font-weight: 700;
+  color: var(--ink); white-space: nowrap;
+}
+.top-nav-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* Date range selector */
+.date-selector {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-elevated);
+  font-size: 0.82rem; color: var(--ink-secondary); cursor: pointer;
+  transition: all 0.15s; position: relative;
+}
+.date-selector:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+.date-selector svg { width: 14px; height: 14px; opacity: 0.6; }
+.date-selector .chevron { width: 10px; height: 10px; opacity: 0.4; margin-left: 2px; }
+
+/* ========== TAB BAR ========== */
+.tab-bar {
+  display: flex; align-items: center; gap: 0;
+  padding: 0 24px; background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.tab-btn {
+  padding: 12px 20px; font-size: 0.88rem; font-weight: 500;
+  color: var(--ink-tertiary); border-bottom: 2px solid transparent;
+  transition: all 0.2s; position: relative;
+}
+.tab-btn:hover { color: var(--ink-secondary); }
+.tab-btn.active { color: var(--primary-dark); font-weight: 600; border-bottom-color: var(--primary); }
+.tab-btn .tab-badge {
+  margin-left: 6px; font-size: 0.7rem; font-weight: 600;
+  background: var(--accent); color: #fff; padding: 1px 6px;
+  border-radius: 8px;
+}
+
+/* ========== DASHBOARD CONTENT ========== */
+.dashboard-content { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Dashboard grid */
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.dash-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+/* ========== KPI METRIC CARDS ========== */
+.kpi-card {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 18px 20px;
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.kpi-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.kpi-card .kpi-label { font-size: 0.78rem; color: var(--ink-tertiary); margin-bottom: 10px; font-weight: 500; }
+.kpi-card .kpi-value {
+  font-family: var(--font-heading); font-size: 2rem; font-weight: 700;
+  color: var(--ink); line-height: 1;
+}
+.kpi-card .kpi-trend {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.78rem; font-weight: 600; margin-top: 8px;
+  padding: 2px 8px; border-radius: 20px;
+}
+.kpi-card .kpi-trend.up { color: var(--success); background: var(--success-bg); }
+.kpi-card .kpi-trend.down-bad { color: var(--accent); background: var(--accent-bg); }
+.kpi-card .kpi-trend.down-good { color: var(--success); background: var(--success-bg); }
+.kpi-card .kpi-trend svg { width: 12px; height: 12px; }
+.kpi-card .kpi-sub { font-size: 0.72rem; color: var(--ink-tertiary); margin-top: 4px; }
+
+/* KPI accent stripe */
+.kpi-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.kpi-card.accent-teal::before { background: var(--primary); }
+.kpi-card.accent-green::before { background: var(--success); }
+.kpi-card.accent-amber::before { background: var(--warning); }
+.kpi-card.accent-accent::before { background: var(--accent); }
+
+/* ========== CHART CARD ========== */
+.chart-card {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 20px;
+  transition: box-shadow 0.2s;
+}
+.chart-card:hover { box-shadow: var(--shadow-md); }
+.chart-card .chart-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.chart-card .chart-title {
+  font-family: var(--font-heading); font-size: 0.92rem; font-weight: 600;
+  color: var(--ink);
+}
+.chart-card .chart-subtitle { font-size: 0.75rem; color: var(--ink-tertiary); margin-top: 2px; }
+.chart-legend { display: flex; align-items: center; gap: 14px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--ink-secondary); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+.legend-line { width: 14px; height: 0; border-top: 2px dashed; }
+
+/* SVG chart container */
+.chart-area { position: relative; width: 100%; }
+.chart-area svg { width: 100%; height: auto; display: block; }
+
+/* SVG line chart styles */
+.chart-grid-line { stroke: var(--border-light); stroke-width: 1; }
+.chart-axis-line { stroke: var(--border); stroke-width: 1; }
+.chart-axis-label { fill: var(--ink-tertiary); font-size: 11px; font-family: var(--font-body); }
+.chart-data-line { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.chart-data-dot { stroke-width: 2; }
+.chart-area-fill { opacity: 0.08; }
+.chart-target-line { stroke-dasharray: 6 4; stroke-width: 1.5; }
+
+/* Tooltip */
+.chart-tooltip {
+  position: absolute; background: var(--ink); color: #fff;
+  font-size: 0.72rem; padding: 4px 8px; border-radius: 4px;
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+  white-space: nowrap; z-index: 5;
+  font-family: var(--font-heading); font-weight: 500;
+}
+.chart-tooltip::after {
+  content: ''; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%); border: 4px solid transparent;
+  border-top-color: var(--ink);
+}
+
+/* Horizontal bar chart */
+.h-bar-item { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.h-bar-label { width: 80px; font-size: 0.8rem; color: var(--ink-secondary); text-align: right; flex-shrink: 0; }
+.h-bar-track { flex: 1; height: 24px; background: var(--bg-secondary); border-radius: 4px; position: relative; overflow: hidden; }
+.h-bar-fill {
+  height: 100%; border-radius: 4px; transition: width 1s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+}
+.h-bar-fill.teal { background: linear-gradient(90deg, var(--primary), var(--primary-dark)); }
+.h-bar-value {
+  position: absolute; right: -40px; top: 50%; transform: translateY(-50%);
+  font-family: var(--font-heading); font-size: 0.78rem; font-weight: 600;
+  color: var(--ink);
+}
+.h-bar-target {
+  position: absolute; top: -4px; bottom: -4px; width: 0;
+  border-left: 1.5px dashed var(--ink-tertiary); z-index: 2;
+}
+.h-bar-target-label {
+  position: absolute; top: -16px; transform: translateX(-50%);
+  font-size: 0.65rem; color: var(--ink-tertiary); white-space: nowrap;
+}
+
+/* Vertical bar chart */
+.v-bar-group { display: flex; align-items: flex-end; gap: 0; height: 160px; padding-top: 10px; }
+.v-bar-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+.v-bar-wrapper { width: 24px; height: 140px; display: flex; align-items: flex-end; justify-content: center; position: relative; }
+.v-bar {
+  width: 18px; border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--primary), var(--primary-dark));
+  transition: height 1s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+}
+.v-bar:hover { opacity: 0.85; }
+.v-bar-label { font-size: 0.7rem; color: var(--ink-tertiary); }
+.v-bar-value {
+  font-family: var(--font-heading); font-size: 0.68rem; font-weight: 600;
+  color: var(--ink-secondary); position: absolute; top: -16px; white-space: nowrap;
+}
+
+/* Average line overlay for vertical bars */
+.v-bar-wrapper .avg-line {
+  position: absolute; left: -6px; right: -6px; height: 0;
+  border-top: 1.5px dashed var(--warning); z-index: 3;
+}
+.v-bar-wrapper .avg-label {
+  position: absolute; right: -44px; top: -8px;
+  font-size: 0.65rem; color: var(--warning); font-weight: 600;
+  white-space: nowrap; font-family: var(--font-heading);
+}
+
+/* ========== GAUGE / RADIAL CHART ========== */
+.gauge-container { display: flex; flex-direction: column; align-items: center; padding: 10px 0; }
+.gauge-ring {
+  width: 160px; height: 160px; border-radius: 50%; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.gauge-bg {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: var(--bg-secondary);
+}
+.gauge-fill {
+  position: absolute; inset: 0; border-radius: 50%;
+  transition: background 1.2s cubic-bezier(0.4,0,0.2,1);
+}
+.gauge-center {
+  position: relative; z-index: 1; text-align: center;
+}
+.gauge-value {
+  font-family: var(--font-heading); font-size: 2.2rem; font-weight: 700;
+  color: var(--ink); line-height: 1;
+}
+.gauge-unit { font-size: 0.9rem; color: var(--ink-secondary); }
+.gauge-label { font-size: 0.78rem; color: var(--ink-secondary); margin-top: 14px; }
+.gauge-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 6px; padding: 3px 10px; border-radius: 20px;
+  font-size: 0.75rem; font-weight: 600;
+  background: var(--success-bg); color: var(--success);
+}
+.gauge-badge svg { width: 12px; height: 12px; }
+
+/* ========== FUNNEL CHART ========== */
+.funnel-container { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; }
+.funnel-stage {
+  display: flex; align-items: center; justify-content: center;
+  height: 42px; border-radius: 4px; position: relative;
+  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+  transition: all 0.3s; overflow: hidden;
+}
+.funnel-stage:hover { opacity: 0.9; transform: scaleX(1.02); }
+.funnel-stage .funnel-label {
+  color: #fff; font-size: 0.8rem; font-weight: 600; z-index: 1;
+  display: flex; align-items: center; gap: 8px;
+}
+.funnel-stage .funnel-pct {
+  font-family: var(--font-heading); font-weight: 700; font-size: 0.85rem;
+}
+.funnel-stage .funnel-count { opacity: 0.8; font-size: 0.72rem; }
+.funnel-connector {
+  width: 2px; height: 6px; background: var(--border);
+}
+/* Funnel shimmer */
+.funnel-stage::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+}
+
+/* Full width row for funnel */
+.dash-grid-full { grid-column: 1 / -1; }
+
+/* ========== ANIMATIONS ========== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.5s ease-out both; }
+.animate-in:nth-child(1) { animation-delay: 0.05s; }
+.animate-in:nth-child(2) { animation-delay: 0.1s; }
+.animate-in:nth-child(3) { animation-delay: 0.15s; }
+.animate-in:nth-child(4) { animation-delay: 0.2s; }
+.animate-in:nth-child(5) { animation-delay: 0.25s; }
+.animate-in:nth-child(6) { animation-delay: 0.3s; }
+
+/* SVG line drawing animation */
+@keyframes drawLine {
+  from { stroke-dashoffset: var(--dash-length); }
+  to { stroke-dashoffset: 0; }
+}
+.line-animate {
+  stroke-dasharray: var(--dash-length);
+  stroke-dashoffset: var(--dash-length);
+  animation: drawLine 1.5s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+
+/* Area fade in */
+@keyframes fadeArea {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.area-animate { animation: fadeArea 1s ease-out 0.8s both; }
+
+/* Bar grow animation */
+@keyframes growBar {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+/* ========== TOAST SYSTEM ========== */
+.toast-container {
+  position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+  display: flex; flex-direction: column-reverse; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  background: var(--ink); color: #fff; font-size: 0.82rem;
+  padding: 10px 18px; border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 8px;
+  animation: toastIn 0.3s ease-out both;
+  font-weight: 500; max-width: 320px;
+}
+.toast svg { width: 16px; height: 16px; flex-shrink: 0; }
+.toast.toast-out { animation: toastOut 0.25s ease-in both; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(12px) scale(0.96); }
+}
+
+/* ========== DATE DROPDOWN ========== */
+.date-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+  min-width: 160px; z-index: 50; overflow: hidden;
+  opacity: 0; visibility: hidden;
+  transform: translateY(-4px);
+  transition: all 0.15s ease-out;
+}
+.date-dropdown.open {
+  opacity: 1; visibility: visible; transform: translateY(0);
+}
+.date-dropdown-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; font-size: 0.82rem; color: var(--ink-secondary);
+  cursor: pointer; transition: all 0.12s;
+}
+.date-dropdown-item:hover { background: var(--primary-bg); color: var(--primary-dark); }
+.date-dropdown-item.active { color: var(--primary-dark); font-weight: 600; background: var(--primary-bg); }
+.date-dropdown-item .check-icon {
+  width: 14px; height: 14px; opacity: 0; transition: opacity 0.12s;
+}
+.date-dropdown-item.active .check-icon { opacity: 1; }
+
+/* ========== KPI DETAIL POPUP ========== */
+.kpi-detail-popup {
+  position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  padding: 14px 18px; z-index: 50; min-width: 200px;
+  opacity: 0; visibility: hidden;
+  transition: all 0.15s ease-out;
+  pointer-events: none;
+}
+.kpi-detail-popup.open {
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
+.kpi-detail-popup .popup-title {
+  font-size: 0.78rem; color: var(--ink-tertiary); margin-bottom: 8px; font-weight: 500;
+}
+.kpi-detail-popup .popup-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.82rem; color: var(--ink-secondary); padding: 3px 0;
+}
+.kpi-detail-popup .popup-row + .popup-row { border-top: 1px solid var(--border-light); }
+.kpi-detail-popup .popup-val {
+  font-family: var(--font-heading); font-weight: 600; color: var(--ink);
+}
+.kpi-detail-popup::before {
+  content: ''; position: absolute; top: -5px; left: 50%; transform: translateX(-50%) rotate(45deg);
+  width: 8px; height: 8px; background: var(--bg-elevated);
+  border-left: 1px solid var(--border); border-top: 1px solid var(--border);
+}
+
+/* ========== V-BAR HOVER ========== */
+.v-bar {
+  cursor: pointer;
+  transition: height 1s cubic-bezier(0.4,0,0.2,1), filter 0.15s, box-shadow 0.15s;
+}
+.v-bar:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 0 2px var(--primary-light), inset 0 0 6px rgba(13,148,136,0.15);
+}
+.v-bar-tooltip {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: #fff; font-size: 0.72rem;
+  padding: 4px 10px; border-radius: 4px; white-space: nowrap;
+  opacity: 0; transition: opacity 0.15s; pointer-events: none; z-index: 5;
+  font-family: var(--font-heading); font-weight: 500;
+}
+.v-bar-tooltip::after {
+  content: ''; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%); border: 4px solid transparent;
+  border-top-color: var(--ink);
+}
+.v-bar:hover .v-bar-tooltip { opacity: 1; }
+
+/* ========== GAUGE HOVER ========== */
+.gauge-ring { cursor: pointer; transition: transform 0.2s; }
+.gauge-ring:hover { transform: scale(1.04); }
+.gauge-popup {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  padding: 16px 20px; z-index: 10; min-width: 220px;
+  opacity: 0; visibility: hidden;
+  transition: all 0.2s ease-out; pointer-events: none;
+}
+.gauge-popup.open {
+  opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, -50%) scale(1);
+}
+.gauge-popup .popup-close {
+  position: absolute; top: 8px; right: 10px; background: none; border: none;
+  color: var(--ink-tertiary); cursor: pointer; font-size: 1.1rem; line-height: 1;
+  padding: 4px;
+}
+.gauge-popup .popup-close:hover { color: var(--ink); }
+.gauge-popup .gauge-popup-title {
+  font-family: var(--font-heading); font-size: 0.88rem; font-weight: 600;
+  color: var(--ink); margin-bottom: 10px;
+}
+.gauge-popup .gauge-popup-row {
+  display: flex; justify-content: space-between; font-size: 0.8rem;
+  padding: 4px 0; color: var(--ink-secondary);
+}
+.gauge-popup .gauge-popup-row + .gauge-popup-row { border-top: 1px solid var(--border-light); }
+.gauge-popup .gauge-popup-val {
+  font-family: var(--font-heading); font-weight: 600; color: var(--ink);
+}
+
+/* ========== REFRESH BUTTON ========== */
+.btn-refresh {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-elevated);
+  font-size: 0.82rem; color: var(--ink-secondary); cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-refresh:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+.btn-refresh svg { width: 14px; height: 14px; }
+.btn-refresh.spinning svg { animation: spin 0.6s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 1400px) {
+  .dash-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ========== LEFT SIDEBAR ========== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">RA</div>
+      <div>
+        <div class="brand-text">智能招聘 Agent</div>
+        <div class="brand-sub">Smart Recruitment</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">核心流程</div>
+      <a class="nav-item" href="page-2-task-kanban.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
+        任务看板
+      </a>
+      <a class="nav-item" href="page-1-chat-task-center.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6l-3 3V5a1 1 0 0 1 1-1z"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="11" x2="11" y2="11"/></svg>
+        任务中心
+      </a>
+      <a class="nav-item" href="page-3-jd-management.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="11" y2="13"/></svg>
+        JD 管理
+      </a>
+      <a class="nav-item" href="page-4-resume-workspace.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h8l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="12,3 12,7 16,7"/><line x1="6" y1="10" x2="13" y2="10"/><line x1="6" y1="13" x2="11" y2="13"/></svg>
+        简历工作台
+      </a>
+      <a class="nav-item" href="page-5-scoring-report.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2.5 5.5L18 9l-4 4 1 5.5L10 16l-5 2.5 1-5.5-4-4 5.5-1.5z"/></svg>
+        评分报告
+      </a>
+      <a class="nav-item" href="page-6-push-feedback.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l2-7 8-8 5 5-8 8-7 2z"/><line x1="12" y1="5" x2="15" y2="8"/></svg>
+        推送反馈
+      </a>
+      <div class="nav-section-label">分析与设置</div>
+      <a class="nav-item active" href="page-7-analytics-dashboard.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="7"/><line x1="14" y1="14" x2="14" y2="5"/></svg>
+        数据看板
+      </a>
+      <a class="nav-item" href="page-8-system-settings.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="3"/><path d="M10 2v2m0 12v2m-8-8h2m12 0h2"/><path d="M4.9 4.9l1.4 1.4m7.4 7.4l1.4 1.4m0-10.2l-1.4 1.4M6.3 13.7l-1.4 1.4"/></svg>
+        系统设置
+      </a>
+      <div class="nav-section-label">更多功能</div>
+      <a class="nav-item phase2" href="page-placeholder.html?module=面试安排">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="4"/><line x1="13" y1="2" x2="13" y2="4"/><circle cx="10" cy="12" r="1.5" fill="currentColor"/></svg>
+        面试安排
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=候选人沟通">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6l-3 3V5a1 1 0 0 1 1-1z"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>
+        候选人沟通
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=流程跟踪">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="16" r="2"/><circle cx="16" cy="10" r="2"/><line x1="6" y1="5" x2="14" y2="9"/><line x1="6" y1="15" x2="14" y2="11"/></svg>
+        流程跟踪
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=对比分析">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="12" rx="2"/><rect x="7" y="4" width="10" height="12" rx="2"/></svg>
+        对比分析
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">管</div>
+      <div class="user-info">
+        <div class="user-name">管理员</div>
+        <div class="user-role">超级管理员</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========== MAIN AREA ========== -->
+  <main class="main-area">
+
+    <!-- Top Nav -->
+    <header class="top-nav">
+      <div class="breadcrumb">
+        <a href="page-2-task-kanban.html">智能招聘 Agent</a>
+        <span class="bc-sep">&#8250;</span>
+        <span class="bc-current">数据看板</span>
+      </div>
+      <div class="top-nav-title">基础数据看板</div>
+      <div class="top-nav-actions">
+        <button class="btn-refresh" id="btn-refresh">
+          <svg viewBox="0 0 14 14" fill="none"><path d="M2.5 4.5A5 5 0 1 1 3 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M2.5 1.5v3h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          刷新数据
+        </button>
+        <div class="date-selector" id="date-selector">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 1v3M10 1v3M1 6h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span id="date-label">最近 7 天</span>
+          <svg class="chevron" viewBox="0 0 10 10" fill="none"><path d="M3 4l2 2 2-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="date-dropdown" id="date-dropdown">
+            <div class="date-dropdown-item" data-range="今天">今天</div>
+            <div class="date-dropdown-item" data-range="最近 3 天">最近 3 天</div>
+            <div class="date-dropdown-item active" data-range="最近 7 天">
+              最近 7 天
+              <svg class="check-icon" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-6" stroke="var(--primary-dark)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="date-dropdown-item" data-range="最近 30 天">最近 30 天</div>
+            <div class="date-dropdown-item" data-range="最近 90 天">最近 90 天</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="health">功能健康度</button>
+      <button class="tab-btn" data-tab="adoption">用户接受度</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content">
+
+      <!-- ============ TAB 1: 功能健康度 ============ -->
+      <div class="tab-panel active" id="panel-health">
+
+        <!-- KPI Cards -->
+        <div class="dash-grid-4" style="margin-bottom:16px;">
+          <div class="kpi-card accent-teal animate-in">
+            <div class="kpi-label">意图识别准确率</div>
+            <div class="kpi-value" data-target="87.5" data-suffix="%">0%</div>
+            <div class="kpi-trend up">
+              <svg viewBox="0 0 12 12" fill="none"><path d="M2 8L6 4L10 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              2.3% <span style="font-weight:400;opacity:0.7">vs 上周</span>
+            </div>
+          </div>
+          <div class="kpi-card accent-green animate-in">
+            <div class="kpi-label">简历解析成功率</div>
+            <div class="kpi-value" data-target="96.2" data-suffix="%">0%</div>
+            <div class="kpi-trend up">
+              <svg viewBox="0 0 12 12" fill="none"><path d="M2 8L6 4L10 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              0.8% <span style="font-weight:400;opacity:0.7">vs 上周</span>
+            </div>
+          </div>
+          <div class="kpi-card accent-amber animate-in">
+            <div class="kpi-label">评分一致率</div>
+            <div class="kpi-value" data-target="73.4" data-suffix="%">0%</div>
+            <div class="kpi-trend down-bad">
+              <svg viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              1.1% <span style="font-weight:400;opacity:0.7">vs 上周</span>
+            </div>
+          </div>
+          <div class="kpi-card accent-teal animate-in">
+            <div class="kpi-label">工具调用成功率</div>
+            <div class="kpi-value" data-target="98.7" data-suffix="%">0%</div>
+            <div class="kpi-trend up">
+              <svg viewBox="0 0 12 12" fill="none"><path d="M2 8L6 4L10 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              0.3% <span style="font-weight:400;opacity:0.7">vs 上周</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="dash-grid" style="margin-bottom:16px;">
+
+          <!-- Chart A: 意图识别准确率趋势 -->
+          <div class="chart-card animate-in">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">意图识别准确率趋势</div>
+                <div class="chart-subtitle">最近 7 天准确率变化</div>
+              </div>
+              <div class="chart-legend">
+                <div class="legend-item"><div class="legend-dot" style="background:var(--chart-1)"></div>准确率</div>
+                <div class="legend-item"><div class="legend-line" style="border-top-color:var(--ink-tertiary)"></div>目标线 80%</div>
+              </div>
+            </div>
+            <div class="chart-area" style="position:relative;">
+              <svg viewBox="0 0 540 240" id="chart-a">
+                <!-- Grid lines -->
+                <line x1="50" y1="30" x2="520" y2="30" class="chart-grid-line"/>
+                <line x1="50" y1="75" x2="520" y2="75" class="chart-grid-line"/>
+                <line x1="50" y1="120" x2="520" y2="120" class="chart-grid-line"/>
+                <line x1="50" y1="165" x2="520" y2="165" class="chart-grid-line"/>
+                <line x1="50" y1="210" x2="520" y2="210" class="chart-axis-line"/>
+                <!-- Y axis labels -->
+                <text x="42" y="34" class="chart-axis-label" text-anchor="end">95%</text>
+                <text x="42" y="79" class="chart-axis-label" text-anchor="end">90%</text>
+                <text x="42" y="124" class="chart-axis-label" text-anchor="end">85%</text>
+                <text x="42" y="169" class="chart-axis-label" text-anchor="end">82.5%</text>
+                <text x="42" y="214" class="chart-axis-label" text-anchor="end">80%</text>
+                <!-- X axis labels -->
+                <text x="98" y="228" class="chart-axis-label" text-anchor="middle">周一</text>
+                <text x="170" y="228" class="chart-axis-label" text-anchor="middle">周二</text>
+                <text x="242" y="228" class="chart-axis-label" text-anchor="middle">周三</text>
+                <text x="314" y="228" class="chart-axis-label" text-anchor="middle">周四</text>
+                <text x="386" y="228" class="chart-axis-label" text-anchor="middle">周五</text>
+                <text x="458" y="228" class="chart-axis-label" text-anchor="middle">周六</text>
+                <text x="514" y="228" class="chart-axis-label" text-anchor="middle">周日</text>
+                <!-- Target line at 80% -->
+                <line x1="50" y1="210" x2="520" y2="210" class="chart-target-line" style="stroke:var(--ink-tertiary)"/>
+                <!-- Data: 84.2, 85.1, 86.3, 87.5, 86.8, 87.5, 87.5 mapped to Y -->
+                <!-- Y mapping: 80%->210, 95%->30. Range=15% for 180px. 1% = 12px -->
+                <!-- 84.2-> 210-(4.2*12)=210-50.4=159.6, 85.1->210-60.12=149.88, 86.3->210-75.6=134.4 -->
+                <!-- 87.5->210-90=120, 86.8->210-81.6=128.4, 87.5->120, 87.5->120 -->
+                <polyline
+                  class="chart-data-line line-animate"
+                  style="stroke:var(--chart-1);--dash-length:900"
+                  points="98,159.6 170,149.9 242,134.4 314,120 386,128.4 458,120 514,120"
+                />
+                <!-- Area fill -->
+                <polygon
+                  class="chart-area-fill area-animate"
+                  style="fill:var(--chart-1)"
+                  points="98,159.6 170,149.9 242,134.4 314,120 386,128.4 458,120 514,120 514,210 98,210"
+                />
+                <!-- Data dots -->
+                <circle cx="98" cy="159.6" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="170" cy="149.9" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="242" cy="134.4" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="314" cy="120" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="386" cy="128.4" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="458" cy="120" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="514" cy="120" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+              </svg>
+              <div class="chart-tooltip" id="tooltip-a"></div>
+            </div>
+          </div>
+
+          <!-- Chart B: 各工具调用成功率 -->
+          <div class="chart-card animate-in">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">各工具调用成功率</div>
+                <div class="chart-subtitle">目标值: 95%</div>
+              </div>
+              <div class="chart-legend">
+                <div class="legend-item"><div class="legend-line" style="border-top-color:var(--ink-tertiary)"></div>目标线 95%</div>
+              </div>
+            </div>
+            <div style="padding: 10px 0;">
+              <div class="h-bar-item">
+                <div class="h-bar-label">简历解析</div>
+                <div class="h-bar-track">
+                  <div class="h-bar-fill teal" style="width:0%" data-target-width="96.2"></div>
+                  <div class="h-bar-target" style="left:95%"><div class="h-bar-target-label">95%</div></div>
+                </div>
+                <div class="h-bar-value">96.2%</div>
+              </div>
+              <div class="h-bar-item">
+                <div class="h-bar-label">JD 生成</div>
+                <div class="h-bar-track">
+                  <div class="h-bar-fill teal" style="width:0%" data-target-width="94.8"></div>
+                  <div class="h-bar-target" style="left:95%"><div class="h-bar-target-label">95%</div></div>
+                </div>
+                <div class="h-bar-value">94.8%</div>
+              </div>
+              <div class="h-bar-item">
+                <div class="h-bar-label">评分引擎</div>
+                <div class="h-bar-track">
+                  <div class="h-bar-fill teal" style="width:0%" data-target-width="99.1"></div>
+                  <div class="h-bar-target" style="left:95%"><div class="h-bar-target-label">95%</div></div>
+                </div>
+                <div class="h-bar-value">99.1%</div>
+              </div>
+              <div class="h-bar-item">
+                <div class="h-bar-label">合规校验</div>
+                <div class="h-bar-track">
+                  <div class="h-bar-fill teal" style="width:0%" data-target-width="98.5"></div>
+                  <div class="h-bar-target" style="left:95%"><div class="h-bar-target-label">95%</div></div>
+                </div>
+                <div class="h-bar-value">98.5%</div>
+              </div>
+              <div class="h-bar-item" style="margin-bottom:0;">
+                <div class="h-bar-label">推送服务</div>
+                <div class="h-bar-track">
+                  <div class="h-bar-fill teal" style="width:0%" data-target-width="97.3"></div>
+                  <div class="h-bar-target" style="left:95%"><div class="h-bar-target-label">95%</div></div>
+                </div>
+                <div class="h-bar-value">97.3%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="dash-grid">
+
+          <!-- Chart C: 任务切换正确率 (Gauge) -->
+          <div class="chart-card animate-in">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">任务切换正确率</div>
+                <div class="chart-subtitle">本周平均</div>
+              </div>
+            </div>
+            <div class="gauge-container" style="position:relative;">
+              <div class="gauge-ring" id="gauge-ring">
+                <div class="gauge-bg"></div>
+                <div class="gauge-fill" id="gauge-fill" style="background: conic-gradient(var(--chart-1) 0deg, var(--bg-secondary) 0deg);"></div>
+                <div class="gauge-center">
+                  <div class="gauge-value" id="gauge-value" data-target="91.2">0%</div>
+                  <div class="gauge-unit">正确率</div>
+                </div>
+              </div>
+              <div class="gauge-popup" id="gauge-popup">
+                <button class="popup-close" id="gauge-popup-close">&times;</button>
+                <div class="gauge-popup-title">任务切换正确率明细</div>
+                <div class="gauge-popup-row"><span>简历筛选切换</span><span class="gauge-popup-val">94.2%</span></div>
+                <div class="gauge-popup-row"><span>JD 编辑切换</span><span class="gauge-popup-val">89.8%</span></div>
+                <div class="gauge-popup-row"><span>评分报告切换</span><span class="gauge-popup-val">91.5%</span></div>
+                <div class="gauge-popup-row"><span>推送反馈切换</span><span class="gauge-popup-val">88.3%</span></div>
+                <div class="gauge-popup-row"><span>整体加权</span><span class="gauge-popup-val">91.2%</span></div>
+              </div>
+              <div class="gauge-label">当前表现</div>
+              <div class="gauge-badge">
+                <svg viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                目标: > 85%
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart D: 思考链平均耗时 -->
+          <div class="chart-card animate-in">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">思考链平均耗时</div>
+                <div class="chart-subtitle">最近 7 天各日平均响应</div>
+              </div>
+              <div class="chart-legend">
+                <div class="legend-item"><div class="legend-line" style="border-top-color:var(--warning)"></div>平均值 3.0s</div>
+              </div>
+            </div>
+            <div style="position:relative;">
+              <div class="v-bar-group" id="vbar-d">
+                <!-- Bars generated by JS, data: 3.2, 2.8, 3.5, 2.9, 3.1, 2.7, 2.8 -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ TAB 2: 用户接受度 ============ -->
+      <div class="tab-panel" id="panel-adoption">
+
+        <!-- KPI Cards -->
+        <div class="dash-grid-4" style="margin-bottom:16px;">
+          <div class="kpi-card accent-teal animate-in">
+            <div class="kpi-label">DAU (日活跃用户)</div>
+            <div class="kpi-value" data-target="12" data-suffix="人">0人</div>
+            <div class="kpi-trend up">
+              <svg viewBox="0 0 12 12" fill="none"><path d="M2 8L6 4L10 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              3 <span style="font-weight:400;opacity:0.7">vs 上周</span>
+            </div>
+          </div>
+          <div class="kpi-card accent-green animate-in">
+            <div class="kpi-label">人均任务完成数</div>
+            <div class="kpi-value" data-target="4.2" data-suffix="">0</div>
+            <div class="kpi-trend up">
+              <svg viewBox="0 0 12 12" fill="none"><path d="M2 8L6 4L10 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              0.5 <span style="font-weight:400;opacity:0.7">vs 上周</span>
+            </div>
+          </div>
+          <div class="kpi-card accent-green animate-in">
+            <div class="kpi-label">人工接管比例</div>
+            <div class="kpi-value" data-target="38" data-suffix="%">0%</div>
+            <div class="kpi-trend down-good">
+              <svg viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              5% <span style="font-weight:400;opacity:0.7">vs 上周 (下降为佳)</span>
+            </div>
+          </div>
+          <div class="kpi-card accent-teal animate-in">
+            <div class="kpi-label">NPS 评分</div>
+            <div class="kpi-value" data-target="28" data-suffix="">0</div>
+            <div class="kpi-trend up">
+              <svg viewBox="0 0 12 12" fill="none"><path d="M2 8L6 4L10 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              6 <span style="font-weight:400;opacity:0.7">vs 上周</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="dash-grid" style="margin-bottom:16px;">
+
+          <!-- Chart E: DAU 趋势 -->
+          <div class="chart-card animate-in">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">DAU 趋势</div>
+                <div class="chart-subtitle">最近 7 天日活跃用户</div>
+              </div>
+            </div>
+            <div class="chart-area" style="position:relative;">
+              <svg viewBox="0 0 540 220" id="chart-e">
+                <!-- Grid -->
+                <line x1="50" y1="30" x2="520" y2="30" class="chart-grid-line"/>
+                <line x1="50" y1="75" x2="520" y2="75" class="chart-grid-line"/>
+                <line x1="50" y1="120" x2="520" y2="120" class="chart-grid-line"/>
+                <line x1="50" y1="165" x2="520" y2="165" class="chart-grid-line"/>
+                <line x1="50" y1="190" x2="520" y2="190" class="chart-axis-line"/>
+                <!-- Y axis labels: 0-14 -->
+                <text x="42" y="34" class="chart-axis-label" text-anchor="end">14</text>
+                <text x="42" y="79" class="chart-axis-label" text-anchor="end">10</text>
+                <text x="42" y="124" class="chart-axis-label" text-anchor="end">7</text>
+                <text x="42" y="169" class="chart-axis-label" text-anchor="end">3</text>
+                <text x="42" y="194" class="chart-axis-label" text-anchor="end">0</text>
+                <!-- X axis labels -->
+                <text x="98" y="208" class="chart-axis-label" text-anchor="middle">周一</text>
+                <text x="170" y="208" class="chart-axis-label" text-anchor="middle">周二</text>
+                <text x="242" y="208" class="chart-axis-label" text-anchor="middle">周三</text>
+                <text x="314" y="208" class="chart-axis-label" text-anchor="middle">周四</text>
+                <text x="386" y="208" class="chart-axis-label" text-anchor="middle">周五</text>
+                <text x="458" y="208" class="chart-axis-label" text-anchor="middle">周六</text>
+                <text x="514" y="208" class="chart-axis-label" text-anchor="middle">周日</text>
+                <!-- Data: 8,9,10,11,12,11,12 mapped. Y: 0->190, 14->30. 1 unit = (190-30)/14 = 11.43px -->
+                <!-- 8->190-91.4=98.6, 9->190-102.9=87.1, 10->190-114.3=75.7, 11->190-125.7=64.3 -->
+                <!-- 12->190-137.1=52.9, 11->64.3, 12->52.9 -->
+                <defs>
+                  <linearGradient id="areaGradE" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#0D9488" stop-opacity="0.25"/>
+                    <stop offset="100%" stop-color="#0D9488" stop-opacity="0.02"/>
+                  </linearGradient>
+                </defs>
+                <polygon
+                  class="chart-area-fill area-animate"
+                  style="fill:url(#areaGradE);opacity:1"
+                  points="98,98.6 170,87.1 242,75.7 314,64.3 386,52.9 458,64.3 514,52.9 514,190 98,190"
+                />
+                <polyline
+                  class="chart-data-line line-animate"
+                  style="stroke:var(--chart-1);--dash-length:800"
+                  points="98,98.6 170,87.1 242,75.7 314,64.3 386,52.9 458,64.3 514,52.9"
+                />
+                <circle cx="98" cy="98.6" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="170" cy="87.1" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="242" cy="75.7" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="314" cy="64.3" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="386" cy="52.9" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="458" cy="64.3" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+                <circle cx="514" cy="52.9" r="4" fill="#fff" stroke="var(--chart-1)" class="chart-data-dot"/>
+              </svg>
+              <div class="chart-tooltip" id="tooltip-e"></div>
+            </div>
+          </div>
+
+          <!-- Chart F: 人工接管比例趋势 -->
+          <div class="chart-card animate-in">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">人工接管比例趋势</div>
+                <div class="chart-subtitle">越低越好，目标 < 50%</div>
+              </div>
+              <div class="chart-legend">
+                <div class="legend-item"><div class="legend-dot" style="background:var(--chart-2)"></div>接管比例</div>
+                <div class="legend-item"><div class="legend-line" style="border-top-color:var(--success)"></div>目标 < 50%</div>
+              </div>
+            </div>
+            <div class="chart-area" style="position:relative;">
+              <svg viewBox="0 0 540 220" id="chart-f">
+                <!-- Grid -->
+                <line x1="50" y1="30" x2="520" y2="30" class="chart-grid-line"/>
+                <line x1="50" y1="75" x2="520" y2="75" class="chart-grid-line"/>
+                <line x1="50" y1="120" x2="520" y2="120" class="chart-grid-line"/>
+                <line x1="50" y1="165" x2="520" y2="165" class="chart-grid-line"/>
+                <line x1="50" y1="190" x2="520" y2="190" class="chart-axis-line"/>
+                <!-- Y axis: 30%->30, 50%->75, 40%->120, 35%->165, 30%->190 -->
+                <text x="42" y="34" class="chart-axis-label" text-anchor="end">50%</text>
+                <text x="42" y="79" class="chart-axis-label" text-anchor="end">45%</text>
+                <text x="42" y="124" class="chart-axis-label" text-anchor="end">40%</text>
+                <text x="42" y="169" class="chart-axis-label" text-anchor="end">35%</text>
+                <text x="42" y="194" class="chart-axis-label" text-anchor="end">30%</text>
+                <!-- X axis -->
+                <text x="98" y="208" class="chart-axis-label" text-anchor="middle">周一</text>
+                <text x="170" y="208" class="chart-axis-label" text-anchor="middle">周二</text>
+                <text x="242" y="208" class="chart-axis-label" text-anchor="middle">周三</text>
+                <text x="314" y="208" class="chart-axis-label" text-anchor="middle">周四</text>
+                <text x="386" y="208" class="chart-axis-label" text-anchor="middle">周五</text>
+                <text x="458" y="208" class="chart-axis-label" text-anchor="middle">周六</text>
+                <text x="514" y="208" class="chart-axis-label" text-anchor="middle">周日</text>
+                <!-- Target line at 50% -->
+                <line x1="50" y1="30" x2="520" y2="30" class="chart-target-line" style="stroke:var(--success)"/>
+                <!-- Data: 43%,42%,40%,38%,38%,37%,38% -->
+                <!-- Mapping: 30%->190, 50%->30. Range=20% for 160px. 1%=8px -->
+                <!-- 43->190-104=86, 42->190-96=94, 40->190-80=110 -->
+                <!-- 38->190-64=126, 38->126, 37->190-56=134, 38->126 -->
+                <defs>
+                  <linearGradient id="areaGradF" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#EA580C" stop-opacity="0.2"/>
+                    <stop offset="100%" stop-color="#EA580C" stop-opacity="0.02"/>
+                  </linearGradient>
+                </defs>
+                <polygon
+                  class="chart-area-fill area-animate"
+                  style="fill:url(#areaGradF);opacity:1"
+                  points="98,86 170,94 242,110 314,126 386,126 458,134 514,126 514,190 98,190"
+                />
+                <polyline
+                  class="chart-data-line line-animate"
+                  style="stroke:var(--chart-2);--dash-length:800"
+                  points="98,86 170,94 242,110 314,126 386,126 458,134 514,126"
+                />
+                <circle cx="98" cy="86" r="4" fill="#fff" stroke="var(--chart-2)" class="chart-data-dot"/>
+                <circle cx="170" cy="94" r="4" fill="#fff" stroke="var(--chart-2)" class="chart-data-dot"/>
+                <circle cx="242" cy="110" r="4" fill="#fff" stroke="var(--chart-2)" class="chart-data-dot"/>
+                <circle cx="314" cy="126" r="4" fill="#fff" stroke="var(--chart-2)" class="chart-data-dot"/>
+                <circle cx="386" cy="126" r="4" fill="#fff" stroke="var(--chart-2)" class="chart-data-dot"/>
+                <circle cx="458" cy="134" r="4" fill="#fff" stroke="var(--chart-2)" class="chart-data-dot"/>
+                <circle cx="514" cy="126" r="4" fill="#fff" stroke="var(--chart-2)" class="chart-data-dot"/>
+              </svg>
+              <div class="chart-tooltip" id="tooltip-f"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart G: 任务完成漏斗 -->
+        <div class="dash-grid">
+          <div class="chart-card dash-grid-full animate-in">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">任务完成漏斗</div>
+                <div class="chart-subtitle">各阶段任务转化率</div>
+              </div>
+            </div>
+            <div class="funnel-container" id="funnel-chart">
+              <!-- Generated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /dashboard-content -->
+  </main>
+</div><!-- /app-shell -->
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+/* ================================================================
+   INTERACTIVE JAVASCRIPT — Analytics Dashboard
+   ================================================================ */
+
+/* ========== 0. TOAST SYSTEM ========== */
+function showToast(message, duration) {
+  duration = duration || 2500;
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#99F6E4" stroke-width="1.3"/><path d="M5 8l2 2 4-4" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' + message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('toast-out');
+    setTimeout(() => toast.remove(), 250);
+  }, duration);
+}
+
+/* ========== 1. TAB SWITCHING ========== */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    requestAnimationFrame(() => {
+      animateVisibleElements();
+    });
+  });
+});
+
+/* ========== 2. DATE RANGE SELECTOR ========== */
+(function initDateSelector() {
+  const selector = document.getElementById('date-selector');
+  const dropdown = document.getElementById('date-dropdown');
+  const label = document.getElementById('date-label');
+  if (!selector || !dropdown || !label) return;
+
+  // Toggle dropdown
+  selector.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = dropdown.classList.contains('open');
+    closeAllPopups();
+    if (!isOpen) dropdown.classList.add('open');
+  });
+
+  // Select option
+  dropdown.querySelectorAll('.date-dropdown-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const range = item.dataset.range;
+      // Update active state
+      dropdown.querySelectorAll('.date-dropdown-item').forEach(i => {
+        i.classList.remove('active');
+        // Remove existing check icon
+        const existing = i.querySelector('.check-icon');
+        if (existing) existing.remove();
+      });
+      item.classList.add('active');
+      // Add check icon if not present
+      if (!item.querySelector('.check-icon')) {
+        const check = document.createElementNS('http://www.w3.org/2000/svg','svg');
+        check.setAttribute('class','check-icon');
+        check.setAttribute('viewBox','0 0 14 14');
+        check.setAttribute('fill','none');
+        check.innerHTML = '<path d="M3 7l3 3 5-6" stroke="var(--primary-dark)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+        item.appendChild(check);
+      }
+      label.textContent = range;
+      dropdown.classList.remove('open');
+      showToast('数据范围: ' + range);
+    });
+  });
+})();
+
+/* ========== 3. COUNT-UP ANIMATION ========== */
+function animateCountUp(el) {
+  const target = parseFloat(el.dataset.target);
+  const suffix = el.dataset.suffix || '';
+  const duration = 1200;
+  const start = performance.now();
+  const isFloat = String(target).includes('.');
+  const decimals = isFloat ? (String(target).split('.')[1] || '').length : 0;
+
+  function update(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const current = target * ease;
+    el.textContent = current.toFixed(decimals) + suffix;
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+/* ========== 4. HORIZONTAL BAR ANIMATION ========== */
+function animateHBars() {
+  document.querySelectorAll('.h-bar-fill[data-target-width]').forEach(bar => {
+    bar.style.width = bar.dataset.targetWidth + '%';
+  });
+}
+
+/* ========== 5. GAUGE ANIMATION ========== */
+function animateGauge() {
+  const fill = document.getElementById('gauge-fill');
+  const valueEl = document.getElementById('gauge-value');
+  if (!fill || !valueEl) return;
+  const target = 91.2;
+  const degrees = (target / 100) * 360;
+  let current = 0;
+  const step = degrees / 60;
+  const interval = setInterval(() => {
+    current += step;
+    if (current >= degrees) {
+      current = degrees;
+      clearInterval(interval);
+    }
+    fill.style.background = 'conic-gradient(var(--chart-1) ' + current + 'deg, var(--bg-secondary) ' + current + 'deg)';
+  }, 16);
+  animateCountUp(valueEl);
+}
+
+/* ========== 6. VERTICAL BAR CHART (思考链耗时) ========== */
+function buildVBarChart() {
+  const container = document.getElementById('vbar-d');
+  if (!container || container.children.length > 0) return;
+
+  const labels = ['周一','周二','周三','周四','周五','周六','周日'];
+  const data = [3.2, 2.8, 3.5, 2.9, 3.1, 2.7, 2.8];
+  const max = 4.0;
+  const barHeight = 140;
+  const avg = 3.0;
+
+  const parentEl = container.parentElement;
+  parentEl.style.position = 'relative';
+
+  data.forEach((val, i) => {
+    const item = document.createElement('div');
+    item.className = 'v-bar-item';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'v-bar-wrapper';
+
+    const bar = document.createElement('div');
+    bar.className = 'v-bar';
+    const h = (val / max) * barHeight;
+    bar.style.height = '0px';
+    bar.dataset.targetHeight = h + 'px';
+
+    // Tooltip for v-bar
+    const tooltip = document.createElement('div');
+    tooltip.className = 'v-bar-tooltip';
+    tooltip.textContent = labels[i] + ': ' + val + 's';
+    bar.appendChild(tooltip);
+
+    const valueLabel = document.createElement('div');
+    valueLabel.className = 'v-bar-value';
+    valueLabel.textContent = val + 's';
+    bar.appendChild(valueLabel);
+
+    wrapper.appendChild(bar);
+    item.appendChild(wrapper);
+
+    const label = document.createElement('div');
+    label.className = 'v-bar-label';
+    label.textContent = labels[i];
+    item.appendChild(label);
+
+    container.appendChild(item);
+  });
+
+  // Avg line
+  const avgTop = 10 + barHeight - (avg / max) * barHeight;
+  const avgLineEl = document.createElement('div');
+  avgLineEl.style.cssText = 'position:absolute;left:20px;right:20px;height:0;border-top:1.5px dashed var(--warning);z-index:3;pointer-events:none;top:' + avgTop + 'px;';
+  parentEl.appendChild(avgLineEl);
+  const avgLabelEl = document.createElement('div');
+  avgLabelEl.style.cssText = 'position:absolute;right:0px;top:' + (avgTop - 8) + 'px;font-size:0.65rem;color:var(--warning);font-weight:600;white-space:nowrap;font-family:var(--font-heading);pointer-events:none;';
+  avgLabelEl.textContent = '均值 ' + avg + 's';
+  parentEl.appendChild(avgLabelEl);
+
+  requestAnimationFrame(() => {
+    container.querySelectorAll('.v-bar').forEach(bar => {
+      setTimeout(() => { bar.style.height = bar.dataset.targetHeight; }, 100);
+    });
+  });
+}
+
+/* ========== 7. FUNNEL CHART ========== */
+function buildFunnel() {
+  const container = document.getElementById('funnel-chart');
+  if (!container || container.children.length > 0) return;
+
+  const stages = [
+    { label: '创建任务', pct: 100, count: 48 },
+    { label: '需求解析', pct: 92, count: 44 },
+    { label: 'JD 生成', pct: 85, count: 41 },
+    { label: '简历筛选', pct: 78, count: 37 },
+    { label: '评分完成', pct: 72, count: 35 },
+    { label: '推送', pct: 65, count: 31 },
+  ];
+  const maxW = 700;
+  const minW = 260;
+
+  stages.forEach((s, i) => {
+    if (i > 0) {
+      const conn = document.createElement('div');
+      conn.className = 'funnel-connector';
+      container.appendChild(conn);
+    }
+    const stage = document.createElement('div');
+    stage.className = 'funnel-stage';
+    stage.style.cursor = 'pointer';
+    const w = minW + (maxW - minW) * (s.pct / 100);
+    stage.style.width = w + 'px';
+    const opacity = 1 - (i * 0.06);
+    stage.style.background = 'linear-gradient(90deg, var(--primary), var(--primary-dark))';
+    stage.style.opacity = '0';
+    stage.dataset.targetOpacity = opacity;
+    stage.dataset.label = s.label;
+    stage.dataset.count = s.count;
+
+    stage.innerHTML = '<span class="funnel-label"><span class="funnel-pct">' + s.pct + '%</span><span>' + s.label + '</span><span class="funnel-count">' + s.count + ' 个</span></span>';
+
+    // Funnel click -> toast
+    stage.addEventListener('click', () => {
+      showToast('阶段详情: ' + s.label + ' — ' + s.count + ' 个任务');
+    });
+
+    container.appendChild(stage);
+  });
+
+  requestAnimationFrame(() => {
+    container.querySelectorAll('.funnel-stage').forEach((stage, i) => {
+      setTimeout(() => {
+        stage.style.transition = 'opacity 0.5s ease, width 0.8s cubic-bezier(0.4,0,0.2,1)';
+        stage.style.opacity = stage.dataset.targetOpacity;
+      }, i * 100 + 200);
+    });
+  });
+}
+
+/* ========== 8. SVG TOOLTIPS ========== */
+function setupSVGTooltip(svgId, tooltipId, dataPoints, vbW, vbH) {
+  const svg = document.getElementById(svgId);
+  const tooltip = document.getElementById(tooltipId);
+  if (!svg || !tooltip) return;
+
+  const viewW = vbW || 540;
+  const viewH = vbH || 220;
+
+  const dots = svg.querySelectorAll('circle.chart-data-dot');
+  dots.forEach((dot, i) => {
+    dot.style.cursor = 'pointer';
+    dot.style.transition = 'r 0.15s';
+    dot.addEventListener('mouseenter', (e) => {
+      dot.setAttribute('r', '6');
+      const point = dataPoints[i];
+      tooltip.textContent = point;
+      tooltip.style.opacity = '1';
+      const rect = svg.getBoundingClientRect();
+      const cx = parseFloat(dot.getAttribute('cx'));
+      const cy = parseFloat(dot.getAttribute('cy'));
+      const scaleX = rect.width / viewW;
+      const scaleY = rect.height / viewH;
+      tooltip.style.left = (cx * scaleX - tooltip.offsetWidth / 2) + 'px';
+      tooltip.style.top = (cy * scaleY - tooltip.offsetHeight - 8) + 'px';
+    });
+    dot.addEventListener('mouseleave', () => {
+      dot.setAttribute('r', '4');
+      tooltip.style.opacity = '0';
+    });
+  });
+}
+
+/* ========== 9. GAUGE INTERACTION ========== */
+(function initGaugeInteraction() {
+  const ring = document.getElementById('gauge-ring');
+  const popup = document.getElementById('gauge-popup');
+  const closeBtn = document.getElementById('gauge-popup-close');
+  if (!ring || !popup) return;
+
+  ring.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = popup.classList.contains('open');
+    closeAllPopups();
+    if (!isOpen) popup.classList.add('open');
+  });
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      popup.classList.remove('open');
+    });
+  }
+})();
+
+/* ========== 10. KPI CARD CLICK POPUP ========== */
+(function initKPICardInteraction() {
+  // Detail data for each KPI card
+  const kpiDetails = {
+    '意图识别准确率': { rows: [['本周均值','87.5%'],['最高值','87.5%'],['最低值','84.2%'],['达标天数','7/7']] },
+    '简历解析成功率': { rows: [['本周均值','96.2%'],['最高值','97.8%'],['最低值','94.5%'],['异常次数','3 次']] },
+    '评分一致率': { rows: [['本周均值','73.4%'],['目标值','> 80%'],['偏差来源','经验评分'],['待优化','2 项']] },
+    '工具调用成功率': { rows: [['本周均值','98.7%'],['最高值','99.9%'],['最低值','97.3%'],['故障次数','0 次']] },
+    'DAU (日活跃用户)': { rows: [['本周均值','10.4 人'],['峰值','12 人'],['谷值','8 人'],['增长率','33%']] },
+    '人均任务完成数': { rows: [['本周均值','4.2'],['上周均值','3.7'],['增长','+0.5'],['活跃天数','5 天']] },
+    '人工接管比例': { rows: [['本周均值','38%'],['上周均值','43%'],['下降','-5%'],['目标','< 50%']] },
+    'NPS 评分': { rows: [['本周均值','28'],['上周均值','22'],['推荐者','65%'],[' detractor','12%']] },
+  };
+
+  document.querySelectorAll('.kpi-card').forEach(card => {
+    const label = card.querySelector('.kpi-label');
+    if (!label) return;
+    const labelText = label.textContent.trim();
+    const detail = kpiDetails[labelText];
+    if (!detail) return;
+
+    card.style.cursor = 'pointer';
+    card.style.position = 'relative';
+
+    // Create popup
+    const popup = document.createElement('div');
+    popup.className = 'kpi-detail-popup';
+    popup.innerHTML = '<div class="popup-title">' + labelText + ' — 本周详情</div>' +
+      detail.rows.map(r => '<div class="popup-row"><span>' + r[0] + '</span><span class="popup-val">' + r[1] + '</span></div>').join('');
+    card.appendChild(popup);
+
+    card.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = popup.classList.contains('open');
+      closeAllPopups();
+      if (!isOpen) popup.classList.add('open');
+    });
+  });
+})();
+
+/* ========== 11. REFRESH DATA BUTTON ========== */
+(function initRefreshButton() {
+  const btn = document.getElementById('btn-refresh');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    btn.classList.add('spinning');
+    setTimeout(() => btn.classList.remove('spinning'), 800);
+
+    // Reset all animated values
+    resetAndReplayAnimations();
+    showToast('数据已刷新');
+  });
+})();
+
+function resetAndReplayAnimations() {
+  // Reset count-up values
+  document.querySelectorAll('.kpi-value[data-target]').forEach(el => {
+    const suffix = el.dataset.suffix || '';
+    el.textContent = '0' + suffix;
+    delete el.dataset.animated;
+  });
+
+  // Reset horizontal bars
+  document.querySelectorAll('.h-bar-fill[data-target-width]').forEach(bar => {
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+  });
+
+  // Reset gauge
+  const fill = document.getElementById('gauge-fill');
+  if (fill) fill.style.background = 'conic-gradient(var(--chart-1) 0deg, var(--bg-secondary) 0deg)';
+
+  // Reset vertical bars
+  const vbarContainer = document.getElementById('vbar-d');
+  if (vbarContainer) vbarContainer.innerHTML = '';
+
+  // Reset funnel
+  const funnelContainer = document.getElementById('funnel-chart');
+  if (funnelContainer) funnelContainer.innerHTML = '';
+
+  // Reset SVG line animations by re-adding class
+  document.querySelectorAll('.line-animate').forEach(line => {
+    const len = line.style.getPropertyValue('--dash-length');
+    line.style.strokeDasharray = '0';
+    line.style.strokeDashoffset = '0';
+    line.classList.remove('line-animate');
+    void line.offsetWidth; // force reflow
+    line.style.setProperty('--dash-length', len);
+    line.classList.add('line-animate');
+  });
+  document.querySelectorAll('.area-animate').forEach(area => {
+    area.classList.remove('area-animate');
+    void area.offsetWidth;
+    area.classList.add('area-animate');
+  });
+
+  // Re-trigger after short delay
+  setTimeout(() => animateVisibleElements(), 300);
+}
+
+/* ========== 12. CLOSE ALL POPUPS ON OUTSIDE CLICK ========== */
+function closeAllPopups() {
+  document.querySelectorAll('.kpi-detail-popup.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.gauge-popup.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.date-dropdown.open').forEach(d => d.classList.remove('open'));
+}
+
+document.addEventListener('click', (e) => {
+  // Close popups when clicking outside
+  if (!e.target.closest('.kpi-card') && !e.target.closest('.gauge-ring') && !e.target.closest('.date-selector')) {
+    closeAllPopups();
+  }
+});
+
+/* ========== 13. VISIBLE ELEMENT ANIMATION ========== */
+function animateVisibleElements() {
+  const activePanel = document.querySelector('.tab-panel.active');
+  if (!activePanel) return;
+
+  // Count-up
+  activePanel.querySelectorAll('.kpi-value[data-target]').forEach(el => {
+    if (!el.dataset.animated) {
+      el.dataset.animated = '1';
+      animateCountUp(el);
+    }
+  });
+
+  // Horizontal bars
+  if (activePanel.id === 'panel-health') {
+    setTimeout(animateHBars, 300);
+    setTimeout(animateGauge, 400);
+    buildVBarChart();
+  }
+
+  if (activePanel.id === 'panel-adoption') {
+    buildFunnel();
+  }
+}
+
+/* ========== 14. NAVIGATION ========== */
+document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    const href = item.getAttribute('href');
+    if (!href) return;
+    // If it's a placeholder link, show toast
+    if (href.indexOf('page-placeholder') !== -1) {
+      e.preventDefault();
+      const mod = href.split('module=')[1];
+      if (mod) showToast('"' + decodeURIComponent(mod) + '" 模块尚未开放');
+    }
+  });
+});
+
+/* ========== 15. HORIZONTAL BAR HOVER HIGHLIGHT ========== */
+document.addEventListener('mouseover', (e) => {
+  const bar = e.target.closest('.h-bar-item');
+  if (bar) {
+    bar.querySelector('.h-bar-fill').style.filter = 'brightness(1.12)';
+  }
+});
+document.addEventListener('mouseout', (e) => {
+  const bar = e.target.closest('.h-bar-item');
+  if (bar) {
+    bar.querySelector('.h-bar-fill').style.filter = '';
+  }
+});
+
+/* ========== INIT ========== */
+window.addEventListener('DOMContentLoaded', () => {
+  // Chart A tooltips
+  setupSVGTooltip('chart-a', 'tooltip-a',
+    ['周一: 84.2%','周二: 85.1%','周三: 86.3%','周四: 87.5%','周五: 86.8%','周六: 87.5%','周日: 87.5%'],
+    540, 240
+  );
+  // Chart E tooltips
+  setupSVGTooltip('chart-e', 'tooltip-e',
+    ['周一: 8 人','周二: 9 人','周三: 10 人','周四: 11 人','周五: 12 人','周六: 11 人','周日: 12 人']
+  );
+  // Chart F tooltips
+  setupSVGTooltip('chart-f', 'tooltip-f',
+    ['周一: 43%','周二: 42%','周三: 40%','周四: 38%','周五: 38%','周六: 37%','周日: 38%']
+  );
+
+  // Initial animations
+  setTimeout(animateVisibleElements, 200);
+});
+</script>
+</body>
+</html>

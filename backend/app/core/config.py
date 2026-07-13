@@ -1,0 +1,57 @@
+from functools import lru_cache
+from typing import Optional
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
+
+    APP_NAME: str = "Recruitment Agent 2.0"
+    DEBUG: bool = True
+    SECRET_KEY: str = "change-me-in-production"
+    API_V1_PREFIX: str = "/api/v1"
+
+    BACKEND_HOST: str = "0.0.0.0"
+    BACKEND_PORT: int = 8000
+
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str = "recruitment"
+    POSTGRES_PASSWORD: str = "recruitment123"
+    POSTGRES_DB: str = "recruitment_agent"
+
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: Optional[str] = None
+    REDIS_DB: int = 0
+
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ROOT_USER: str = "minioadmin"
+    MINIO_ROOT_PASSWORD: str = "minioadmin123"
+    MINIO_SECURE: bool = False
+    MINIO_RESUME_BUCKET: str = "resumes"
+
+    LLM_BASE_URL: Optional[str] = None
+    LLM_API_KEY: Optional[str] = None
+    LLM_MODEL: str = "deepseek-chat"
+    LLM_TEMPERATURE: float = 0.3
+    LLM_MAX_TOKENS: int = 4096
+    LLM_TIMEOUT: int = 60
+
+    @property
+    def database_url(self) -> str:
+        return (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
+    @property
+    def redis_url(self) -> str:
+        auth = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+        return f"redis://{auth}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

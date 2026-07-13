@@ -1,0 +1,122 @@
+skill_id: jd-generation
+skill_name: JD生成
+version: "1.1.0"
+description: 根据用户输入的职位基本信息，生成完整、专业、合规的职位描述（JD）
+author: recruitment-agent
+tags:
+  - jd
+  - content-generation
+  - recruitment
+
+input_schema:
+  type: object
+  properties:
+    title:
+      type: string
+      description: 职位名称
+    department:
+      type: string
+      description: 所属部门
+    level:
+      type: string
+      description: 职级范围，如P6-P8
+    location:
+      type: string
+      description: 工作地点
+    job_type:
+      type: string
+      description: 工作类型，如全职/实习/兼职
+    recruit_type:
+      type: string
+      description: 招聘类型，如社招/校招/内推
+    headcount:
+      type: integer
+      description: 招聘人数
+    experience_years:
+      type: string
+      description: 经验年限要求，如3-5年
+    education_requirement:
+      type: string
+      description: 学历要求，如本科及以上
+    salary_range:
+      type: string
+      description: 薪资范围
+    description:
+      type: string
+      description: 职位简要描述，HR输入的原始需求
+    requirements:
+      type: array
+      items:
+        type: string
+      description: 硬性要求列表
+    required_skills:
+      type: array
+      items:
+        type: string
+      description: 必备技能列表
+    preferred_skills:
+      type: array
+      items:
+        type: string
+      description: 加分技能列表
+  required:
+    - title
+    - description
+
+output_schema:
+  type: object
+  properties:
+    title:
+      type: string
+      description: 职位名称
+    summary:
+      type: string
+      description: 职位摘要（2-3句话，50-120字）
+    responsibilities:
+      type: array
+      items:
+        type: string
+      description: 岗位职责列表，5-7条，每条10-30字
+    requirements:
+      type: array
+      items:
+        type: string
+      description: 任职要求列表，5-7条，每条10-30字，第一条必须包含学历和经验要求
+    required_skills:
+      type: array
+      items:
+        type: string
+      description: 必备技能关键词列表，3-5个
+    preferred_skills:
+      type: array
+      items:
+        type: string
+      description: 加分技能关键词列表，2-4个
+    experience_years:
+      type: string
+      description: 经验年限，如3-5年（如果用户已提供则原样返回，否则根据描述推断）
+    education_requirement:
+      type: string
+      description: 学历要求，如本科及以上（如果用户已提供则原样返回，否则根据描述推断）
+    department:
+      type: string
+    level:
+      type: string
+    location:
+      type: string
+    job_type:
+      type: string
+    recruit_type:
+      type: string
+    headcount:
+      type: integer
+    salary_range:
+      type: string
+  required:
+    - title
+    - summary
+    - responsibilities
+    - requirements
+    - required_skills
+
+max_retries: 2

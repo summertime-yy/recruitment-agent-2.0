@@ -1,0 +1,2073 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能招聘 Agent — 对话式任务中心</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ========== CSS VARIABLES ========== */
+:root {
+  --primary: #0D9488;
+  --primary-dark: #0F766E;
+  --primary-light: #99F6E4;
+  --primary-bg: rgba(13,148,136,0.06);
+  --accent: #EA580C;
+  --accent-bg: rgba(234,88,12,0.06);
+  --success: #16A34A;
+  --success-bg: rgba(22,163,74,0.06);
+  --bg: #F8F7F6;
+  --bg-secondary: #F0EFED;
+  --bg-elevated: #FFFFFF;
+  --ink: #1C1917;
+  --ink-secondary: #78716C;
+  --ink-tertiary: #A8A29E;
+  --border: #E7E5E4;
+  --border-light: #F5F5F4;
+  --shadow-sm: 0 1px 2px rgba(28,25,23,0.04);
+  --shadow-md: 0 4px 12px rgba(28,25,23,0.06);
+  --shadow-lg: 0 8px 24px rgba(28,25,23,0.08);
+  --shadow-xl: 0 12px 32px rgba(28,25,23,0.10);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --sidebar-w: 260px;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Space Grotesk', 'DM Sans', sans-serif;
+}
+
+/* ========== RESET ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--ink); height: 100vh; overflow: hidden; }
+button { font-family: var(--font-body); cursor: pointer; border: none; background: none; }
+input, textarea { font-family: var(--font-body); }
+
+/* ========== CUSTOM SCROLLBAR ========== */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--primary-light); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+/* ========== LAYOUT ========== */
+.app-shell {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ========== LEFT SIDEBAR ========== */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+.sidebar-logo h1 {
+  font-family: var(--font-heading);
+  font-size: 1.07rem;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-logo h1 .logo-icon {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-logo h1 .logo-icon svg { width: 16px; height: 16px; }
+.sidebar-logo .logo-accent {
+  width: 32px;
+  height: 3px;
+  background: var(--primary);
+  border-radius: 2px;
+  margin-top: 8px;
+  margin-left: 36px;
+  opacity: 0.5;
+}
+
+/* Task Section */
+.task-section {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+.task-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px 8px;
+}
+.task-section-header h2 {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.btn-new-task {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-tertiary);
+  transition: all 0.2s;
+}
+.btn-new-task:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.task-group {
+  margin-bottom: 4px;
+}
+.task-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-tertiary);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+.task-group-header:hover { color: var(--ink-secondary); }
+.task-group-header .group-arrow {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s;
+}
+.task-group-header .group-count {
+  font-family: var(--font-heading);
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: var(--bg-secondary);
+  padding: 1px 6px;
+  border-radius: 8px;
+  color: var(--ink-tertiary);
+}
+
+.task-card {
+  margin: 2px 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.task-card:hover {
+  background: var(--bg-secondary);
+}
+.task-card.active {
+  background: var(--primary-bg);
+  box-shadow: inset 3px 0 0 var(--primary);
+  animation: activePulse 2.5s ease-in-out infinite;
+}
+@keyframes activePulse {
+  0%, 100% { box-shadow: inset 3px 0 0 var(--primary); }
+  50% { box-shadow: inset 3px 0 0 var(--primary-dark); }
+}
+
+.task-card-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.task-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--ink-tertiary);
+}
+.task-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-resume-screen { background: rgba(13,148,136,0.12); color: var(--primary-dark); }
+.badge-jd-writing { background: rgba(59,130,246,0.12); color: #2563EB; }
+.badge-requirement { background: rgba(168,162,158,0.15); color: var(--ink-secondary); }
+.badge-completed { background: var(--success-bg); color: var(--success); }
+.badge-archived { background: var(--bg-secondary); color: var(--ink-tertiary); }
+
+.task-card-time {
+  font-size: 0.72rem;
+  color: var(--ink-tertiary);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Sidebar User */
+.sidebar-user {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.82rem;
+  font-family: var(--font-heading);
+}
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.user-role {
+  font-size: 0.72rem;
+  color: var(--ink-tertiary);
+}
+.user-settings {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-tertiary);
+  transition: all 0.15s;
+}
+.user-settings:hover {
+  background: var(--bg-secondary);
+  color: var(--ink-secondary);
+}
+
+/* ========== MAIN CHAT AREA ========== */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+
+/* Top Bar */
+.chat-topbar {
+  padding: 14px 24px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+}
+.breadcrumb {
+  font-size: 0.78rem;
+  color: var(--ink-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.breadcrumb .bc-sep { opacity: 0.5; }
+.breadcrumb .bc-current { color: var(--ink); font-weight: 600; }
+.chat-topbar-title {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  flex: 1;
+}
+.topbar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.status-active {
+  background: rgba(13,148,136,0.1);
+  color: var(--primary-dark);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: statusBlink 2s infinite;
+}
+@keyframes statusBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.topbar-menu {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-tertiary);
+  transition: all 0.15s;
+}
+.topbar-menu:hover {
+  background: var(--bg-secondary);
+  color: var(--ink-secondary);
+}
+
+/* Chat Stream */
+.chat-stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Message Wrapper */
+.msg-wrapper {
+  display: flex;
+  flex-direction: column;
+  animation: msgEnter 0.35s ease-out both;
+}
+.msg-wrapper.user { align-items: flex-end; }
+.msg-wrapper.agent { align-items: flex-start; }
+
+@keyframes msgEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.msg-wrapper:nth-child(1) { animation-delay: 0s; }
+.msg-wrapper:nth-child(2) { animation-delay: 0.04s; }
+.msg-wrapper:nth-child(3) { animation-delay: 0.08s; }
+.msg-wrapper:nth-child(4) { animation-delay: 0.12s; }
+.msg-wrapper:nth-child(5) { animation-delay: 0.16s; }
+.msg-wrapper:nth-child(6) { animation-delay: 0.20s; }
+.msg-wrapper:nth-child(7) { animation-delay: 0.24s; }
+.msg-wrapper:nth-child(8) { animation-delay: 0.28s; }
+.msg-wrapper:nth-child(9) { animation-delay: 0.32s; }
+.msg-wrapper:nth-child(10) { animation-delay: 0.36s; }
+.msg-wrapper:nth-child(11) { animation-delay: 0.40s; }
+.msg-wrapper:nth-child(12) { animation-delay: 0.44s; }
+
+/* User Message Bubble */
+.msg-bubble-user {
+  background: var(--primary);
+  color: white;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+  max-width: 520px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  box-shadow: var(--shadow-sm);
+}
+.msg-time {
+  font-size: 0.7rem;
+  color: var(--ink-tertiary);
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+/* Thinking Message */
+.msg-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+  font-style: italic;
+  max-width: 400px;
+}
+.thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.thinking-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink-tertiary);
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* Agent Card (Plan / Progress / Warning / Result) */
+.msg-card {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  max-width: 600px;
+  width: 100%;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.msg-card-plan {
+  background: linear-gradient(135deg, rgba(13,148,136,0.03), rgba(153,246,228,0.06));
+  border: 1px solid rgba(13,148,136,0.1);
+}
+.msg-card-warning {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-bg);
+}
+.msg-card-result {
+  border: 1px solid var(--border);
+}
+.msg-card-success {
+  background: linear-gradient(135deg, rgba(22,163,74,0.02), rgba(13,148,136,0.02));
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 10px;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.card-header-badge {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--ink-secondary);
+  margin-left: auto;
+}
+.card-body { padding: 0 16px 4px; }
+
+/* Plan Steps */
+.plan-steps { list-style: none; }
+.plan-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.84rem;
+  color: var(--ink);
+  line-height: 1.45;
+}
+.plan-step:last-child { border-bottom: none; }
+.step-num {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--bg-secondary);
+  color: var(--ink-tertiary);
+}
+.step-num.done { background: var(--success-bg); color: var(--success); }
+.step-num.running { background: var(--primary-bg); color: var(--primary); animation: statusBlink 1.5s infinite; }
+.step-num.pending { background: var(--bg-secondary); color: var(--ink-tertiary); }
+.step-icon { font-size: 0.75rem; }
+
+/* Card Actions */
+.card-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 14px;
+  flex-wrap: wrap;
+}
+.btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover { background: var(--primary-dark); box-shadow: var(--shadow-md); }
+.btn-outline {
+  border: 1px solid var(--border);
+  color: var(--ink-secondary);
+  background: var(--bg-elevated);
+}
+.btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+.btn-ghost {
+  color: var(--ink-tertiary);
+}
+.btn-ghost:hover { color: var(--primary); background: var(--primary-bg); }
+
+/* Progress Bar */
+.progress-section { padding: 0 16px 4px; }
+.progress-label {
+  font-size: 0.82rem;
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  width: 65%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light), var(--primary));
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+  position: relative;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--ink-tertiary);
+}
+.progress-info .warn-text {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Warning Details */
+.warning-details {
+  padding: 0 16px 10px;
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+  line-height: 1.5;
+}
+
+/* Candidate List */
+.candidate-list { padding: 0 16px; }
+.candidate-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  margin-bottom: 6px;
+  transition: all 0.15s;
+  background: var(--bg-elevated);
+}
+.candidate-item:hover {
+  border-color: var(--primary-light);
+  box-shadow: var(--shadow-sm);
+}
+.candidate-rank {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 24px;
+}
+.candidate-info { flex: 1; min-width: 0; }
+.candidate-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+.candidate-summary {
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+  margin-top: 2px;
+}
+.candidate-score {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.candidate-score-label {
+  font-size: 0.68rem;
+  color: var(--ink-tertiary);
+  font-family: var(--font-body);
+  font-weight: 400;
+}
+.btn-detail {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-bg);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-detail:hover {
+  background: var(--primary);
+  color: white;
+}
+
+/* Result Action Bar */
+.result-action-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 14px;
+  flex-wrap: wrap;
+}
+
+/* Rank change indicator */
+.rank-change {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-left: 4px;
+}
+.rank-up { color: var(--success); }
+.rank-down { color: var(--accent); }
+.rank-same { color: var(--ink-tertiary); }
+
+/* Push success */
+.push-success-info {
+  padding: 0 16px 4px;
+  font-size: 0.84rem;
+  color: var(--ink);
+  line-height: 1.6;
+}
+.push-waiting {
+  padding: 2px 16px 14px;
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ========== INPUT AREA ========== */
+.input-area {
+  padding: 12px 24px 16px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+}
+.input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input-box:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.1);
+}
+.input-attach {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-tertiary);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.input-attach:hover { color: var(--primary); background: var(--primary-bg); }
+.input-text {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 0.88rem;
+  color: var(--ink);
+  resize: none;
+  outline: none;
+  min-height: 20px;
+  max-height: 120px;
+  line-height: 1.5;
+  padding: 6px 0;
+}
+.input-text::placeholder { color: var(--ink-tertiary); }
+.input-send {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  box-shadow: var(--shadow-sm);
+}
+.input-send:hover { background: var(--primary-dark); box-shadow: var(--shadow-md); }
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--ink-secondary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-bg);
+}
+
+/* ========== SIDEBAR BRAND (standard) ========== */
+.sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+.brand-icon { width: 34px; height: 34px; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: flex; align-items: center; justify-content: center; color: #fff; font-family: var(--font-heading); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
+.brand-text { font-family: var(--font-heading); font-size: 1rem; font-weight: 700; color: var(--ink); letter-spacing: -0.3px; line-height: 1.2; }
+.brand-sub { font-size: 0.72rem; color: var(--ink-tertiary); margin-top: 1px; font-weight: 400; }
+
+/* Sidebar nav (standard) */
+.sidebar-nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+.nav-section-label { font-size: 0.7rem; font-weight: 600; color: var(--ink-tertiary); text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm); font-size: 0.88rem; color: var(--ink-secondary); transition: all 0.15s; margin-bottom: 2px; text-decoration: none; }
+.nav-item:hover { background: var(--primary-bg); color: var(--primary-dark); }
+.nav-item.active { background: var(--primary-bg); color: var(--primary-dark); font-weight: 600; }
+.nav-item .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-item .nav-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 0.68rem; font-weight: 600; padding: 1px 7px; border-radius: 10px; min-width: 20px; text-align: center; }
+
+/* Phase 2 nav items */
+.nav-item.phase2 { opacity: 0.7; }
+.nav-item.phase2:hover { opacity: 1; }
+.nav-item.phase2 .nav-icon { opacity: 0.5; }
+.nav-item.phase2:hover .nav-icon { opacity: 0.8; }
+.nav-item.phase2.active { opacity: 1; }
+.nav-item.phase2.active .nav-icon { opacity: 1; }
+.nav-badge--phase2 { background: var(--bg-secondary); color: var(--ink-tertiary); border: 1px solid var(--border); margin-left: auto; font-size: 0.65rem; font-weight: 600; padding: 1px 7px; border-radius: 10px; line-height: 1.5; white-space: nowrap; }
+
+/* ========== POSITION SELECTOR (岗位选择器) ========== */
+.position-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 24px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-light);
+}
+.position-select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.position-select-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+}
+.position-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 32px 6px 10px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-width: 180px;
+}
+.position-select:hover {
+  border-color: var(--primary);
+}
+.position-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.1);
+}
+.position-select-arrow {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--ink-tertiary);
+}
+.position-phase-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.phase-screening { background: rgba(13,148,136,0.12); color: var(--primary-dark); }
+.phase-jd-writing { background: rgba(59,130,246,0.12); color: #2563EB; }
+.phase-requirement { background: rgba(168,162,158,0.15); color: var(--ink-secondary); }
+.phase-pending { background: rgba(234,88,12,0.08); color: var(--accent); }
+.phase-archived { background: var(--bg-secondary); color: var(--ink-tertiary); }
+
+/* System message in chat stream */
+.system-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0;
+  animation: msgEnter 0.3s ease-out both;
+}
+.system-message-text {
+  font-size: 0.78rem;
+  color: var(--ink-tertiary);
+  background: var(--bg-secondary);
+  padding: 4px 14px;
+  border-radius: 12px;
+}
+
+/* Sidebar footer (standard) */
+.sidebar-footer { padding: 14px 16px; border-top: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+.sidebar-footer .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: var(--primary-dark); }
+.sidebar-footer .user-info { flex: 1; }
+.sidebar-footer .user-name { font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+.sidebar-footer .user-role { font-size: 0.72rem; color: var(--ink-tertiary); }
+
+/* ========== UTILITIES ========== */
+.mt-2 { margin-top: 2px; }
+.mb-2 { margin-bottom: 2px; }
+.text-accent { color: var(--accent); }
+.text-primary { color: var(--primary); }
+.text-success { color: var(--success); }
+
+/* Reason 消息 - 深色背景思考气泡 */
+.msg-reason {
+  background: var(--bg-secondary);
+  color: var(--ink-secondary);
+  font-size: 0.82rem;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--ink-tertiary);
+  max-width: 85%;
+  margin-bottom: 8px;
+  animation: fadeSlideIn 0.3s ease;
+}
+.msg-reason .msg-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Reflect 消息 - 浅蓝背景反思气泡 */
+.msg-reflect {
+  background: rgba(59,130,246,0.06);
+  color: var(--ink-secondary);
+  font-size: 0.82rem;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border-left: 3px solid #3B82F6;
+  max-width: 85%;
+  margin-bottom: 8px;
+  animation: fadeSlideIn 0.3s ease;
+}
+.msg-reflect .msg-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #3B82F6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+/* Tool Call 消息 - 工具调用卡片 */
+.msg-tool-call {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  max-width: 85%;
+  margin-bottom: 8px;
+  overflow: hidden;
+  animation: fadeSlideIn 0.3s ease;
+}
+.msg-tool-call .tool-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  transition: all 0.15s;
+}
+.msg-tool-call .tool-header:hover {
+  background: var(--primary-bg);
+  border-bottom-color: var(--border-light);
+}
+.msg-tool-call .tool-header .tool-icon {
+  width: 16px; height: 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--primary-bg);
+  border-radius: 4px;
+  color: var(--primary-dark);
+}
+.msg-tool-call .tool-body {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--ink-tertiary);
+  display: none;
+}
+.msg-tool-call.expanded .tool-body { display: block; }
+.msg-tool-call .tool-status {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+.msg-tool-call .tool-status.running { color: var(--accent); }
+.msg-tool-call .tool-status.done { color: var(--success); }
+
+/* Progress 消息 - 进度条 */
+.msg-progress {
+  max-width: 85%;
+  margin-bottom: 8px;
+  animation: fadeSlideIn 0.3s ease;
+}
+.msg-progress .progress-label {
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+.msg-progress .progress-bar-bg {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.msg-progress .progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  width: 0%;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ===== LEFT SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">RA</div>
+      <div>
+        <div class="brand-text">智能招聘 Agent</div>
+        <div class="brand-sub">Smart Recruitment</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">核心流程</div>
+      <a class="nav-item" href="page-2-task-kanban.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
+        任务看板
+      </a>
+      <a class="nav-item active" href="page-1-chat-task-center.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6l-3 3V5a1 1 0 0 1 1-1z"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="11" x2="11" y2="11"/></svg>
+        任务中心
+      </a>
+      <a class="nav-item" href="page-3-jd-management.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="11" y2="13"/></svg>
+        JD 管理
+      </a>
+      <a class="nav-item" href="page-4-resume-workspace.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h8l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="12,3 12,7 16,7"/><line x1="6" y1="10" x2="13" y2="10"/><line x1="6" y1="13" x2="11" y2="13"/></svg>
+        简历工作台
+      </a>
+      <a class="nav-item" href="page-5-scoring-report.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2.5 5.5L18 9l-4 4 1 5.5L10 16l-5 2.5 1-5.5-4-4 5.5-1.5z"/></svg>
+        评分报告
+      </a>
+      <a class="nav-item" href="page-6-push-feedback.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l2-7 8-8 5 5-8 8-7 2z"/><line x1="12" y1="5" x2="15" y2="8"/></svg>
+        推送反馈
+      </a>
+      <div class="nav-section-label">分析与设置</div>
+      <a class="nav-item" href="page-7-analytics-dashboard.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="7"/><line x1="14" y1="14" x2="14" y2="5"/></svg>
+        数据看板
+      </a>
+      <a class="nav-item" href="page-8-system-settings.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="3"/><path d="M10 2v2m0 12v2m-8-8h2m12 0h2"/><path d="M4.9 4.9l1.4 1.4m7.4 7.4l1.4 1.4m0-10.2l-1.4 1.4M6.3 13.7l-1.4 1.4"/></svg>
+        系统设置
+      </a>
+      <div class="nav-section-label">更多功能</div>
+      <a class="nav-item phase2" href="page-placeholder.html?module=面试安排">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="4"/><line x1="13" y1="2" x2="13" y2="4"/><circle cx="10" cy="12" r="1.5" fill="currentColor"/></svg>
+        面试安排
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=候选人沟通">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6l-3 3V5a1 1 0 0 1 1-1z"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>
+        候选人沟通
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=流程跟踪">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="16" r="2"/><circle cx="16" cy="10" r="2"/><line x1="6" y1="5" x2="14" y2="9"/><line x1="6" y1="15" x2="14" y2="11"/></svg>
+        流程跟踪
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=对比分析">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="12" rx="2"/><rect x="7" y="4" width="10" height="12" rx="2"/></svg>
+        对比分析
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">管</div>
+      <div class="user-info">
+        <div class="user-name">管理员</div>
+        <div class="user-role">超级管理员</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN CHAT AREA ===== -->
+  <main class="main-area">
+    <!-- Top Bar -->
+    <div class="chat-topbar">
+      <div class="breadcrumb">
+        <a href="page-2-task-kanban.html">智能招聘 Agent</a>
+        <span class="bc-sep">&#8250;</span>
+        <span class="bc-current">任务中心</span>
+      </div>
+      <div class="chat-topbar-title" id="topbarJobTitle">后端开发工程师</div>
+      <div class="topbar-status status-active" id="topbarStatus">
+        <span class="status-dot"></span>
+        <span id="topbarStatusText">筛选中</span>
+      </div>
+      <button class="topbar-menu" title="更多操作">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+      </button>
+    </div>
+
+    <!-- Position Selector Bar -->
+    <div class="position-selector-bar">
+      <span class="position-select-label">当前岗位：</span>
+      <div class="position-select-wrapper">
+        <select class="position-select" id="positionSelect">
+          <option value="后端开发工程师" data-phase="screening" data-phase-label="简历筛选中" data-status="筛选中" selected>后端开发工程师</option>
+          <option value="高级产品经理" data-phase="jd-writing" data-phase-label="JD编写中" data-status="JD编写">高级产品经理</option>
+          <option value="数据分析师" data-phase="requirement" data-phase-label="需求解析中" data-status="解析中">数据分析师</option>
+          <option value="UI设计师" data-phase="pending" data-phase-label="待推送" data-status="待处理">UI设计师</option>
+          <option value="前端开发工程师" data-phase="archived" data-phase-label="已归档" data-status="已归档">前端开发工程师</option>
+        </select>
+        <svg class="position-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <span class="position-phase-badge phase-screening" id="phaseBadge">
+        <span>&#9679;</span>
+        <span id="phaseBadgeText">简历筛选中</span>
+      </span>
+    </div>
+
+    <!-- Chat Stream -->
+    <div class="chat-stream" id="chatStream">
+
+      <!-- MSG 1: USER -->
+      <div class="msg-wrapper user">
+        <div class="msg-bubble-user">帮我筛一下这 30 份简历，后端工程师，3 年以上经验，要会微服务</div>
+        <div class="msg-time">14:32</div>
+      </div>
+
+      <!-- MSG 2: THINKING -->
+      <div class="msg-wrapper agent">
+        <div class="msg-thinking">
+          <span>&#128269; 正在理解您的需求</span>
+          <span class="thinking-dots"><span></span><span></span><span></span></span>
+        </div>
+        <div class="msg-time">14:32</div>
+      </div>
+
+      <!-- MSG 3: PLAN CARD -->
+      <div class="msg-wrapper agent">
+        <div class="msg-card msg-card-plan">
+          <div class="card-header">
+            <span>&#128203; 执行计划</span>
+            <span class="card-header-badge">&#9201; 预计 45 秒</span>
+          </div>
+          <div class="card-body">
+            <ol class="plan-steps">
+              <li class="plan-step">
+                <span class="step-num done">&#10003;</span>
+                <span>新建筛选任务，关联默认后端 JD 要求</span>
+              </li>
+              <li class="plan-step">
+                <span class="step-num running">&#9203;</span>
+                <span>调用简历解析器处理 30 份简历（预估 20 秒）</span>
+              </li>
+              <li class="plan-step">
+                <span class="step-num pending">&#9675;</span>
+                <span>对解析成功的简历调用评分引擎</span>
+              </li>
+              <li class="plan-step">
+                <span class="step-num pending">&#9675;</span>
+                <span>生成结构化筛选报告</span>
+              </li>
+            </ol>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-primary plan-confirm-btn">确认执行</button>
+            <button class="btn btn-outline plan-adjust-btn">调整条件</button>
+            <button class="btn btn-ghost plan-skip-btn">跳过解析直接评分</button>
+          </div>
+        </div>
+        <div class="msg-time">14:32</div>
+      </div>
+
+      <!-- MSG 4: PROGRESS -->
+      <div class="msg-wrapper agent">
+        <div class="msg-card">
+          <div class="progress-section" style="padding-top:14px">
+            <div class="progress-label">&#128196; 正在解析简历...</div>
+            <div class="progress-track">
+              <div class="progress-fill"></div>
+            </div>
+            <div class="progress-info">
+              <span>20/30 已完成</span>
+              <span class="warn-text">&#9888;&#65039; 1 份简历解析异常，已标注待处理</span>
+            </div>
+          </div>
+        </div>
+        <div class="msg-time">14:33</div>
+      </div>
+
+      <!-- MSG 5: WARNING -->
+      <div class="msg-wrapper agent">
+        <div class="msg-card msg-card-warning">
+          <div class="card-header" style="color:var(--accent)">
+            <span>&#9888;&#65039; 2 份简历解析失败</span>
+          </div>
+          <div class="warning-details">
+            文件损坏 1 份、格式不支持 1 份
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-outline">重新解析</button>
+            <button class="btn btn-ghost">标记人工补录</button>
+          </div>
+        </div>
+        <div class="msg-time">14:33</div>
+      </div>
+
+      <!-- MSG 6: RESULT (Main) -->
+      <div class="msg-wrapper agent">
+        <div class="msg-card msg-card-result">
+          <div class="card-header">
+            <span>&#9989; 筛选完成！共评估 28 份简历</span>
+          </div>
+          <div class="candidate-list">
+            <div class="candidate-item">
+              <span class="candidate-rank">1</span>
+              <div class="candidate-info">
+                <div class="candidate-name">张三</div>
+                <div class="candidate-summary">5年Go经验，微服务架构</div>
+              </div>
+              <div style="text-align:center">
+                <div class="candidate-score">92<span class="candidate-score-label">分</span></div>
+              </div>
+              <button class="btn-detail">查看详情</button>
+            </div>
+            <div class="candidate-item">
+              <span class="candidate-rank">2</span>
+              <div class="candidate-info">
+                <div class="candidate-name">李四</div>
+                <div class="candidate-summary">4年后端，云原生项目</div>
+              </div>
+              <div style="text-align:center">
+                <div class="candidate-score">87<span class="candidate-score-label">分</span></div>
+              </div>
+              <button class="btn-detail">查看详情</button>
+            </div>
+            <div class="candidate-item">
+              <span class="candidate-rank">3</span>
+              <div class="candidate-info">
+                <div class="candidate-name">王五</div>
+                <div class="candidate-summary">3.5年经验，全栈背景</div>
+              </div>
+              <div style="text-align:center">
+                <div class="candidate-score">85<span class="candidate-score-label">分</span></div>
+              </div>
+              <button class="btn-detail">查看详情</button>
+            </div>
+          </div>
+          <div class="result-action-bar">
+            <button class="btn btn-outline">调整权重重新评分</button>
+            <button class="btn btn-primary">确认推送名单</button>
+            <button class="btn btn-ghost">导出报告</button>
+          </div>
+        </div>
+        <div class="msg-time">14:34</div>
+      </div>
+
+      <!-- MSG 7: USER -->
+      <div class="msg-wrapper user">
+        <div class="msg-bubble-user">经验年限权重调高一点，项目经验降低一点</div>
+        <div class="msg-time">14:35</div>
+      </div>
+
+      <!-- MSG 8: THINKING -->
+      <div class="msg-wrapper agent">
+        <div class="msg-thinking">
+          <span>&#9878;&#65039; 正在调整评分权重：经验年限 25% &rarr; 35%，项目相关性 20% &rarr; 15%...</span>
+        </div>
+        <div class="msg-time">14:35</div>
+      </div>
+
+      <!-- MSG 9: RESULT (Updated Ranking) -->
+      <div class="msg-wrapper agent">
+        <div class="msg-card msg-card-result">
+          <div class="card-header">
+            <span>&#9989; 排序已更新！Top 3 变化：</span>
+          </div>
+          <div class="candidate-list">
+            <div class="candidate-item">
+              <span class="candidate-rank">1</span>
+              <div class="candidate-info">
+                <div class="candidate-name">张三 <span class="rank-change rank-same">&mdash;</span></div>
+                <div class="candidate-summary">5年Go经验，微服务架构</div>
+              </div>
+              <div style="text-align:center">
+                <div class="candidate-score">94<span class="candidate-score-label">分</span></div>
+              </div>
+            </div>
+            <div class="candidate-item">
+              <span class="candidate-rank">2</span>
+              <div class="candidate-info">
+                <div class="candidate-name">李四 <span class="rank-change rank-same">&mdash;</span></div>
+                <div class="candidate-summary">4年后端，云原生项目</div>
+              </div>
+              <div style="text-align:center">
+                <div class="candidate-score">86<span class="candidate-score-label">分</span></div>
+              </div>
+            </div>
+            <div class="candidate-item">
+              <span class="candidate-rank">3</span>
+              <div class="candidate-info">
+                <div class="candidate-name">王五 <span class="rank-change rank-up">&#8593;2</span></div>
+                <div class="candidate-summary">3.5年经验，全栈背景</div>
+              </div>
+              <div style="text-align:center">
+                <div class="candidate-score">83<span class="candidate-score-label">分</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="result-action-bar">
+            <button class="btn btn-primary">确认推送名单</button>
+            <button class="btn btn-outline">继续调整</button>
+            <button class="btn btn-ghost">导出报告</button>
+          </div>
+        </div>
+        <div class="msg-time">14:35</div>
+      </div>
+
+      <!-- MSG 10: USER -->
+      <div class="msg-wrapper user">
+        <div class="msg-bubble-user">就这个名单，推给后端组老大</div>
+        <div class="msg-time">14:36</div>
+      </div>
+
+      <!-- MSG 11: THINKING -->
+      <div class="msg-wrapper agent">
+        <div class="msg-thinking">
+          <span>&#128228; 正在推送筛选结果给后端组负责人（陈经理）...</span>
+          <span class="thinking-dots"><span></span><span></span><span></span></span>
+        </div>
+        <div class="msg-time">14:36</div>
+      </div>
+
+      <!-- MSG 12: RESULT (Push Success) -->
+      <div class="msg-wrapper agent">
+        <div class="msg-card msg-card-result msg-card-success">
+          <div class="card-header">
+            <span>&#9989; 推送成功！陈经理已收到 3 份候选人推荐</span>
+          </div>
+          <div class="push-success-info">
+            推送内容包括：候选人简历摘要、评分详情、面试建议。
+          </div>
+          <div class="push-waiting">
+            <span>&#9203;</span>
+            等待业务反馈中...（48 小时内未反馈将自动提醒）
+          </div>
+        </div>
+        <div class="msg-time">14:36</div>
+      </div>
+
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="input-box">
+        <button class="input-attach" title="上传附件">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+        <textarea class="input-text" rows="1" placeholder="输入招聘需求，或上传简历..."></textarea>
+        <button class="input-send" title="发送">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="quick-actions">
+        <button class="chip"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="11" y2="13"/></svg> 生成JD</button>
+        <button class="chip"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h8l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="12,3 12,7 16,7"/><line x1="6" y1="10" x2="13" y2="10"/><line x1="6" y1="13" x2="11" y2="13"/></svg> 筛选简历</button>
+        <button class="chip"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2.5 5.5L18 9l-4 4 1 5.5L10 16l-5 2.5 1-5.5-4-4 5.5-1.5z"/></svg> 查看报告</button>
+        <button class="chip"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> 任务切换</button>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+/* =========================================================================
+   交互脚本 — 对话式任务中心
+   ========================================================================= */
+
+(function () {
+  'use strict';
+
+  // ── 常用 DOM 引用 ──────────────────────────────────────────────────
+  const chatStream   = document.getElementById('chatStream');
+  const textarea     = document.querySelector('.input-text');
+  const sendBtn      = document.querySelector('.input-send');
+  const topbarMenu   = document.querySelector('.topbar-menu');
+
+  // ── 工具：获取当前时间字符串 ───────────────────────────────────────
+  function nowTime () {
+    const d = new Date();
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  // ── 工具：自动滚动聊天区到底部 ─────────────────────────────────────
+  function scrollChatBottom () {
+    requestAnimationFrame(() => { chatStream.scrollTop = chatStream.scrollHeight; });
+  }
+
+  // ── 1 & 2. 导航链接 ──────────────────────────────────────────────
+  // 侧边栏 <a href="..."> 原生可工作，无需额外处理。
+
+  // ── 3. 岗位选择器交互 ──────────────────────────────────────────
+  const positionSelect  = document.getElementById('positionSelect');
+  const topbarJobTitle  = document.getElementById('topbarJobTitle');
+  const topbarStatus    = document.getElementById('topbarStatus');
+  const topbarStatusTxt = document.getElementById('topbarStatusText');
+  const phaseBadge      = document.getElementById('phaseBadge');
+  const phaseBadgeText  = document.getElementById('phaseBadgeText');
+
+  function appendSystemMessage (text) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'system-message';
+    wrapper.innerHTML = '<span class="system-message-text">' + escapeHtml(text) + '</span>';
+    chatStream.appendChild(wrapper);
+    scrollChatBottom();
+  }
+
+  positionSelect.addEventListener('change', function () {
+    const opt = this.options[this.selectedIndex];
+    const jobName     = opt.value;
+    const phase        = opt.getAttribute('data-phase');
+    const phaseLabel   = opt.getAttribute('data-phase-label');
+    const statusText   = opt.getAttribute('data-status');
+
+    // Update topbar title
+    topbarJobTitle.textContent = jobName;
+    topbarStatusTxt.textContent = statusText;
+
+    // Update phase badge
+    phaseBadge.className = 'position-phase-badge phase-' + phase;
+    phaseBadgeText.textContent = phaseLabel;
+
+    // Insert system message into chat stream
+    appendSystemMessage('已切换到岗位：' + jobName);
+
+    showToast('已切换到: ' + jobName, 'info');
+  });
+
+  // ── 16. Toast 通知系统 ────────────────────────────────────────────
+  // (提前定义，后续多个交互依赖)
+  const TOAST_TYPES = {
+    success: { bg: '#ECFDF5', border: '#16A34A', color: '#16A34A', icon: '&#10003;' },
+    info:    { bg: '#F0FDFA', border: '#0D9488', color: '#0D9488', icon: '&#8505;&#65039;' },
+    warning: { bg: '#FFFBEB', border: '#D97706', color: '#D97706', icon: '&#9888;&#65039;' },
+    error:   { bg: '#FEF2F2', border: '#DC2626', color: '#DC2626', icon: '&#10060;' }
+  };
+
+  function showToast (message, type) {
+    type = type || 'success';
+    const cfg = TOAST_TYPES[type] || TOAST_TYPES.info;
+    const container = document.getElementById('toastContainer') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.style.cssText =
+      'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;font-size:0.88rem;font-weight:500;' +
+      'background:' + cfg.bg + ';border:1px solid ' + cfg.border + ';color:' + cfg.color + ';' +
+      'box-shadow:0 4px 14px rgba(0,0,0,0.08);transform:translateY(-12px);opacity:0;' +
+      'transition:transform 0.3s ease,opacity 0.3s ease;max-width:380px;pointer-events:auto;';
+    toast.innerHTML = '<span style="font-size:1.1rem;">' + cfg.icon + '</span><span>' + message + '</span>';
+    container.appendChild(toast);
+    // 动画进入
+    requestAnimationFrame(() => { toast.style.transform = 'translateY(0)'; toast.style.opacity = '1'; });
+    // 自动消失
+    setTimeout(() => {
+      toast.style.transform = 'translateY(-12px)';
+      toast.style.opacity = '0';
+      toast.addEventListener('transitionend', () => toast.remove());
+    }, 2500);
+  }
+
+  function createToastContainer () {
+    const c = document.createElement('div');
+    c.id = 'toastContainer';
+    c.style.cssText =
+      'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;' +
+      'display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;';
+    document.body.appendChild(c);
+    return c;
+  }
+
+  // ── 4. 聊天输入 — 发送消息 ──────────────────────────────────────
+  function sendMessage () {
+    const text = textarea.value.trim();
+    if (!text) return;
+
+    // 添加用户消息气泡
+    appendUserBubble(text);
+    textarea.value = '';
+    textarea.style.height = 'auto';
+    scrollChatBottom();
+
+    // 模拟 Agent 回复
+    simulateAgentReply(text);
+  }
+
+  function appendUserBubble (text) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper user';
+    wrapper.innerHTML =
+      '<div class="msg-bubble-user">' + escapeHtml(text) + '</div>' +
+      '<div class="msg-time">' + nowTime() + '</div>';
+    chatStream.appendChild(wrapper);
+  }
+
+  function appendThinkingBubble (label) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper agent';
+    wrapper.id = 'dynamic-thinking';
+    wrapper.innerHTML =
+      '<div class="msg-thinking">' +
+        '<span>' + (label || '&#128269; 正在理解您的需求') + '</span>' +
+        '<span class="thinking-dots"><span></span><span></span><span></span></span>' +
+      '</div>' +
+      '<div class="msg-time">' + nowTime() + '</div>';
+    chatStream.appendChild(wrapper);
+    scrollChatBottom();
+    return wrapper;
+  }
+
+  function appendPlanCard (steps, headerText) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper agent';
+    let stepsHtml = '';
+    steps.forEach(function (s, i) {
+      const cls = i === 0 ? 'done' : 'pending';
+      const icon = i === 0 ? '&#10003;' : '&#9675;';
+      stepsHtml += '<li class="plan-step"><span class="step-num ' + cls + '">' + icon + '</span><span>' + s + '</span></li>';
+    });
+    wrapper.innerHTML =
+      '<div class="msg-card msg-card-plan">' +
+        '<div class="card-header"><span>&#128203; ' + (headerText || '执行计划') + '</span>' +
+          '<span class="card-header-badge">&#9201; 预计 30 秒</span></div>' +
+        '<div class="card-body"><ol class="plan-steps">' + stepsHtml + '</ol></div>' +
+        '<div class="card-actions">' +
+          '<button class="btn btn-primary plan-confirm-btn">确认执行</button>' +
+          '<button class="btn btn-outline plan-adjust-btn">调整条件</button>' +
+          '<button class="btn btn-ghost plan-skip-btn">跳过解析直接评分</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="msg-time">' + nowTime() + '</div>';
+    chatStream.appendChild(wrapper);
+    scrollChatBottom();
+    // 为新按钮绑定交互
+    bindPlanCardButtons(wrapper);
+    return wrapper;
+  }
+
+  function appendResultMessage (text) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper agent';
+    wrapper.innerHTML =
+      '<div class="msg-thinking" style="font-style:normal;">' +
+        '<span>&#9989; ' + escapeHtml(text) + '</span>' +
+      '</div>' +
+      '<div class="msg-time">' + nowTime() + '</div>';
+    chatStream.appendChild(wrapper);
+    scrollChatBottom();
+  }
+
+  // ── R-P-R-A-R 消息渲染函数 ──────────────────────────────────────
+
+  function appendReasonMessage (text) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper agent';
+    wrapper.innerHTML =
+      '<div class="msg-reason">' +
+        '<div class="msg-label"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="8"/><path d="M10 6v5l3 3"/></svg> REASON \u00B7 推理</div>' +
+        '<div>' + escapeHtml(text) + '</div>' +
+      '</div>';
+    chatStream.appendChild(wrapper);
+    scrollChatBottom();
+    return wrapper;
+  }
+
+  function appendReflectMessage (text) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper agent';
+    wrapper.innerHTML =
+      '<div class="msg-reflect">' +
+        '<div class="msg-label"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15l4-10M12 15l4-10M10 18v-2"/></svg> REFLECT \u00B7 反思</div>' +
+        '<div>' + escapeHtml(text) + '</div>' +
+      '</div>';
+    chatStream.appendChild(wrapper);
+    scrollChatBottom();
+    return wrapper;
+  }
+
+  function appendToolCallMessage (toolName, reason, params) {
+    var id = 'tool-' + Date.now();
+    var wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper agent';
+    wrapper.innerHTML =
+      '<div class="msg-tool-call" id="' + id + '">' +
+        '<div class="tool-header" onclick="document.getElementById(\'' + id + '\').classList.toggle(\'expanded\')">' +
+          '<span class="tool-icon"><svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3l7 7-7 7"/></svg></span>' +
+          '<span>调用工具: ' + escapeHtml(toolName) + '</span>' +
+          '<span class="tool-status running">执行中...</span>' +
+        '</div>' +
+        '<div class="tool-body">' +
+          '<div style="margin-bottom:4px"><strong>调用原因:</strong> ' + escapeHtml(reason) + '</div>' +
+          (params ? '<div><strong>参数:</strong> ' + escapeHtml(params) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    chatStream.appendChild(wrapper);
+    scrollChatBottom();
+    return wrapper;
+  }
+
+  function completeToolCall (wrapper, success) {
+    var el = wrapper.querySelector('.tool-status');
+    if (el) {
+      el.className = 'tool-status done';
+      el.textContent = success ? '完成' : '失败';
+    }
+  }
+
+  function appendProgressMessage (label, targetCount) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper agent';
+    var id = 'progress-' + Date.now();
+    wrapper.innerHTML =
+      '<div class="msg-progress" id="' + id + '">' +
+        '<div class="progress-label"><span>' + escapeHtml(label) + '</span><span class="progress-count">0/' + targetCount + '</span></div>' +
+        '<div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>' +
+      '</div>';
+    chatStream.appendChild(wrapper);
+    scrollChatBottom();
+    return { wrapper: wrapper, id: id };
+  }
+
+  function updateProgress (progressObj, current, total) {
+    var el = document.getElementById(progressObj.id);
+    if (!el) return;
+    var pct = Math.round((current / total) * 100);
+    el.querySelector('.progress-bar-fill').style.width = pct + '%';
+    el.querySelector('.progress-count').textContent = current + '/' + total;
+    scrollChatBottom();
+  }
+
+  // ── simulateAgentReply — 完整 R-P-R-A-R 流式输出链路 ────────────
+  function simulateAgentReply (userText) {
+    var lower = userText.toLowerCase();
+    var planSteps, reasonText, reflectText, planReflectText;
+    var toolCalls, progressLabel, progressTotal, resultText, actReflectText;
+
+    if (lower.indexOf('简历') !== -1 || lower.indexOf('筛选') !== -1) {
+      reasonText = '分析用户指令：需要对接收的候选人简历进行筛选评分。已识别关联岗位"后端开发工程师"，需调用评分引擎进行多维度匹配分析。';
+      reflectText = '已确认岗位 JD 包含5个核心维度要求，候选简历共30份，评分引擎可直接执行。无需额外信息收集。';
+      planSteps = [
+        { text: '调用简历解析器，提取30份简历的结构化信息', time: '预估20秒' },
+        { text: '执行评分引擎，按5个维度对每份简历打分', time: '预估15秒' },
+        { text: '生成候选人排序报告，标记推荐/待定/淘汰', time: '预估5秒' },
+        { text: '推送评分结果至招聘负责人审批', time: '预估3秒' }
+      ];
+      planReflectText = '执行计划包含4个步骤，预计总耗时约43秒。步骤间有数据依赖关系，需顺序执行。';
+      toolCalls = [
+        { name: 'ResumeParser', reason: '解析30份简历文件，提取结构化信息', params: '文件数: 30, 格式: PDF/Word' },
+        { name: 'ScoringEngine', reason: '基于JD维度要求进行多维度评分', params: '维度: 技能匹配/经验年限/项目相关性/教育背景/稳定性' }
+      ];
+      progressLabel = '正在处理简历';
+      progressTotal = 30;
+      resultText = '已完成30份简历的筛选评分。推荐候选人8位，待定12位，淘汰10位。详细报告已生成，请查看评分报告。';
+      actReflectText = '筛选完成。30份简历中推荐率26.7%，整体质量高于预期。建议优先安排推荐候选人的面试。';
+    } else if (lower.indexOf('jd') !== -1 || lower.indexOf('职位') !== -1 || lower.indexOf('岗位') !== -1 || lower.indexOf('生成') !== -1) {
+      reasonText = '分析用户指令：需要生成一份结构化JD文档。已识别岗位方向为技术类，需从模板库匹配并定制。';
+      reflectText = '模板库中找到3个匹配模板。用户未指定具体岗位名称，需在计划中确认或使用默认。';
+      planSteps = [
+        { text: '检索JD模板库，匹配最佳模板', time: '预估5秒' },
+        { text: '基于用户需求定制岗位要求', time: '预估10秒' },
+        { text: '生成结构化JD文档（职责/要求/标签）', time: '预估8秒' },
+        { text: '执行合规性校验并输出可编辑文档', time: '预估3秒' }
+      ];
+      planReflectText = '计划4步，预计26秒。模板匹配已找到3个候选，生成阶段需重点定制技术栈要求。';
+      toolCalls = [
+        { name: 'TemplateMatcher', reason: '从JD模板库检索匹配模板', params: '类别: 技术类, 关键词: 后端/Go/微服务' },
+        { name: 'JDComposer', reason: '组合生成结构化JD文档', params: '模板ID: tpl-be-003, 定制项: 薪资/技能/经验' },
+        { name: 'ComplianceChecker', reason: '检查JD内容合规性', params: '检查项: 歧视用语/薪资范围/必备要求' }
+      ];
+      progressLabel = '正在生成JD';
+      progressTotal = 4;
+      resultText = 'JD文档已生成。包含5条职责描述和7条任职要求，技能标签5个。已通过合规校验，请查看并编辑。';
+      actReflectText = 'JD生成完成，模板匹配度较高。建议重点审核薪资范围和必备技能是否准确。';
+    } else {
+      reasonText = '分析用户指令：通用需求，需理解用户意图并匹配合适的操作。';
+      reflectText = '用户指令较为开放，已尝试匹配已知操作模式。建议用户提供更具体的岗位或操作方向。';
+      planSteps = [
+        { text: '理解用户需求意图', time: '预估3秒' },
+        { text: '检索相关数据源', time: '预估5秒' },
+        { text: '生成执行方案', time: '预估5秒' },
+        { text: '输出结果', time: '预估2秒' }
+      ];
+      planReflectText = '计划4步，预计15秒。如需更精准的执行，建议指定具体岗位名称和操作类型。';
+      toolCalls = [
+        { name: 'IntentParser', reason: '解析用户意图并匹配操作类型', params: '输入: "' + userText.substring(0, 30) + '..."' }
+      ];
+      progressLabel = '正在处理';
+      progressTotal = 3;
+      resultText = '已收到您的需求，正在分析中。如需更精准的服务，建议指定具体岗位名称和操作类型。';
+      actReflectText = '处理完成。用户指令较为通用，建议后续提供更具体的招聘需求。';
+    }
+
+    // ── R: Reason ──
+    var reasonEl = appendReasonMessage(reasonText);
+
+    setTimeout(function () {
+      // ── R: Reflect ──
+      appendReflectMessage(reflectText);
+
+      setTimeout(function () {
+        // ── P: Plan ──
+        var planCard = appendPlanCard(planSteps.map(function (s) { return s.text; }), '执行计划');
+        // 给每个步骤加上预估时间
+        planCard.querySelectorAll('.plan-step').forEach(function (step, i) {
+          if (planSteps[i] && planSteps[i].time) {
+            var timeSpan = document.createElement('span');
+            timeSpan.style.cssText = 'font-size:0.7rem;color:var(--ink-tertiary);margin-left:auto;';
+            timeSpan.textContent = planSteps[i].time;
+            step.appendChild(timeSpan);
+          }
+        });
+        bindPlanCardButtons(planCard);
+
+        setTimeout(function () {
+          // ── R: Reflect-Plan ──
+          appendReflectMessage(planReflectText);
+
+          setTimeout(function () {
+            // ── A: Act - Tool Calls ──
+            var toolWrappers = [];
+            toolCalls.forEach(function (tc, i) {
+              setTimeout(function () {
+                var tw = appendToolCallMessage(tc.name, tc.reason, tc.params);
+                toolWrappers.push(tw);
+                scrollChatBottom();
+              }, i * 1200);
+            });
+
+            // 在工具调用之后显示进度
+            var toolEndTime = toolCalls.length * 1200 + 500;
+            setTimeout(function () {
+              // 完成所有工具调用
+              toolWrappers.forEach(function (tw) { completeToolCall(tw, true); });
+              scrollChatBottom();
+
+              // 显示进度条
+              var progObj = appendProgressMessage(progressLabel, progressTotal);
+              var progCurrent = 0;
+              var progInterval = setInterval(function () {
+                progCurrent = Math.min(progCurrent + Math.ceil(Math.random() * 3) + 1, progressTotal);
+                updateProgress(progObj, progCurrent, progressTotal);
+                if (progCurrent >= progressTotal) {
+                  clearInterval(progInterval);
+                  // ── Result ──
+                  setTimeout(function () {
+                    appendResultMessage(resultText);
+                    setTimeout(function () {
+                      // ── R: Reflect-Act ──
+                      appendReflectMessage(actReflectText);
+                    }, 800);
+                  }, 500);
+                }
+              }, 300);
+            }, toolEndTime);
+          }, 600);
+        }, 800);
+      }, 600);
+    }, 800);
+  }
+
+  // 发送按钮点击
+  sendBtn.addEventListener('click', sendMessage);
+  // Enter 发送（Shift+Enter 换行）
+  textarea.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  // 自动调整高度
+  textarea.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  });
+
+  // ── 5 / 6 / 7. Plan Card 按钮交互 ───────────────────────────────
+  function bindPlanCardButtons (planCard) {
+    // "确认执行"
+    const confirmBtn = planCard.querySelector('.plan-confirm-btn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function () {
+        this.disabled = true;
+        this.style.opacity = '0.5';
+        this.style.cursor = 'not-allowed';
+        // 所有步骤标记为完成
+        planCard.querySelectorAll('.step-num').forEach(function (num) {
+          num.className = 'step-num done';
+          num.innerHTML = '&#10003;';
+        });
+        // 在 card-actions 前面插入进度提示
+        const progress = document.createElement('div');
+        progress.className = 'plan-progress-msg';
+        progress.style.cssText = 'padding:4px 16px 10px;font-size:0.82rem;color:var(--primary);font-weight:500;';
+        progress.innerHTML = '&#9203; 正在执行中...';
+        const actions = planCard.querySelector('.card-actions');
+        actions.parentNode.insertBefore(progress, actions);
+
+        setTimeout(function () {
+          progress.innerHTML = '&#9989; 操作已完成';
+          progress.style.color = 'var(--success)';
+        }, 2000);
+      });
+    }
+
+    // "调整条件"
+    const adjustBtn = planCard.querySelector('.plan-adjust-btn');
+    if (adjustBtn) {
+      adjustBtn.addEventListener('click', function () {
+        const actions = planCard.querySelector('.card-actions');
+        // 替换 actions 区域为内联表单
+        const form = document.createElement('div');
+        form.className = 'plan-adjust-form';
+        form.style.cssText = 'padding:10px 16px 14px;display:flex;gap:8px;align-items:center;';
+        form.innerHTML =
+          '<input type="text" placeholder="输入调整条件，如：经验>=3年" style="' +
+            'flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;' +
+            'font-size:0.84rem;outline:none;font-family:var(--font-body);background:var(--bg);color:var(--ink);">' +
+          '<button class="btn btn-primary plan-adjust-confirm">确认</button>' +
+          '<button class="btn btn-outline plan-adjust-cancel">取消</button>';
+        actions.replaceWith(form);
+        const input = form.querySelector('input');
+        input.focus();
+
+        form.querySelector('.plan-adjust-confirm').addEventListener('click', function () {
+          const val = input.value.trim();
+          if (val) {
+            // 更新第一步文案
+            const firstStep = planCard.querySelector('.plan-step span:last-child');
+            if (firstStep) firstStep.textContent = val;
+            showToast('条件已更新: ' + val, 'info');
+          }
+          form.replaceWith(actions);
+        });
+        form.querySelector('.plan-adjust-cancel').addEventListener('click', function () {
+          form.replaceWith(actions);
+        });
+      });
+    }
+
+    // "跳过解析直接评分"
+    const skipBtn = planCard.querySelector('.plan-skip-btn');
+    if (skipBtn) {
+      skipBtn.addEventListener('click', function () {
+        // 系统消息
+        const wrapper = document.createElement('div');
+        wrapper.className = 'msg-wrapper agent';
+        wrapper.innerHTML =
+          '<div class="msg-thinking" style="font-style:normal;color:var(--ink-secondary);">' +
+            '<span>&#9888;&#65039; 已跳过简历解析，直接使用已解析数据进入评分阶段</span>' +
+          '</div>' +
+          '<div class="msg-time">' + nowTime() + '</div>';
+        chatStream.appendChild(wrapper);
+
+        // 标记第 2 步为 skipped
+        const steps = planCard.querySelectorAll('.plan-step');
+        if (steps.length >= 2) {
+          const step2 = steps[1];
+          step2.style.opacity = '0.45';
+          step2.querySelector('span:last-child').style.textDecoration = 'line-through';
+          const num = step2.querySelector('.step-num');
+          num.className = 'step-num pending';
+          num.innerHTML = '&#10005;';
+        }
+        scrollChatBottom();
+      });
+    }
+  }
+
+  // 为页面中第一个 (已有) plan card 也绑定
+  const existingPlanCards = document.querySelectorAll('.msg-card-plan');
+  existingPlanCards.forEach(function (card) {
+    bindPlanCardButtons(card.closest('.msg-wrapper'));
+  });
+
+  // ── 8. Warning Card — "重新解析" 按钮 ────────────────────────────
+  document.querySelectorAll('.msg-card-warning').forEach(function (card) {
+    const actions = card.querySelector('.card-actions');
+    if (!actions) return;
+    const buttons = actions.querySelectorAll('.btn');
+    buttons.forEach(function (btn) {
+      if (btn.textContent.trim() === '重新解析') {
+        btn.addEventListener('click', function () {
+          actions.innerHTML = '<button class="btn btn-outline" disabled style="opacity:0.6">&#9203; 正在重新解析...</button>';
+          setTimeout(function () {
+            actions.innerHTML = '<span style="color:var(--success);font-weight:600;font-size:0.84rem;">&#10003; 重新解析完成</span>';
+          }, 2000);
+        });
+      }
+      if (btn.textContent.trim() === '标记人工补录') {
+        btn.addEventListener('click', function () {
+          actions.innerHTML = '<span style="color:var(--success);font-weight:600;font-size:0.84rem;">&#10003; 已标记为人工补录</span>';
+        });
+      }
+    });
+  });
+
+  // ── 10. Result Card — "查看详情" 按钮 ────────────────────────────
+  document.querySelectorAll('.btn-detail').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      window.location.href = 'page-5-scoring-report.html';
+    });
+  });
+
+  // ── 11 / 12 / 13. Result Card 操作栏按钮 ──────────────────────────
+  document.querySelectorAll('.result-action-bar').forEach(function (bar) {
+    bar.querySelectorAll('.btn').forEach(function (btn) {
+      const text = btn.textContent.trim();
+      if (text === '确认推送名单') {
+        btn.addEventListener('click', function () {
+          window.location.href = 'page-6-push-feedback.html';
+        });
+      }
+      if (text === '调整权重重新评分' || text === '继续调整') {
+        btn.addEventListener('click', function () {
+          showToast('已切换到评分报告页面进行权重调整', 'info');
+          setTimeout(function () { window.location.href = 'page-5-scoring-report.html'; }, 600);
+        });
+      }
+      if (text === '导出报告') {
+        btn.addEventListener('click', function () {
+          showToast('报告导出成功', 'success');
+        });
+      }
+    });
+  });
+
+  // ── 14. Quick Action Chips ──────────────────────────────────────
+  // 点击快捷标签 → 将意图文本填入输入框并聚焦，帮助用户快速表达需求
+  var chipIntentMap = {
+    '生成JD':   '帮我生成一份JD',
+    '筛选简历': '帮我筛选候选人简历',
+    '查看报告': '查看评分与筛选报告',
+    '任务切换': '切换到其他任务'
+  };
+  document.querySelectorAll('.chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var label = this.textContent.trim();
+      var intentText = chipIntentMap[label];
+      if (intentText) {
+        textarea.value = intentText;
+        textarea.focus();
+        // 自动调整高度
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+      }
+    });
+  });
+
+  // ── 15. "更多操作" Dropdown ──────────────────────────────────────
+  let dropdownOpen = false;
+  let dropdownEl = null;
+
+  topbarMenu.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (dropdownOpen && dropdownEl) {
+      dropdownEl.remove();
+      dropdownOpen = false;
+      dropdownEl = null;
+      return;
+    }
+    const dd = document.createElement('div');
+    dd.style.cssText =
+      'position:absolute;right:24px;top:52px;background:var(--bg-elevated);border:1px solid var(--border);' +
+      'border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:4px 0;min-width:140px;z-index:100;';
+    const items = ['归档任务', '导出记录', '任务设置'];
+    items.forEach(function (item) {
+      const opt = document.createElement('button');
+      opt.style.cssText =
+        'display:block;width:100%;text-align:left;padding:9px 16px;font-size:0.84rem;color:var(--ink-secondary);' +
+        'background:none;border:none;cursor:pointer;font-family:var(--font-body);transition:all 0.15s;';
+      opt.textContent = item;
+      opt.addEventListener('mouseenter', function () {
+        this.style.background = 'var(--primary-bg)';
+        this.style.color = 'var(--primary-dark)';
+      });
+      opt.addEventListener('mouseleave', function () {
+        this.style.background = 'none';
+        this.style.color = 'var(--ink-secondary)';
+      });
+      opt.addEventListener('click', function () {
+        showToast('功能演示: ' + item, 'info');
+        dd.remove();
+        dropdownOpen = false;
+        dropdownEl = null;
+      });
+      dd.appendChild(opt);
+    });
+    topbarMenu.parentNode.style.position = 'relative';
+    topbarMenu.parentNode.appendChild(dd);
+    dropdownOpen = true;
+    dropdownEl = dd;
+  });
+
+  // 点击其他区域关闭 dropdown
+  document.addEventListener('click', function () {
+    if (dropdownOpen && dropdownEl) {
+      dropdownEl.remove();
+      dropdownOpen = false;
+      dropdownEl = null;
+    }
+  });
+
+  // ── 17. Chat Scroll to Bottom (on load) ──────────────────────────
+  scrollChatBottom();
+
+  // ── 18. Progress Bar 动画 (页面加载时从 0 到 65%) ─────────────────
+  const progressFill = document.querySelector('.progress-fill');
+  if (progressFill) {
+    progressFill.style.width = '0%';
+    progressFill.style.transition = 'width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        progressFill.style.width = '65%';
+      });
+    });
+  }
+
+  // ── 工具函数 ──────────────────────────────────────────────────────
+  function escapeHtml (str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+})();
+</script>
+</body>
+</html>

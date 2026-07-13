@@ -1,0 +1,98 @@
+examples:
+  - input:
+      title: 高级后端开发工程师
+      department: 技术部
+      level: P6/P7
+      location: 北京
+      job_type: 全职
+      salary_range: 30K-50K
+      description: 负责公司核心招聘平台系统的后端架构设计和开发，参与系统性能优化，保障系统高可用
+      requirements:
+        - 5年以上Python后端开发经验
+        - 熟悉FastAPI或Django框架
+        - 熟悉PostgreSQL、Redis数据库
+      preferred_skills:
+        - 有AI Agent或LLM应用开发经验
+        - 有招聘系统开发经验
+    output:
+      title: 高级后端开发工程师
+      summary: 负责公司核心招聘平台系统的后端架构设计与核心模块开发，主导系统性能优化和高可用保障，推动技术架构演进，与产品和前端团队紧密协作，打造业界领先的智能招聘产品。
+      responsibilities:
+        - 负责招聘平台核心服务的架构设计、开发和维护，保障系统高并发、高可用
+        - 主导后端技术选型和架构演进，解决复杂技术问题
+        - 参与数据库设计和优化，保障数据一致性和查询性能
+        - 设计并实现RESTful API，支撑前端和多端业务需求
+        - 推动代码质量提升，建立和完善开发规范和流程
+        - 与产品、前端团队协作，参与需求评审和技术方案设计
+        - 指导初级工程师，进行代码评审和技术分享
+      requirements:
+        - 计算机相关专业本科及以上学历，5年以上Python后端开发经验
+        - 精通Python，熟悉FastAPI或Django等主流Web框架
+        - 熟悉PostgreSQL、Redis等数据库，具备数据库设计和优化能力
+        - 熟悉异步编程、消息队列等分布式技术
+        - 具备良好的编码习惯和工程化意识，熟悉Git工作流
+        - 具备较强的问题分析和解决能力，能够独立承担模块开发
+        - 具备良好的沟通能力和团队协作精神
+      required_skills:
+        - Python
+        - FastAPI/Django
+        - PostgreSQL
+        - Redis
+        - RESTful API设计
+      preferred_skills:
+        - AI Agent/LLM应用开发经验
+        - 招聘系统或HR SaaS开发经验
+        - Docker/Kubernetes容器化经验
+        - 微服务架构经验
+      department: 技术部
+      level: P6/P7
+      location: 北京
+      job_type: 全职
+      salary_range: 30K-50K
+
+  - input:
+      title: 产品经理
+      department: 产品部
+      level: P5/P6
+      location: 上海
+      job_type: 全职
+      salary_range: 20K-35K
+      description: 负责AI招聘产品的规划和设计，包括JD生成、简历筛选、智能匹配等核心功能
+      requirements:
+        - 3年以上B端产品经验
+        - 有AI或HR SaaS产品经验优先
+      preferred_skills:
+        - 对大语言模型有了解
+    output:
+      title: 产品经理（AI招聘方向）
+      summary: 负责AI智能招聘产品的规划、设计和迭代，深度参与JD生成、简历智能筛选、候选人匹配等核心功能的产品设计，与算法、工程团队紧密协作，打造高效智能的招聘体验。
+      responsibilities:
+        - 负责AI招聘产品线的规划和roadmap制定，明确产品方向和里程碑
+        - 完成用户调研、需求分析、产品设计，输出PRD和原型文档
+        - 主导JD生成、简历筛选、智能匹配等核心AI功能的产品设计
+        - 与算法团队协作，定义AI能力边界和效果评估指标
+        - 协调研发、设计团队，推动产品高质量按时交付
+        - 跟踪产品数据，持续迭代优化产品体验
+        - 跟进行业动态和竞品分析，输出产品策略建议
+      requirements:
+        - 本科及以上学历，3年以上B端产品经理经验
+        - 具备完整的产品规划到上线的全流程经验
+        - 优秀的逻辑思维能力和数据分析能力
+        - 良好的沟通协调能力和跨团队协作能力
+        - 对AI产品有热情，愿意深入理解大语言模型能力边界
+        - 具备较强的用户同理心，能够准确把握用户需求
+      required_skills:
+        - 产品规划
+        - 需求分析
+        - PRD撰写
+        - 原型设计
+        - 数据分析
+      preferred_skills:
+        - AI/LLM产品经验
+        - HR SaaS或招聘行业经验
+        - Figma/Axure等原型工具
+      department: 产品部
+      level: P5/P6
+      location: 上海
+      job_type: 全职
+      salary_range: 20K-35K

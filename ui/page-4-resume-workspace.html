@@ -1,0 +1,3047 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能招聘 Agent — 简历工作台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ========== CSS VARIABLES ========== */
+:root {
+  --primary: #0D9488;
+  --primary-dark: #0F766E;
+  --primary-light: #99F6E4;
+  --primary-bg: rgba(13,148,136,0.06);
+  --accent: #EA580C;
+  --accent-bg: rgba(234,88,12,0.06);
+  --success: #16A34A;
+  --success-bg: rgba(22,163,74,0.06);
+  --warning: #D97706;
+  --warning-bg: rgba(217,119,6,0.08);
+  --danger: #DC2626;
+  --danger-bg: rgba(220,38,38,0.06);
+  --bg: #F8F7F6;
+  --bg-secondary: #F0EFED;
+  --bg-elevated: #FFFFFF;
+  --ink: #1C1917;
+  --ink-secondary: #78716C;
+  --ink-tertiary: #A8A29E;
+  --border: #E7E5E4;
+  --border-light: #F5F5F4;
+  --shadow-sm: 0 1px 2px rgba(28,25,23,0.04);
+  --shadow-md: 0 4px 12px rgba(28,25,23,0.06);
+  --shadow-lg: 0 8px 24px rgba(28,25,23,0.08);
+  --shadow-xl: 0 12px 32px rgba(28,25,23,0.10);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --sidebar-w: 260px;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Space Grotesk', 'DM Sans', sans-serif;
+}
+
+/* ========== RESET ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--ink); height: 100vh; overflow: hidden; }
+button { font-family: var(--font-body); cursor: pointer; border: none; background: none; }
+input, textarea, select { font-family: var(--font-body); }
+
+/* ========== CUSTOM SCROLLBAR ========== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--primary-light); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+/* ========== APP SHELL ========== */
+.app-shell {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ========== LEFT SIDEBAR ========== */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  position: relative;
+}
+.sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+.sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+.brand-icon { width: 34px; height: 34px; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: flex; align-items: center; justify-content: center; color: #fff; font-family: var(--font-heading); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
+.brand-text { font-family: var(--font-heading); font-size: 1rem; font-weight: 700; color: var(--ink); letter-spacing: -0.3px; line-height: 1.2; }
+.brand-sub { font-size: 0.72rem; color: var(--ink-tertiary); margin-top: 1px; font-weight: 400; }
+
+/* Sidebar nav */
+.sidebar-nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+.nav-section-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 8px 12px 6px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  color: var(--ink-secondary);
+  transition: all 0.15s;
+  margin-bottom: 2px;
+  text-decoration: none;
+}
+.nav-item:hover { background: var(--primary-bg); color: var(--primary-dark); }
+.nav-item.active {
+  background: var(--primary-bg);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.nav-item .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-item .nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Phase 2 nav items */
+.nav-item.phase2 { opacity: 0.7; }
+.nav-item.phase2:hover { opacity: 1; }
+.nav-item.phase2 .nav-icon { opacity: 0.5; }
+.nav-item.phase2:hover .nav-icon { opacity: 0.8; }
+.nav-item.phase2.active { opacity: 1; }
+.nav-item.phase2.active .nav-icon { opacity: 1; }
+.nav-badge--phase2 { background: var(--bg-secondary); color: var(--ink-tertiary); border: 1px solid var(--border); margin-left: auto; font-size: 0.65rem; font-weight: 600; padding: 1px 7px; border-radius: 10px; line-height: 1.5; white-space: nowrap; }
+
+.sidebar-footer {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-footer .avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; color: var(--primary-dark);
+}
+.sidebar-footer .user-info { flex: 1; }
+.sidebar-footer .user-name { font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+.sidebar-footer .user-role { font-size: 0.72rem; color: var(--ink-tertiary); }
+
+/* ========== MAIN AREA ========== */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* ========== TOP NAV BAR ========== */
+.top-nav {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  gap: 16px;
+  flex-shrink: 0;
+  min-height: 54px;
+  position: relative;
+}
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.breadcrumb a { color: var(--ink-tertiary); text-decoration: none; transition: color 0.15s; }
+.breadcrumb a:hover { color: var(--primary); }
+.breadcrumb .bc-sep { opacity: 0.4; }
+.breadcrumb .bc-current { color: var(--ink-secondary); font-weight: 500; }
+
+.page-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.top-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ========== PAGE TOP BAR (task context) ========== */
+.page-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 16px;
+}
+.page-top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.task-context-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.task-context-label svg { width: 16px; height: 16px; color: var(--primary); }
+.task-context-sub {
+  font-size: 0.75rem;
+  color: var(--ink-tertiary);
+  padding: 3px 10px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.page-top-bar-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stat-pill {
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+  padding: 5px 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  font-weight: 500;
+}
+.stat-pill.total { font-family: var(--font-heading); font-weight: 600; color: var(--ink); }
+.stat-pill.success { color: var(--success); background: var(--success-bg); }
+.stat-pill.warning { color: var(--warning); background: var(--warning-bg); }
+.stat-pill.danger { color: var(--danger); background: var(--danger-bg); }
+.stat-pill + .stat-pill { margin-left: 0; }
+.stat-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.page-top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========== BUTTONS ========== */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+  border: none;
+  cursor: pointer;
+}
+.btn-primary:hover { background: var(--primary-dark); box-shadow: var(--shadow-md); }
+.btn-primary svg { width: 14px; height: 14px; }
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  color: var(--ink-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.btn-outline:hover { border-color: var(--primary); color: var(--primary-dark); background: var(--primary-bg); }
+.btn-outline svg { width: 14px; height: 14px; }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: none;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.btn-ghost:hover { background: var(--bg-secondary); color: var(--primary-dark); }
+.btn-ghost svg { width: 14px; height: 14px; }
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  gap: 4px;
+}
+.btn-sm svg { width: 12px; height: 12px; }
+
+/* ========== CONTENT WRAPPER ========== */
+.content-wrapper {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+.content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ========== UPLOAD ZONE ========== */
+.upload-zone-wrapper {
+  padding: 16px 24px 0;
+  flex-shrink: 0;
+}
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.25s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.upload-zone.drag-over {
+  border-color: var(--primary);
+  background: rgba(13,148,136,0.03);
+  box-shadow: 0 0 0 4px rgba(13,148,136,0.08), inset 0 0 30px rgba(13,148,136,0.02);
+}
+.upload-zone.uploaded {
+  border-style: solid;
+  border-color: var(--success);
+  background: var(--success-bg);
+  padding: 14px 24px;
+}
+.upload-zone-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.25s;
+}
+.upload-zone.drag-over .upload-zone-icon {
+  background: var(--primary-bg);
+}
+.upload-zone.uploaded .upload-zone-icon {
+  background: var(--success-bg);
+}
+.upload-zone-icon svg { width: 22px; height: 22px; color: var(--ink-tertiary); }
+.upload-zone.drag-over .upload-zone-icon svg { color: var(--primary); }
+.upload-zone.uploaded .upload-zone-icon svg { color: var(--success); }
+
+.upload-zone-content { flex: 1; }
+.upload-zone-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.upload-zone-desc {
+  font-size: 0.78rem;
+  color: var(--ink-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.format-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--ink-secondary);
+  letter-spacing: 0.3px;
+}
+
+.upload-zone-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* Uploaded state */
+.upload-success-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.upload-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.upload-file-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.upload-file-detail {
+  font-size: 0.75rem;
+  color: var(--ink-tertiary);
+}
+.upload-progress-bar {
+  width: 100%;
+  height: 3px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.upload-progress-fill {
+  height: 100%;
+  background: var(--success);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+.upload-zone-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--ink-tertiary);
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 8px;
+  transition: color 0.15s;
+}
+.upload-zone-toggle:hover { color: var(--primary); }
+.upload-zone-toggle svg {
+  width: 14px; height: 14px;
+  transition: transform 0.3s;
+}
+.upload-zone-toggle.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+/* ========== RESUME TABLE ========== */
+.resume-table-wrapper {
+  flex: 1;
+  padding: 16px 24px;
+  overflow-y: auto;
+}
+.resume-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.resume-table-title {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.resume-table-count {
+  font-size: 0.75rem;
+  color: var(--ink-tertiary);
+  font-weight: 400;
+}
+.resume-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Table */
+.resume-table {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.resume-table-head {
+  display: grid;
+  grid-template-columns: 40px 72px 90px 72px 100px 1fr 120px 82px 160px;
+  align-items: center;
+  padding: 0 16px;
+  height: 40px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.resume-row {
+  display: grid;
+  grid-template-columns: 40px 72px 90px 72px 100px 1fr 120px 82px 160px;
+  align-items: center;
+  padding: 0 16px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.84rem;
+  transition: background 0.15s;
+  cursor: default;
+  position: relative;
+}
+.resume-row:last-child { border-bottom: none; }
+.resume-row:hover { background: var(--primary-bg); }
+.resume-row.selected { background: rgba(13,148,136,0.07); }
+
+/* Left border status */
+.resume-row.status-success { border-left: 3px solid transparent; }
+.resume-row.status-warning { border-left: 3px solid var(--warning); }
+.resume-row.status-fail { border-left: 3px solid var(--danger); }
+
+.row-index {
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-tertiary);
+}
+.row-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+.row-years {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+.row-company {
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Skill tags */
+.row-skills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  padding-right: 8px;
+}
+.skill-tag {
+  font-size: 0.68rem;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Confidence circle */
+.confidence-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Resume source cell */
+.resume-source {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  padding-right: 6px;
+}
+.resume-source svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-tertiary);
+  flex-shrink: 0;
+}
+.resume-source-link {
+  font-size: 0.72rem;
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.resume-source-link:hover {
+  color: var(--primary);
+}
+.confidence-circle {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+.confidence-circle svg {
+  width: 36px;
+  height: 36px;
+  transform: rotate(-90deg);
+}
+.confidence-circle .bg-ring {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 3;
+}
+.confidence-circle .fg-ring {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s ease;
+}
+.confidence-circle .fg-ring.high { stroke: var(--success); }
+.confidence-circle .fg-ring.medium { stroke: var(--warning); }
+.confidence-circle .fg-ring.low { stroke: var(--danger); }
+.confidence-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Status badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.status-badge.success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.status-badge.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+  animation: subtlePulse 2.5s ease-in-out infinite;
+}
+.status-badge.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.status-badge svg { width: 12px; height: 12px; }
+
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Row actions */
+.row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.row-action-btn {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-secondary);
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+.row-action-btn:hover { background: var(--bg-secondary); color: var(--primary-dark); }
+.row-action-btn svg { width: 12px; height: 12px; }
+.row-action-btn.accent { color: var(--accent); }
+.row-action-btn.accent:hover { background: var(--accent-bg); }
+
+/* ========== EXPANDED ROW ========== */
+.expanded-row {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  opacity: 0;
+}
+.expanded-row.open {
+  max-height: 1200px;
+  opacity: 1;
+}
+
+/* Editable fields in expanded row */
+.edit-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.edit-info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.edit-info-item label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+.edit-info-item input,
+.edit-info-item textarea {
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--ink);
+  background: var(--bg);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.edit-info-item input:focus,
+.edit-info-item textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(13,148,136,0.1);
+}
+.edit-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+}
+.edit-actions .btn-sm {
+  padding: 5px 14px;
+  font-size: 0.75rem;
+}
+.edit-actions .btn-save {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+}
+.edit-actions .btn-save:hover {
+  background: var(--primary-dark);
+}
+.edit-actions .btn-cancel {
+  background: var(--bg-elevated);
+  color: var(--ink-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.edit-actions .btn-cancel:hover {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+.expanded-inner {
+  padding: 20px 24px 20px 56px;
+}
+.expanded-chapters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.expanded-chapter {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+.expanded-chapter.full-width {
+  grid-column: 1 / -1;
+}
+.chapter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chapter-label svg { width: 14px; height: 14px; }
+
+.chapter-content {
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+  line-height: 1.65;
+}
+
+/* Info items */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.info-item svg { width: 14px; height: 14px; color: var(--ink-tertiary); flex-shrink: 0; }
+.info-item span { color: var(--ink-secondary); font-size: 0.82rem; }
+
+/* Work history */
+.work-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.work-item:last-child { border-bottom: none; padding-bottom: 0; }
+.work-item:first-child { padding-top: 0; }
+.work-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.work-company {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+.work-title {
+  font-size: 0.78rem;
+  color: var(--primary-dark);
+}
+.work-period {
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+}
+.work-desc {
+  font-size: 0.78rem;
+  color: var(--ink-tertiary);
+  line-height: 1.55;
+  margin-top: 2px;
+}
+
+/* Education */
+.edu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.edu-school {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+.edu-detail {
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+}
+
+/* Skill list in expanded */
+.skill-list-expanded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.skill-item-expanded {
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--primary-bg);
+  color: var(--primary-dark);
+}
+.skill-item-expanded .level {
+  font-size: 0.68rem;
+  color: var(--ink-tertiary);
+  margin-left: 2px;
+}
+
+/* Tag pill in expanded detail skill area */
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: var(--primary-bg);
+  color: var(--primary-dark);
+  border: 1px solid rgba(13,148,136,0.2);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.tag-pill .tag-remove {
+  cursor: pointer;
+  color: var(--ink-tertiary);
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+}
+.tag-pill .tag-remove:hover { color: var(--danger); }
+
+/* Project items */
+.project-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.project-item:last-child { border-bottom: none; padding-bottom: 0; }
+.project-item:first-child { padding-top: 0; }
+.project-name {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.84rem;
+  margin-bottom: 3px;
+}
+.project-desc {
+  font-size: 0.78rem;
+  color: var(--ink-tertiary);
+  line-height: 1.55;
+}
+
+/* ========== PAGINATION ========== */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+.pagination-info {
+  font-size: 0.78rem;
+  color: var(--ink-tertiary);
+}
+.pagination-info strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-secondary);
+  transition: all 0.15s;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+}
+.page-btn:hover { background: var(--bg-secondary); }
+.page-btn.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+.page-btn.disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+.page-btn svg { width: 14px; height: 14px; }
+
+/* ========== RIGHT PANEL (JD Association) ========== */
+.right-panel {
+  width: 0;
+  min-width: 0;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+.right-panel.open {
+  width: 340px;
+  min-width: 340px;
+}
+.right-panel-inner {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.panel-title {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-title svg { width: 16px; height: 16px; color: var(--primary); }
+.panel-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-tertiary);
+  transition: all 0.15s;
+}
+.panel-close:hover { background: var(--bg-secondary); color: var(--ink); }
+.panel-close svg { width: 16px; height: 16px; }
+
+.panel-candidate-name {
+  padding: 12px 20px;
+  background: var(--primary-bg);
+  font-size: 0.82rem;
+  color: var(--primary-dark);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.jd-list-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 10px;
+}
+
+.jd-item {
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.jd-item:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+.jd-item-content { flex: 1; min-width: 0; }
+.jd-item-name {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.jd-item-version {
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-bg);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.jd-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: var(--ink-tertiary);
+}
+.jd-score {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+.jd-status-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.jd-status-tag.pushed { background: var(--success-bg); color: var(--success); }
+.jd-status-tag.archived { background: var(--bg-secondary); color: var(--ink-tertiary); }
+.jd-item-arrow {
+  flex-shrink: 0;
+  color: var(--ink-tertiary);
+}
+.jd-item-arrow svg { width: 14px; height: 14px; }
+
+/* ========== FAIL REASON ========== */
+.fail-reason {
+  font-size: 0.72rem;
+  color: var(--danger);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+/* ========== MISC ========== */
+.empty-cell {
+  color: var(--ink-tertiary);
+  font-size: 0.78rem;
+}
+.row-name-cell {
+  display: flex;
+  flex-direction: column;
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ===== LEFT SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">RA</div>
+      <div>
+        <div class="brand-text">智能招聘 Agent</div>
+        <div class="brand-sub">Smart Recruitment</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">核心流程</div>
+      <a class="nav-item" href="page-2-task-kanban.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
+        任务看板
+      </a>
+      <a class="nav-item" href="page-1-chat-task-center.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6l-3 3V5a1 1 0 0 1 1-1z"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="11" x2="11" y2="11"/></svg>
+        任务中心
+      </a>
+      <a class="nav-item" href="page-3-jd-management.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="11" y2="13"/></svg>
+        JD 管理
+      </a>
+      <a class="nav-item active" href="page-4-resume-workspace.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h8l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="12,3 12,7 16,7"/><line x1="6" y1="10" x2="13" y2="10"/><line x1="6" y1="13" x2="11" y2="13"/></svg>
+        简历工作台
+      </a>
+      <a class="nav-item" href="page-5-scoring-report.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2.5 5.5L18 9l-4 4 1 5.5L10 16l-5 2.5 1-5.5-4-4 5.5-1.5z"/></svg>
+        评分报告
+      </a>
+      <a class="nav-item" href="page-6-push-feedback.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l2-7 8-8 5 5-8 8-7 2z"/><line x1="12" y1="5" x2="15" y2="8"/></svg>
+        推送反馈
+      </a>
+      <div class="nav-section-label">分析与设置</div>
+      <a class="nav-item" href="page-7-analytics-dashboard.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="7"/><line x1="14" y1="14" x2="14" y2="5"/></svg>
+        数据看板
+      </a>
+      <a class="nav-item" href="page-8-system-settings.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="3"/><path d="M10 2v2m0 12v2m-8-8h2m12 0h2"/><path d="M4.9 4.9l1.4 1.4m7.4 7.4l1.4 1.4m0-10.2l-1.4 1.4M6.3 13.7l-1.4 1.4"/></svg>
+        系统设置
+      </a>
+      <div class="nav-section-label">更多功能</div>
+      <a class="nav-item phase2" href="page-placeholder.html?module=面试安排">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="4"/><line x1="13" y1="2" x2="13" y2="4"/><circle cx="10" cy="12" r="1.5" fill="currentColor"/></svg>
+        面试安排
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=候选人沟通">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6l-3 3V5a1 1 0 0 1 1-1z"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>
+        候选人沟通
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=流程跟踪">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="16" r="2"/><circle cx="16" cy="10" r="2"/><line x1="6" y1="5" x2="14" y2="9"/><line x1="6" y1="15" x2="14" y2="11"/></svg>
+        流程跟踪
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=对比分析">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="12" rx="2"/><rect x="7" y="4" width="10" height="12" rx="2"/></svg>
+        对比分析
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">管</div>
+      <div class="user-info">
+        <div class="user-name">管理员</div>
+        <div class="user-role">超级管理员</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN AREA ===== -->
+  <main class="main-area">
+
+    <!-- Top Nav -->
+    <div class="top-nav">
+      <div class="breadcrumb">
+        <a href="page-2-task-kanban.html">智能招聘 Agent</a>
+        <span class="bc-sep">&#8250;</span>
+        <span class="bc-current">简历工作台</span>
+      </div>
+      <div class="page-title">简历工作台</div>
+      <div class="top-nav-right">
+        <button class="btn-ghost btn-sm">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+          历史记录
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Top Bar -->
+    <div class="page-top-bar">
+      <div class="page-top-bar-left">
+        <div class="task-context-label">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12v10H2z"/><path d="M5 2v2m6-2v2"/></svg>
+          后端开发工程师 — 简历筛选任务
+        </div>
+        <span class="task-context-sub">进行中</span>
+      </div>
+      <div class="page-top-bar-center">
+        <span class="stat-pill total">总计 30 份</span>
+        <span class="stat-sep"></span>
+        <span class="stat-pill success">&#10003; 成功 26</span>
+        <span class="stat-pill warning">&#9888; 低置信度 2</span>
+        <span class="stat-pill danger">&#10007; 失败 2</span>
+      </div>
+      <div class="page-top-bar-right">
+        <button class="btn-outline">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v4h4m8-8V2h-4"/><path d="M12 2l2 2m-4.5 4.5L2 14"/></svg>
+          批量导出
+        </button>
+        <button class="btn-outline">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8a7 7 0 1 1 3.5 6.06"/><path d="M8 1v5l3 3"/></svg>
+          重新解析全部
+        </button>
+        <button class="btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10m-4-5l4 5 4-5"/><path d="M2 14h12"/></svg>
+          人工补录
+        </button>
+      </div>
+    </div>
+
+    <!-- Content Wrapper -->
+    <div class="content-wrapper">
+      <div class="content-scroll">
+
+        <!-- Upload Zone -->
+        <div class="upload-zone-wrapper">
+          <div class="upload-zone uploaded" id="uploadZone">
+            <div class="upload-zone-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+            </div>
+            <div class="upload-zone-content">
+              <div class="upload-success-info">
+                <div class="upload-file-info">
+                  <div class="upload-file-name">backend_resumes_batch.zip (30 files)</div>
+                  <div class="upload-file-detail">全部上传完成 &middot; 解析中 26/30</div>
+                  <div class="upload-progress-bar">
+                    <div class="upload-progress-fill" style="width: 100%"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="upload-zone-toggle collapsed" id="uploadToggle" onclick="toggleUpload()">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+                重新上传
+              </div>
+            </div>
+            <div class="upload-zone-meta">
+              <span style="font-size:0.72rem;color:var(--success);font-weight:600;">&#10003; 已完成</span>
+            </div>
+          </div>
+
+          <!-- Hidden drop zone for re-upload -->
+          <div class="upload-zone" id="uploadDropZone" style="display:none;margin-top:12px;">
+            <div class="upload-zone-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="upload-zone-content">
+              <div class="upload-zone-title">拖拽简历文件到此处，或点击上传</div>
+              <div class="upload-zone-desc">
+                <span class="format-badge">PDF</span>
+                <span class="format-badge">DOCX</span>
+                <span class="format-badge">JPG / PNG (OCR)</span>
+                <span style="margin-left:4px">单次最多 100 份，每份 &le; 10MB</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resume Table -->
+        <div class="resume-table-wrapper">
+          <div class="resume-table-header">
+            <div class="resume-table-title">候选人列表 <span class="resume-table-count">(第 1 页)</span></div>
+            <div class="resume-table-actions">
+              <button class="btn-ghost btn-sm">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h14M1 8h14M1 13h14"/></svg>
+                筛选
+              </button>
+            </div>
+          </div>
+
+          <div class="resume-table">
+            <!-- Table Head -->
+            <div class="resume-table-head">
+              <div>#</div>
+              <div>姓名</div>
+              <div>状态</div>
+              <div>工作年限</div>
+              <div>最新公司</div>
+              <div>核心技能</div>
+              <div>简历来源</div>
+              <div>解析置信度</div>
+              <div style="text-align:right">操作</div>
+            </div>
+
+            <!-- Row 1: 张三 — selected, expanded -->
+            <div class="resume-row status-success selected" onclick="selectRow(this, 1)">
+              <div class="row-index">1</div>
+              <div class="row-name">张三</div>
+              <div><span class="status-badge success"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 成功</span></div>
+              <div class="row-years">5年</div>
+              <div class="row-company">字节跳动</div>
+              <div class="row-skills">
+                <span class="skill-tag">Go</span>
+                <span class="skill-tag">K8s</span>
+                <span class="skill-tag">gRPC</span>
+              </div>
+              <div class="resume-source"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h7l3 4-3 4H2z"/><rect x="4" y="5" width="6" height="4" rx="0.5"/><path d="M6 5V3.5h2V5"/></svg><a class="resume-source-link" onclick="event.stopPropagation();showToast('功能演示：预览简历文件 张三_后端开发_5年.pdf','info')">张三_后端开发_5年.pdf</a></div>
+              <div class="confidence-cell">
+                <div class="confidence-circle">
+                  <svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="3.9"/></svg>
+                  <span class="confidence-value">96</span>
+                </div>
+              </div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();toggleExpand('expand-1')">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 收起
+                </button>
+                <button class="row-action-btn" onclick="event.stopPropagation();">详情</button>
+                <button class="row-action-btn" onclick="event.stopPropagation();openJDPanel();">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 11V5l5-4 5 4v6"/></svg> JD
+                </button>
+              </div>
+            </div>
+            <!-- Expanded detail for Row 1 -->
+            <div class="expanded-row open" id="expand-1">
+              <div class="expanded-inner">
+                <div class="expanded-chapters">
+                  <!-- 基本信息 -->
+                  <div class="expanded-chapter">
+                    <div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="5" r="3"/><path d="M2 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg> 基本信息</div>
+                    <div class="edit-info-grid">
+                      <div class="edit-info-item"><label>当前公司</label><input type="text" value="字节跳动"></div>
+                      <div class="edit-info-item"><label>职位</label><input type="text" value="高级后端工程师"></div>
+                      <div class="edit-info-item"><label>工作年限</label><input type="text" value="5年"></div>
+                      <div class="edit-info-item"><label>学历</label><input type="text" value="硕士"></div>
+                      <div class="edit-info-item"><label>邮箱</label><input type="text" value="zhangsan@email.com"></div>
+                      <div class="edit-info-item"><label>手机号</label><input type="text" value="138****5678"></div>
+                      <div class="edit-info-item"><label>期望薪资</label><input type="text" value="面议"></div>
+                      <div class="edit-actions">
+                        <button class="btn-cancel btn-sm" onclick="event.stopPropagation();showToast('已取消修改','info')">取消</button>
+                        <button class="btn-save btn-sm" onclick="event.stopPropagation();showToast('信息已更新','success')">保存修改</button>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- 教育背景 -->
+                  <div class="expanded-chapter">
+                    <div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1L1 4l6 3 6-3-6-3z"/><path d="M1 7l6 3 6-3"/><path d="M1 10l6 3 6-3"/></svg> 教育背景</div>
+                    <div class="chapter-content">
+                      <div class="editable-record">
+                        <button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast('记录已删除','info')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+                        <div class="edit-info-grid" style="margin-top:8px">
+                          <div class="edit-info-item"><label>学校</label><input type="text" value="北京大学"></div>
+                          <div class="edit-info-item"><label>专业</label><input type="text" value="计算机科学与技术"></div>
+                          <div class="edit-info-item"><label>学历</label><input type="text" value="硕士"></div>
+                          <div class="edit-info-item"><label>时间</label><input type="text" value="2017-2019"></div>
+                        </div>
+                      </div>
+                      <button type="button" class="add-record-btn" onclick="event.stopPropagation();addEduRecord()"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> 添加教育经历</button>
+                    </div>
+                  </div>
+                  <!-- 工作经历 -->
+                  <div class="expanded-chapter">
+                    <div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="9" rx="1.5"/><path d="M5 1v3m4-3v3"/></svg> 工作经历</div>
+                    <div class="chapter-content">
+                      <div class="editable-record">
+                        <button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast('记录已删除','info')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+                        <div class="edit-info-grid" style="margin-top:8px;border-left:3px solid var(--primary-bg);padding-left:12px">
+                          <div class="edit-info-item"><label>公司</label><input type="text" value="字节跳动"></div>
+                          <div class="edit-info-item"><label>职位</label><input type="text" value="高级后端工程师"></div>
+                          <div class="edit-info-item"><label>起止时间</label><input type="text" value="2022.03 - 至今"></div>
+                          <div class="edit-info-item" style="grid-column:span 2"><label>工作描述</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2">负责核心交易系统微服务化改造，主导架构设计与性能优化</textarea></div>
+                        </div>
+                      </div>
+                      <div class="editable-record">
+                        <button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast('记录已删除','info')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+                        <div class="edit-info-grid" style="margin-top:8px;border-left:3px solid var(--primary-bg);padding-left:12px">
+                          <div class="edit-info-item"><label>公司</label><input type="text" value="美团"></div>
+                          <div class="edit-info-item"><label>职位</label><input type="text" value="后端开发工程师"></div>
+                          <div class="edit-info-item"><label>起止时间</label><input type="text" value="2019.07 - 2022.02"></div>
+                          <div class="edit-info-item" style="grid-column:span 2"><label>工作描述</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2">参与配送调度系统开发，优化路径规划算法提升调度效率</textarea></div>
+                        </div>
+                      </div>
+                      <button type="button" class="add-record-btn" onclick="event.stopPropagation();addWorkRecord()"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> 添加工作经历</button>
+                    </div>
+                  </div>
+                  <!-- 技能列表 -->
+                  <div class="expanded-chapter">
+                    <div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v4m0 4v4M1 7h4m4 0h4"/><circle cx="7" cy="7" r="2"/></svg> 技能列表</div>
+                    <div class="tag-input-area" style="flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;flex-wrap:wrap">
+                      <span class="tag-pill">Go<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></span>
+                      <span class="tag-pill">Kubernetes<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></span>
+                      <span class="tag-pill">gRPC<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></span>
+                      <span class="tag-pill">PostgreSQL<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></span>
+                      <span class="tag-pill">Redis<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></span>
+                      <span class="tag-pill">Docker<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></span>
+                      <span class="tag-pill">云原生架构<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></span>
+                      <input class="skill-tag-input" placeholder="输入技能后回车添加" style="border:none;outline:none;background:transparent;font-size:0.82rem;min-width:80px;flex:1;padding:0;">
+                    </div>
+                  </div>
+                  <!-- 项目经验 -->
+                  <div class="expanded-chapter full-width">
+                    <div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 5h6M4 8h4"/></svg> 项目经验</div>
+                    <div class="chapter-content">
+                      <div class="editable-record">
+                        <button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast('记录已删除','info')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+                        <div class="edit-info-grid" style="margin-top:8px">
+                          <div class="edit-info-item" style="grid-column:span 2"><label>项目名称</label><input type="text" value="交易系统微服务化"></div>
+                          <div class="edit-info-item" style="grid-column:span 2"><label>项目描述</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2">主导将单体应用拆分为 20+ 微服务，采用 Go + gRPC 架构，QPS 提升 3 倍，故障恢复时间降低 80%</textarea></div>
+                        </div>
+                      </div>
+                      <div class="editable-record">
+                        <button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast('记录已删除','info')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+                        <div class="edit-info-grid" style="margin-top:8px">
+                          <div class="edit-info-item" style="grid-column:span 2"><label>项目名称</label><input type="text" value="统一网关平台"></div>
+                          <div class="edit-info-item" style="grid-column:span 2"><label>项目描述</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2">设计并实现 API 网关，支持限流、熔断、灰度发布等功能，日均处理请求 5000 万+</textarea></div>
+                        </div>
+                      </div>
+                      <button type="button" class="add-record-btn" onclick="event.stopPropagation();addProjectRecord()"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> 添加项目经验</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 2: 李四 -->
+            <div class="resume-row status-success" onclick="selectRow(this, 2)">
+              <div class="row-index">2</div>
+              <div class="row-name">李四</div>
+              <div><span class="status-badge success"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 成功</span></div>
+              <div class="row-years">4年</div>
+              <div class="row-company">美团</div>
+              <div class="row-skills">
+                <span class="skill-tag">Java</span>
+                <span class="skill-tag">Spring</span>
+                <span class="skill-tag">MySQL</span>
+              </div>
+              <div class="resume-source"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h7l3 4-3 4H2z"/><rect x="4" y="5" width="6" height="4" rx="0.5"/><path d="M6 5V3.5h2V5"/></svg><a class="resume-source-link" onclick="event.stopPropagation();showToast('功能演示：预览简历文件 李四_Java开发_4年.pdf','info')">李四_Java开发_4年.pdf</a></div>
+              <div class="confidence-cell">
+                <div class="confidence-circle">
+                  <svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="7.8"/></svg>
+                  <span class="confidence-value">92</span>
+                </div>
+              </div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();toggleExpand('expand-2')"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开</button>
+                <button class="row-action-btn" onclick="event.stopPropagation();">详情</button>
+              </div>
+            </div>
+            <div class="expanded-row" id="expand-2"><div class="expanded-inner"><div class="chapter-content" style="color:var(--ink-tertiary);font-size:0.82rem;">点击"详情"查看完整简历解析结果</div></div></div>
+
+            <!-- Row 3: 王五 -->
+            <div class="resume-row status-success" onclick="selectRow(this, 3)">
+              <div class="row-index">3</div>
+              <div class="row-name">王五</div>
+              <div><span class="status-badge success"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 成功</span></div>
+              <div class="row-years">3.5年</div>
+              <div class="row-company">阿里巴巴</div>
+              <div class="row-skills">
+                <span class="skill-tag">Python</span>
+                <span class="skill-tag">Django</span>
+                <span class="skill-tag">Redis</span>
+              </div>
+              <div class="resume-source"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h7l3 4-3 4H2z"/><rect x="4" y="5" width="6" height="4" rx="0.5"/><path d="M6 5V3.5h2V5"/></svg><a class="resume-source-link" onclick="event.stopPropagation();showToast('功能演示：预览简历文件 王五_Python开发_3年.pdf','info')">王五_Python开发_3年.pdf</a></div>
+              <div class="confidence-cell">
+                <div class="confidence-circle">
+                  <svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="10.7"/></svg>
+                  <span class="confidence-value">89</span>
+                </div>
+              </div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();toggleExpand('expand-3')"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开</button>
+                <button class="row-action-btn" onclick="event.stopPropagation();">详情</button>
+              </div>
+            </div>
+            <div class="expanded-row" id="expand-3"><div class="expanded-inner"><div class="chapter-content" style="color:var(--ink-tertiary);font-size:0.82rem;">点击"详情"查看完整简历解析结果</div></div></div>
+
+            <!-- Row 4: 赵六 -->
+            <div class="resume-row status-success" onclick="selectRow(this, 4)">
+              <div class="row-index">4</div>
+              <div class="row-name">赵六</div>
+              <div><span class="status-badge success"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 成功</span></div>
+              <div class="row-years">6年</div>
+              <div class="row-company">华为</div>
+              <div class="row-skills">
+                <span class="skill-tag">C++</span>
+                <span class="skill-tag">微服务</span>
+                <span class="skill-tag">Docker</span>
+              </div>
+              <div class="resume-source"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h7l3 4-3 4H2z"/><rect x="4" y="5" width="6" height="4" rx="0.5"/><path d="M6 5V3.5h2V5"/></svg><a class="resume-source-link" onclick="event.stopPropagation();showToast('功能演示：预览简历文件 赵六_C++开发_6年.docx','info')">赵六_C++开发_6年.docx</a></div>
+              <div class="confidence-cell">
+                <div class="confidence-circle">
+                  <svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="5.8"/></svg>
+                  <span class="confidence-value">94</span>
+                </div>
+              </div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();toggleExpand('expand-4')"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开</button>
+                <button class="row-action-btn" onclick="event.stopPropagation();">详情</button>
+              </div>
+            </div>
+            <div class="expanded-row" id="expand-4"><div class="expanded-inner"><div class="chapter-content" style="color:var(--ink-tertiary);font-size:0.82rem;">点击"详情"查看完整简历解析结果</div></div></div>
+
+            <!-- Row 5: 钱七 -->
+            <div class="resume-row status-success" onclick="selectRow(this, 5)">
+              <div class="row-index">5</div>
+              <div class="row-name">钱七</div>
+              <div><span class="status-badge success"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 成功</span></div>
+              <div class="row-years">2年</div>
+              <div class="row-company">小米</div>
+              <div class="row-skills">
+                <span class="skill-tag">Go</span>
+                <span class="skill-tag">etcd</span>
+                <span class="skill-tag">Prometheus</span>
+              </div>
+              <div class="resume-source"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h7l3 4-3 4H2z"/><rect x="4" y="5" width="6" height="4" rx="0.5"/><path d="M6 5V3.5h2V5"/></svg><a class="resume-source-link" onclick="event.stopPropagation();showToast('功能演示：预览简历文件 钱七_SRE运维_2年.pdf','info')">钱七_SRE运维_2年.pdf</a></div>
+              <div class="confidence-cell">
+                <div class="confidence-circle">
+                  <svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="14.6"/></svg>
+                  <span class="confidence-value">85</span>
+                </div>
+              </div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();toggleExpand('expand-5')"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开</button>
+                <button class="row-action-btn" onclick="event.stopPropagation();">详情</button>
+              </div>
+            </div>
+            <div class="expanded-row" id="expand-5"><div class="expanded-inner"><div class="chapter-content" style="color:var(--ink-tertiary);font-size:0.82rem;">点击"详情"查看完整简历解析结果</div></div></div>
+
+            <!-- Row 6: 孙八 — low confidence -->
+            <div class="resume-row status-warning" onclick="selectRow(this, 6)">
+              <div class="row-index">6</div>
+              <div class="row-name">孙八</div>
+              <div><span class="status-badge warning"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v4m0 2v1"/><circle cx="6" cy="6" r="5"/></svg> 低置信度</span></div>
+              <div class="row-years">4年</div>
+              <div class="row-company">未知公司</div>
+              <div class="row-skills">
+                <span class="skill-tag">Node.js</span>
+                <span class="skill-tag">React</span>
+              </div>
+              <div class="resume-source"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h7l3 4-3 4H2z"/><rect x="4" y="5" width="6" height="4" rx="0.5"/><path d="M6 5V3.5h2V5"/></svg><a class="resume-source-link" onclick="event.stopPropagation();showToast('功能演示：预览简历文件 孙八_前端开发_4年.jpg','info')">孙八_前端开发_4年.jpg</a></div>
+              <div class="confidence-cell">
+                <div class="confidence-circle">
+                  <svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring medium" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="31.2"/></svg>
+                  <span class="confidence-value">68</span>
+                </div>
+              </div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();toggleExpand('expand-6')"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开</button>
+                <button class="row-action-btn accent" onclick="event.stopPropagation();"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2v4h4"/><path d="M2 8a4 4 0 0 1 7.2-2.4"/></svg> 补录</button>
+                <button class="row-action-btn" onclick="event.stopPropagation();">重新解析</button>
+              </div>
+            </div>
+            <div class="expanded-row" id="expand-6"><div class="expanded-inner"><div class="chapter-content" style="color:var(--ink-tertiary);font-size:0.82rem;">解析置信度过低，部分字段可能不准确，请人工核实或补录</div></div></div>
+
+            <!-- Row 7: 周九 — low confidence -->
+            <div class="resume-row status-warning" onclick="selectRow(this, 7)">
+              <div class="row-index">7</div>
+              <div class="row-name">周九</div>
+              <div><span class="status-badge warning"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v4m0 2v1"/><circle cx="6" cy="6" r="5"/></svg> 低置信度</span></div>
+              <div class="row-years">7年</div>
+              <div class="row-company empty-cell">&mdash;</div>
+              <div class="row-skills"><span class="empty-cell">&mdash;</span></div>
+              <div class="resume-source"><span class="empty-cell">&mdash;</span></div>
+              <div class="confidence-cell">
+                <div class="confidence-circle">
+                  <svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring medium" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="43.8"/></svg>
+                  <span class="confidence-value">55</span>
+                </div>
+              </div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();toggleExpand('expand-7')"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开</button>
+                <button class="row-action-btn accent" onclick="event.stopPropagation();"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2v4h4"/><path d="M2 8a4 4 0 0 1 7.2-2.4"/></svg> 补录</button>
+                <button class="row-action-btn" onclick="event.stopPropagation();">重新解析</button>
+              </div>
+            </div>
+            <div class="expanded-row" id="expand-7"><div class="expanded-inner"><div class="chapter-content" style="color:var(--ink-tertiary);font-size:0.82rem;">解析置信度过低，大部分字段缺失，建议人工补录或更换文件重新解析</div></div></div>
+
+            <!-- Row 8: 吴十 -->
+            <div class="resume-row status-success" onclick="selectRow(this, 8)">
+              <div class="row-index">8</div>
+              <div class="row-name">吴十</div>
+              <div><span class="status-badge success"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 成功</span></div>
+              <div class="row-years">3年</div>
+              <div class="row-company">腾讯</div>
+              <div class="row-skills">
+                <span class="skill-tag">Java</span>
+                <span class="skill-tag">Kafka</span>
+                <span class="skill-tag">ES</span>
+              </div>
+              <div class="resume-source"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h7l3 4-3 4H2z"/><rect x="4" y="5" width="6" height="4" rx="0.5"/><path d="M6 5V3.5h2V5"/></svg><a class="resume-source-link" onclick="event.stopPropagation();showToast('功能演示：预览简历文件 吴十_后端开发_3年.pdf','info')">吴十_后端开发_3年.pdf</a></div>
+              <div class="confidence-cell">
+                <div class="confidence-circle">
+                  <svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="8.8"/></svg>
+                  <span class="confidence-value">91</span>
+                </div>
+              </div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();toggleExpand('expand-8')"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开</button>
+                <button class="row-action-btn" onclick="event.stopPropagation();">详情</button>
+              </div>
+            </div>
+            <div class="expanded-row" id="expand-8"><div class="expanded-inner"><div class="chapter-content" style="color:var(--ink-tertiary);font-size:0.82rem;">点击"详情"查看完整简历解析结果</div></div></div>
+
+            <!-- Row 9: 郑十一 — failed -->
+            <div class="resume-row status-fail" onclick="selectRow(this, 9)">
+              <div class="row-index">9</div>
+              <div class="row-name" style="color:var(--danger);">郑十一</div>
+              <div><span class="status-badge danger"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l6 6m0-6l-6 6"/></svg> 失败</span></div>
+              <div class="row-years empty-cell">&mdash;</div>
+              <div class="row-company empty-cell">&mdash;</div>
+              <div class="row-skills"><span class="empty-cell">&mdash;</span></div>
+              <div class="resume-source"><span class="empty-cell">&mdash;</span></div>
+              <div class="confidence-cell"><span class="empty-cell">&mdash;</span></div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();">重新解析</button>
+                <button class="row-action-btn accent" onclick="event.stopPropagation();">人工补录</button>
+              </div>
+            </div>
+            <div class="fail-reason" style="padding:0 16px 8px 72px;color:var(--danger);font-size:0.72rem;font-style:italic;">失败原因：文件损坏，无法读取</div>
+
+            <!-- Row 10: 冯十二 — failed -->
+            <div class="resume-row status-fail" onclick="selectRow(this, 10)">
+              <div class="row-index">10</div>
+              <div class="row-name" style="color:var(--danger);">冯十二</div>
+              <div><span class="status-badge danger"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l6 6m0-6l-6 6"/></svg> 失败</span></div>
+              <div class="row-years empty-cell">&mdash;</div>
+              <div class="row-company empty-cell">&mdash;</div>
+              <div class="row-skills"><span class="empty-cell">&mdash;</span></div>
+              <div class="resume-source"><span class="empty-cell">&mdash;</span></div>
+              <div class="confidence-cell"><span class="empty-cell">&mdash;</span></div>
+              <div class="row-actions">
+                <button class="row-action-btn" onclick="event.stopPropagation();">重新解析</button>
+                <button class="row-action-btn accent" onclick="event.stopPropagation();">人工补录</button>
+              </div>
+            </div>
+            <div class="fail-reason" style="padding:0 16px 8px 72px;color:var(--danger);font-size:0.72rem;font-style:italic;">失败原因：文件密码保护，无法访问</div>
+
+          </div><!-- end resume-table -->
+        </div><!-- end resume-table-wrapper -->
+
+        <!-- Pagination -->
+        <div class="pagination-bar">
+          <div class="pagination-info">
+            显示 <strong>1-10</strong> / 共 <strong>30</strong> 条记录
+          </div>
+          <div class="pagination-controls">
+            <button class="page-btn disabled">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4l-4 4 4 4"/></svg>
+            </button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+            </button>
+          </div>
+        </div>
+
+      </div><!-- end content-scroll -->
+
+      <!-- ===== RIGHT PANEL (JD Association) ===== -->
+      <div class="right-panel open" id="rightPanel">
+        <div class="right-panel-inner">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1z"/><path d="M1 6h14"/></svg>
+              关联 JD
+            </div>
+            <button class="panel-close" onclick="closeJDPanel()">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l8 8m0-8l-8 8"/></svg>
+            </button>
+          </div>
+          <div class="panel-candidate-name">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><circle cx="7" cy="5" r="3"/><path d="M2 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+            当前候选人：张三
+          </div>
+          <div class="panel-body">
+            <div class="jd-list-label">候选人 → JD 匹配结果</div>
+
+            <!-- JD Item 1 -->
+            <div class="jd-item">
+              <div class="jd-item-content">
+                <div class="jd-item-name">
+                  后端开发工程师
+                  <span class="jd-item-version">v3.2</span>
+                </div>
+                <div class="jd-item-meta">
+                  <span>评分: <span class="jd-score">92分</span></span>
+                  <span>2026-07-06 14:30</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                <span class="jd-status-tag pushed">已推送</span>
+                <div class="jd-item-arrow"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 3l4 4-4 4"/></svg></div>
+              </div>
+            </div>
+
+            <!-- JD Item 2 -->
+            <div class="jd-item">
+              <div class="jd-item-content">
+                <div class="jd-item-name">
+                  Go 后端工程师
+                  <span class="jd-item-version">v1.0</span>
+                </div>
+                <div class="jd-item-meta">
+                  <span>评分: <span class="jd-score">88分</span></span>
+                  <span>2026-06-28 10:15</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                <span class="jd-status-tag archived">已归档</span>
+                <div class="jd-item-arrow"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 3l4 4-4 4"/></svg></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content-wrapper -->
+  </main>
+</div>
+
+<style>
+/* ===== Toast ===== */
+.toast-container {
+  position: fixed; top: 20px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  background: var(--bg-elevated); color: var(--ink);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 12px 20px; font-size: 0.84rem; font-weight: 500;
+  box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 10px;
+  animation: toastIn 0.3s ease forwards;
+  max-width: 360px;
+}
+.toast.leaving { animation: toastOut 0.3s ease forwards; }
+.toast-icon { width: 18px; height: 18px; flex-shrink: 0; }
+.toast-icon.success { color: var(--success); }
+.toast-icon.info { color: var(--primary); }
+.toast-icon.warning { color: var(--warning); }
+.toast-icon.error { color: var(--danger); }
+@keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+@keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
+
+/* ===== Modal ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(28,25,23,0.35);
+  z-index: 8000; display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.modal-overlay.closing { animation: fadeOut 0.2s ease forwards; }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes fadeOut { from { opacity:1; } to { opacity:0; } }
+.modal-box {
+  background: var(--bg-elevated); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl); width: 620px; max-width: 92vw;
+  animation: modalIn 0.25s ease;
+  overflow: hidden;
+}
+.modal-overlay.closing .modal-box { animation: modalOut 0.2s ease forwards; }
+@keyframes modalIn { from { opacity:0; transform:translateY(20px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes modalOut { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(16px) scale(0.97); } }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px 14px; border-bottom: 1px solid var(--border-light);
+}
+.modal-title { font-family: var(--font-heading); font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.modal-close { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--ink-tertiary); transition: all 0.15s; }
+.modal-close:hover { background: var(--bg-secondary); color: var(--ink); }
+.modal-close svg { width: 16px; height: 16px; }
+.modal-body { padding: 20px 24px; max-height: 65vh; overflow-y: auto; }
+.modal-footer { padding: 14px 24px 18px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-light); }
+
+/* Form */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--ink-secondary); margin-bottom: 6px; }
+.form-input {
+  width: 100%; padding: 9px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 0.84rem; color: var(--ink); background: var(--bg);
+  transition: border-color 0.15s, box-shadow 0.15s; outline: none;
+}
+.form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Tag input area */
+.tag-input-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  min-height: 38px;
+  align-items: center;
+  cursor: text;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.tag-input-area:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.1);
+}
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--primary-bg);
+  color: var(--primary-dark);
+  border: 1px solid rgba(13,148,136,0.2);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.tag-item .tag-remove {
+  cursor: pointer;
+  color: var(--ink-tertiary);
+  font-size: 0.7rem;
+  line-height: 1;
+  margin-left: 2px;
+}
+.tag-item .tag-remove:hover { color: var(--danger); }
+.tag-input-field {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8rem;
+  color: var(--ink);
+  flex: 1;
+  min-width: 80px;
+  padding: 0;
+}
+.tag-input-field::placeholder { color: var(--ink-tertiary); }
+.form-textarea {
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  color: var(--ink);
+  background: var(--bg);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+  resize: vertical;
+  font-family: var(--font-body);
+}
+.form-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.1);
+}
+
+/* Loading spinner in row */
+.resume-row .loading-spinner {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-size: 0.78rem; font-weight: 500;
+}
+.loading-spinner::before {
+  content: ''; width: 14px; height: 14px; border: 2px solid var(--primary-bg);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Search box */
+.search-input {
+  padding: 6px 12px 6px 32px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 0.82rem; color: var(--ink); background: var(--bg); outline: none;
+  transition: border-color 0.15s; width: 180px;
+}
+.search-input:focus { border-color: var(--primary); }
+.search-wrapper { position: relative; display: inline-flex; align-items: center; }
+.search-wrapper svg { position: absolute; left: 10px; width: 14px; height: 14px; color: var(--ink-tertiary); pointer-events: none; }
+
+/* Status filter pills */
+.filter-pills { display: flex; gap: 6px; margin-left: 10px; }
+.filter-pill {
+  font-size: 0.72rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+  cursor: pointer; transition: all 0.15s; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--ink-secondary);
+}
+.filter-pill:hover { border-color: var(--primary); color: var(--primary-dark); }
+.filter-pill.active { background: var(--primary-bg); border-color: var(--primary); color: var(--primary-dark); }
+
+/* ========== MULTI-RECORD EDITABLE SECTIONS ========== */
+.add-record-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 5px 12px;
+  border: 1px dashed var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-body);
+}
+.add-record-btn:hover {
+  background: var(--primary);
+  color: #fff;
+  border-style: solid;
+}
+.editable-record {
+  position: relative;
+  margin-bottom: 12px;
+}
+.editable-record .delete-record-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--ink-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.editable-record .delete-record-btn:hover {
+  background: rgba(220,38,38,0.1);
+  color: var(--danger, #DC2626);
+}
+.entry-record {
+  position: relative;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+.entry-record .delete-record-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--ink-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.entry-record .delete-record-btn:hover {
+  background: rgba(220,38,38,0.1);
+  color: var(--danger, #DC2626);
+}
+</style>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ===== CANDIDATE DATA ===== */
+  const candidates = [
+    { id:1, name:'张三', status:'success', years:'5年', company:'字节跳动', skills:['Go','K8s','gRPC'], confidence:96 },
+    { id:2, name:'李四', status:'success', years:'4年', company:'美团', skills:['Java','Spring','MySQL'], confidence:92 },
+    { id:3, name:'王五', status:'success', years:'3.5年', company:'阿里巴巴', skills:['Python','Django','Redis'], confidence:89 },
+    { id:4, name:'赵六', status:'success', years:'6年', company:'华为', skills:['C++','微服务','Docker'], confidence:94 },
+    { id:5, name:'钱七', status:'success', years:'2年', company:'小米', skills:['Go','etcd','Prometheus'], confidence:85 },
+    { id:6, name:'孙八', status:'warning', years:'4年', company:'未知公司', skills:['Node.js','React'], confidence:68 },
+    { id:7, name:'周九', status:'warning', years:'7年', company:'—', skills:[], confidence:55 },
+    { id:8, name:'吴十', status:'success', years:'3年', company:'腾讯', skills:['Java','Kafka','ES'], confidence:91 },
+    { id:9, name:'郑十一', status:'fail', years:'—', company:'—', skills:[], confidence:0 },
+    { id:10, name:'冯十二', status:'fail', years:'—', company:'—', skills:[], confidence:0 },
+  ];
+
+  let selectedRowId = 1;
+  let expandedRowId = 1;
+  let currentFilter = 'all';
+
+  /* ===== TOAST SYSTEM ===== */
+  function showToast(message, type) {
+    type = type || 'info';
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'toast-container';
+      document.body.appendChild(container);
+    }
+    const icons = {
+      success: '<svg class="toast-icon success" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="7"/><path d="M5.5 9l2.5 2.5 4.5-5"/></svg>',
+      info: '<svg class="toast-icon info" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="7"/><path d="M9 6v4m0 2v0"/></svg>',
+      warning: '<svg class="toast-icon warning" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2l7 13H2z"/><path d="M9 7v3m0 2v0"/></svg>',
+      error: '<svg class="toast-icon error" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="7"/><path d="M6 6l6 6m0-6l-6 6"/></svg>'
+    };
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = (icons[type] || icons.info) + '<span>' + message + '</span>';
+    container.appendChild(toast);
+    setTimeout(function() {
+      toast.classList.add('leaving');
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 2500);
+  }
+
+  /* ===== MODAL SYSTEM ===== */
+  function showModal(title, bodyHTML, onSave) {
+    // Fix: close any existing modals first to prevent double-modal issue
+    document.querySelectorAll('.modal-overlay').forEach(function(el) { el.remove(); });
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML =
+      '<div class="modal-box">' +
+        '<div class="modal-header">' +
+          '<div class="modal-title">' + title + '</div>' +
+          '<button class="modal-close" data-action="close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l8 8m0-8l-8 8"/></svg></button>' +
+        '</div>' +
+        '<div class="modal-body">' + bodyHTML + '</div>' +
+        '<div class="modal-footer">' +
+          '<button class="btn-outline" data-action="close">取消</button>' +
+          '<button class="btn-primary" data-action="save">保存</button>' +
+        '</div>' +
+      '</div>';
+
+    function close() {
+      overlay.classList.add('closing');
+      setTimeout(function() { overlay.remove(); }, 200);
+    }
+
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay || e.target.closest('[data-action="close"]')) {
+        close();
+      }
+    });
+    overlay.querySelector('[data-action="save"]').addEventListener('click', function() {
+      if (onSave) onSave(overlay);
+    });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  /* ===== UPLOAD ZONE ===== */
+  const uploadZone = document.getElementById('uploadZone');
+  const uploadDropZone = document.getElementById('uploadDropZone');
+  const uploadToggle = document.getElementById('uploadToggle');
+
+  window.toggleUpload = function() {
+    if (!uploadDropZone) return;
+    var isVisible = uploadDropZone.style.display !== 'none';
+    if (isVisible) {
+      uploadDropZone.style.display = 'none';
+      uploadToggle.classList.add('collapsed');
+    } else {
+      uploadDropZone.style.display = 'flex';
+      uploadToggle.classList.remove('collapsed');
+    }
+  };
+
+  // Drag-over for drop zone
+  if (uploadDropZone) {
+    uploadDropZone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      uploadDropZone.classList.add('drag-over');
+    });
+    uploadDropZone.addEventListener('dragleave', function(e) {
+      if (!uploadDropZone.contains(e.relatedTarget)) {
+        uploadDropZone.classList.remove('drag-over');
+      }
+    });
+    uploadDropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      uploadDropZone.classList.remove('drag-over');
+      simulateUpload(e.dataTransfer.files);
+    });
+    // Click to trigger file picker
+    uploadDropZone.addEventListener('click', function() {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.pdf,.docx,.doc,.jpg,.jpeg,.png';
+      input.multiple = true;
+      input.onchange = function() { simulateUpload(input.files); };
+      input.click();
+    });
+  }
+
+  // "重新上传" link toggles drop zone; clicking the main upload zone also works
+  if (uploadZone) {
+    uploadZone.addEventListener('click', function(e) {
+      if (e.target.closest('#uploadToggle') || e.target.closest('.upload-zone-toggle')) return;
+      // If already uploaded, toggle drop zone
+      if (uploadZone.classList.contains('uploaded')) {
+        toggleUpload();
+      }
+    });
+  }
+
+  function simulateUpload(files) {
+    var count = files ? files.length : 0;
+    if (count === 0) count = Math.floor(Math.random() * 20) + 5;
+
+    // Switch to uploading state
+    uploadZone.classList.remove('uploaded');
+    uploadZone.innerHTML =
+      '<div class="upload-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>' +
+      '<div class="upload-zone-content">' +
+        '<div class="upload-zone-title">上传中...</div>' +
+        '<div class="upload-zone-desc"><span>正在处理 ' + count + ' 份简历</span></div>' +
+        '<div class="upload-progress-bar" style="margin-top:8px;"><div class="upload-progress-fill" id="uploadProgressFill" style="width:0%"></div></div>' +
+      '</div>';
+
+    // Animate progress
+    var fill = document.getElementById('uploadProgressFill');
+    var progress = 0;
+    var timer = setInterval(function() {
+      progress += Math.random() * 15 + 5;
+      if (progress > 100) progress = 100;
+      fill.style.width = progress + '%';
+      if (progress >= 100) {
+        clearInterval(timer);
+        setTimeout(function() {
+          // Switch to completed
+          uploadZone.classList.add('uploaded');
+          uploadZone.innerHTML =
+            '<div class="upload-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg></div>' +
+            '<div class="upload-zone-content">' +
+              '<div class="upload-success-info">' +
+                '<div class="upload-file-info">' +
+                  '<div class="upload-file-name">新简历批次 (' + count + ' files)</div>' +
+                  '<div class="upload-file-detail">全部上传完成</div>' +
+                  '<div class="upload-progress-bar"><div class="upload-progress-fill" style="width:100%"></div></div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="upload-zone-toggle collapsed" id="uploadToggle" onclick="toggleUpload()">' +
+                '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>' +
+                '重新上传' +
+              '</div>' +
+            '</div>' +
+            '<div class="upload-zone-meta"><span style="font-size:0.72rem;color:var(--success);font-weight:600;">&#10003; 已完成</span></div>';
+          showToast('上传完成: ' + count + ' 份简历已上传', 'success');
+        }, 300);
+      }
+    }, 200);
+  }
+
+  /* ===== ACCORDION EXPAND/COLLAPSE ===== */
+  window.toggleExpand = function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+
+    var wasOpen = el.classList.contains('open');
+
+    // Close all expanded rows (accordion)
+    document.querySelectorAll('.expanded-row.open').forEach(function(row) {
+      row.classList.remove('open');
+      var prevRow = row.previousElementSibling;
+      if (prevRow) {
+        var btn = prevRow.querySelector('.row-action-btn');
+        if (btn) {
+          setExpandBtn(btn, 'expand');
+        }
+      }
+    });
+
+    if (!wasOpen) {
+      el.classList.add('open');
+      expandedRowId = id;
+      var prevRow = el.previousElementSibling;
+      if (prevRow) {
+        var btn = prevRow.querySelector('.row-action-btn');
+        if (btn) {
+          setExpandBtn(btn, 'collapse');
+        }
+      }
+    } else {
+      expandedRowId = null;
+    }
+  };
+
+  function setExpandBtn(btn, state) {
+    if (state === 'collapse') {
+      btn.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7.5l3-3 3 3"/></svg> 收起';
+    } else {
+      btn.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开';
+    }
+  }
+
+  /* ===== ROW SELECT ===== */
+  window.selectRow = function(row, idx) {
+    document.querySelectorAll('.resume-row').forEach(function(r) { r.classList.remove('selected'); });
+    row.classList.add('selected');
+    selectedRowId = idx;
+    // Update right panel candidate name
+    var name = row.querySelector('.row-name');
+    if (name) {
+      var panelName = document.querySelector('.panel-candidate-name');
+      if (panelName) {
+        panelName.innerHTML = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><circle cx="7" cy="5" r="3"/><path d="M2 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg> 当前候选人：' + name.textContent.trim();
+      }
+    }
+  };
+
+  /* ===== RIGHT PANEL ===== */
+  window.openJDPanel = function() {
+    document.getElementById('rightPanel').classList.add('open');
+  };
+  window.closeJDPanel = function() {
+    document.getElementById('rightPanel').classList.remove('open');
+  };
+
+  // JD button in top-nav-right: toggle panel
+  // We bind to all JD buttons in rows
+  document.querySelectorAll('.row-action-btn').forEach(function(btn) {
+    if (btn.textContent.trim() === 'JD') {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openJDPanel();
+      });
+    }
+  });
+
+  /* ===== BATCH ACTION BUTTONS ===== */
+  // 批量导出
+  document.querySelectorAll('.page-top-bar-right .btn-outline').forEach(function(btn) {
+    if (btn.textContent.trim() === '批量导出') {
+      btn.addEventListener('click', function() {
+        showToast('已导出 30 份简历摘要', 'success');
+      });
+    }
+    if (btn.textContent.trim() === '重新解析全部') {
+      btn.addEventListener('click', function() {
+        // Show loading on all rows
+        document.querySelectorAll('.resume-row').forEach(function(row) {
+          var statusCell = row.querySelector('.status-badge');
+          if (statusCell) {
+            var origHTML = statusCell.innerHTML;
+            statusCell.innerHTML = '';
+            statusCell.className = 'status-badge warning';
+            statusCell.innerHTML = '<span class="loading-spinner">解析中...</span>';
+            statusCell.dataset.origHTML = origHTML;
+            statusCell.dataset.origClass = statusCell.className;
+          }
+        });
+        showToast('正在重新解析全部简历...', 'info');
+        setTimeout(function() {
+          document.querySelectorAll('.resume-row').forEach(function(row) {
+            var statusCell = row.querySelector('.status-badge');
+            if (!statusCell) return;
+            if (row.classList.contains('status-fail')) {
+              // 70% chance success, 30% fail
+              var success = Math.random() < 0.7;
+              if (success) {
+                row.classList.remove('status-fail');
+                row.classList.add('status-success');
+                statusCell.className = 'status-badge success';
+                statusCell.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 成功';
+              } else {
+                statusCell.className = 'status-badge danger';
+                statusCell.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l6 6m0-6l-6 6"/></svg> 失败';
+              }
+              // Update confidence
+              var confCell = row.querySelector('.confidence-cell');
+              if (confCell && success) {
+                var score = Math.floor(Math.random() * 20) + 70;
+                var offset = (97.4 * (100 - score)) / 100;
+                confCell.innerHTML =
+                  '<div class="confidence-circle"><svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg><span class="confidence-value">' + score + '</span></div>';
+              }
+            } else {
+              // Restore original status
+              if (statusCell.dataset.origHTML) {
+                statusCell.innerHTML = statusCell.dataset.origHTML;
+                statusCell.className = statusCell.dataset.origClass || 'status-badge success';
+              }
+            }
+          });
+          showToast('重新解析完成', 'success');
+        }, 2000);
+      });
+    }
+  });
+
+  // 人工补录 (top bar)
+  document.querySelectorAll('.page-top-bar-right .btn-ghost').forEach(function(btn) {
+    if (btn.textContent.trim() === '人工补录') {
+      btn.addEventListener('click', function() { showManualEntryModal(null); });
+    }
+  });
+
+  /* ===== DETAIL BUTTON ===== */
+  document.querySelectorAll('.row-action-btn').forEach(function(btn) {
+    if (btn.textContent.trim() === '详情') {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var row = btn.closest('.resume-row');
+        var idx = row.querySelector('.row-index').textContent.trim();
+        var id = 'expand-' + idx;
+        // Toggle expand for this row
+        var el = document.getElementById(id);
+        if (el) {
+          toggleExpand(id);
+          // Populate with full detail content if placeholder
+          if (el.querySelector('.chapter-content') && el.querySelector('.chapter-content').textContent.includes('点击')) {
+            populateExpandedDetail(el, parseInt(idx));
+          }
+        }
+      });
+    }
+  });
+
+  function populateExpandedDetail(expandedEl, idx) {
+    var c = candidates[idx - 1];
+    if (!c) return;
+    var inner = expandedEl.querySelector('.expanded-inner');
+    if (!inner) return;
+
+    var skillsHTML = c.skills.map(function(s) {
+      return '<span class="tag-pill">' + s + '<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></span>';
+    }).join('');
+
+    var emailVal = c.name.toLowerCase() + '@email.com';
+    var phoneVal = '138****' + String(1000 + idx * 111).slice(-4);
+    var companyVal = (c.company !== '\u2014' && c.company !== '') ? c.company : '';
+    var yearsVal = c.years !== '\u2014' ? c.years : '';
+
+    var deleteBtnHTML = '<button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast(\'\u8bb0\u5f55\u5df2\u5220\u9664\',\'info\')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>';
+
+    // Education records (2 items)
+    var eduRecordsHTML =
+      '<div class="editable-record">' + deleteBtnHTML +
+        '<div class="edit-info-grid" style="margin-top:8px"><div class="edit-info-item"><label>\u5b66\u6821</label><input type="text" value="\u793a\u4f8b\u5927\u5b66"></div><div class="edit-info-item"><label>\u4e13\u4e1a</label><input type="text" value="\u8ba1\u7b97\u673a\u79d1\u5b66"></div><div class="edit-info-item"><label>\u5b66\u5386</label><input type="text" value="\u7855\u58eb"></div><div class="edit-info-item"><label>\u65f6\u95f4</label><input type="text" value="2017-2020"></div></div>' +
+      '</div>' +
+      '<div class="editable-record">' + deleteBtnHTML +
+        '<div class="edit-info-grid" style="margin-top:8px"><div class="edit-info-item"><label>\u5b66\u6821</label><input type="text" value="\u793a\u4f8b\u5927\u5b66\u5728\u7ebf\u5b66\u9662"></div><div class="edit-info-item"><label>\u4e13\u4e1a</label><input type="text" value="\u8f6f\u4ef6\u5de5\u7a0b"></div><div class="edit-info-item"><label>\u5b66\u5386</label><input type="text" value="\u672c\u79d1"></div><div class="edit-info-item"><label>\u65f6\u95f4</label><input type="text" value="2013-2017"></div></div>' +
+      '</div>';
+
+    // Work records (2 items)
+    var companyDisplay = c.company !== '\u2014' ? c.company : '\u672a\u77e5';
+    var workRecordsHTML =
+      '<div class="editable-record">' + deleteBtnHTML +
+        '<div class="edit-info-grid" style="margin-top:8px;border-left:3px solid var(--primary-bg);padding-left:12px"><div class="edit-info-item"><label>\u516c\u53f8</label><input type="text" value="' + companyDisplay + '"></div><div class="edit-info-item"><label>\u804c\u4f4d</label><input type="text" value="\u2014"></div><div class="edit-info-item"><label>\u8d77\u6b62\u65f6\u95f4</label><input type="text" value="\u8fd1\u671f"></div><div class="edit-info-item" style="grid-column:span 2"><label>\u5de5\u4f5c\u63cf\u8ff0</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2">\u76f8\u5173\u5de5\u4f5c\u7ecf\u5386\u8be6\u60c5</textarea></div></div>' +
+      '</div>' +
+      '<div class="editable-record">' + deleteBtnHTML +
+        '<div class="edit-info-grid" style="margin-top:8px;border-left:3px solid var(--primary-bg);padding-left:12px"><div class="edit-info-item"><label>\u516c\u53f8</label><input type="text" value="\u524d\u4e00\u5bb6\u516c\u53f8"></div><div class="edit-info-item"><label>\u804c\u4f4d</label><input type="text" value="\u5f00\u53d1\u5de5\u7a0b\u5e08"></div><div class="edit-info-item"><label>\u8d77\u6b62\u65f6\u95f4</label><input type="text" value="\u66f4\u65e9"></div><div class="edit-info-item" style="grid-column:span 2"><label>\u5de5\u4f5c\u63cf\u8ff0</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2">\u65e9\u671f\u5de5\u4f5c\u7ecf\u5386\u63cf\u8ff0</textarea></div></div>' +
+      '</div>';
+
+    // Project records (2 items)
+    var projectRecordsHTML =
+      '<div class="editable-record">' + deleteBtnHTML +
+        '<div class="edit-info-grid" style="margin-top:8px"><div class="edit-info-item" style="grid-column:span 2"><label>\u9879\u76ee\u540d\u79f0</label><input type="text" value="\u4ee3\u8868\u6027\u9879\u76ee"></div><div class="edit-info-item" style="grid-column:span 2"><label>\u9879\u76ee\u63cf\u8ff0</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2">\u9879\u76ee\u8be6\u7ec6\u63cf\u8ff0\u4fe1\u606f</textarea></div></div>' +
+      '</div>' +
+      '<div class="editable-record">' + deleteBtnHTML +
+        '<div class="edit-info-grid" style="margin-top:8px"><div class="edit-info-item" style="grid-column:span 2"><label>\u9879\u76ee\u540d\u79f0</label><input type="text" value="\u5176\u4ed6\u9879\u76ee"></div><div class="edit-info-item" style="grid-column:span 2"><label>\u9879\u76ee\u63cf\u8ff0</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2">\u5176\u4ed6\u9879\u76ee\u63cf\u8ff0\u4fe1\u606f</textarea></div></div>' +
+      '</div>';
+
+    inner.innerHTML =
+      '<div class="expanded-chapters">' +
+        '<div class="expanded-chapter">' +
+          '<div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="5" r="3"/><path d="M2 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg> \u57fa\u672c\u4fe1\u606f</div>' +
+          '<div class="edit-info-grid">' +
+            '<div class="edit-info-item"><label>\u5f53\u524d\u516c\u53f8</label><input type="text" value="' + companyVal + '"></div>' +
+            '<div class="edit-info-item"><label>\u804c\u4f4d</label><input type="text" value="\u2014"></div>' +
+            '<div class="edit-info-item"><label>\u5de5\u4f5c\u5e74\u9650</label><input type="text" value="' + yearsVal + '"></div>' +
+            '<div class="edit-info-item"><label>\u5b66\u5386</label><input type="text" value="\u2014"></div>' +
+            '<div class="edit-info-item"><label>\u90ae\u7bb1</label><input type="text" value="' + emailVal + '"></div>' +
+            '<div class="edit-info-item"><label>\u624b\u673a\u53f7</label><input type="text" value="' + phoneVal + '"></div>' +
+            '<div class="edit-info-item"><label>\u671f\u671b\u85aa\u8d44</label><input type="text" value="\u9762\u8bae"></div>' +
+            '<div class="edit-actions">' +
+              '<button class="btn-cancel btn-sm" onclick="event.stopPropagation();showToast(\'\u5df2\u53d6\u6d88\u4fee\u6539\',\'info\')">\u53d6\u6d88</button>' +
+              '<button class="btn-save btn-sm" onclick="event.stopPropagation();showToast(\'\u4fe1\u606f\u5df2\u66f4\u65b0\',\'success\')">\u4fdd\u5b58\u4fee\u6539</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="expanded-chapter">' +
+          '<div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1L1 4l6 3 6-3-6-3z"/><path d="M1 7l6 3 6-3"/><path d="M1 10l6 3 6-3"/></svg> \u6559\u80b2\u80cc\u666f</div>' +
+          '<div class="chapter-content">' +
+            eduRecordsHTML +
+            '<button type="button" class="add-record-btn" onclick="event.stopPropagation();addEduRecord()"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> \u6dfb\u52a0\u6559\u80b2\u7ecf\u5386</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="expanded-chapter">' +
+          '<div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="9" rx="1.5"/><path d="M5 1v3m4-3v3"/></svg> \u5de5\u4f5c\u7ecf\u5386</div>' +
+          '<div class="chapter-content">' +
+            workRecordsHTML +
+            '<button type="button" class="add-record-btn" onclick="event.stopPropagation();addWorkRecord()"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> \u6dfb\u52a0\u5de5\u4f5c\u7ecf\u5386</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="expanded-chapter">' +
+          '<div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v4m0 4v4M1 7h4m4 0h4"/><circle cx="7" cy="7" r="2"/></svg> \u6280\u80fd\u5217\u8868</div>' +
+          '<div class="tag-input-area" style="flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;flex-wrap:wrap">' + skillsHTML + '<input class="skill-tag-input" placeholder="\u8f93\u5165\u6280\u80fd\u540e\u56de\u8f66\u6dfb\u52a0" style="border:none;outline:none;background:transparent;font-size:0.82rem;min-width:80px;flex:1;padding:0;"></div>' +
+        '</div>' +
+        '<div class="expanded-chapter full-width">' +
+          '<div class="chapter-label"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 5h6M4 8h4"/></svg> \u9879\u76ee\u7ecf\u9a8c</div>' +
+          '<div class="chapter-content">' +
+            projectRecordsHTML +
+            '<button type="button" class="add-record-btn" onclick="event.stopPropagation();addProjectRecord()"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> \u6dfb\u52a0\u9879\u76ee\u7ecf\u9a8c</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    // Bind skill-tag-input keydown in expanded detail
+    var skillInput = inner.querySelector('.skill-tag-input');
+    if (skillInput) {
+      var skillArea = skillInput.closest('.tag-input-area');
+      skillInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var val = skillInput.value.trim();
+          if (val) {
+            var pill = document.createElement('span');
+            pill.className = 'tag-pill';
+            pill.innerHTML = val + '<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span>';
+            skillArea.insertBefore(pill, skillInput);
+            skillInput.value = '';
+          }
+        }
+      });
+    }
+  }
+
+  /* ===== Bind skill-tag-input keydown for static expanded details ===== */
+  document.querySelectorAll('.skill-tag-input').forEach(function(input) {
+    var area = input.closest('.tag-input-area');
+    if (area && !input.dataset.bound) {
+      input.dataset.bound = '1';
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var val = input.value.trim();
+          if (val) {
+            var pill = document.createElement('span');
+            pill.className = 'tag-pill';
+            pill.innerHTML = val + '<span class="tag-remove" onclick="this.parentElement.remove()"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;vertical-align:middle;margin-left:3px"><path d="M2 2l6 6M8 2l-6 6"/></svg></span>';
+            area.insertBefore(pill, input);
+            input.value = '';
+          }
+        }
+      });
+    }
+  });
+
+  /* ===== 补录 BUTTON (for failed/warning) ===== */
+  document.querySelectorAll('.row-action-btn.accent').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var row = btn.closest('.resume-row');
+      var nameEl = row.querySelector('.row-name');
+      var hintName = nameEl ? nameEl.textContent.trim() : '';
+      showManualEntryModal(row);
+    });
+  });
+
+  // 人工补录 in fail rows
+  document.querySelectorAll('.row-action-btn').forEach(function(btn) {
+    if (btn.textContent.trim() === '人工补录') {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var row = btn.closest('.resume-row');
+        var nameEl = row.querySelector('.row-name');
+        var hintName = nameEl ? nameEl.textContent.trim() : '';
+        showManualEntryModal(row);
+      });
+    }
+  });
+
+  function showManualEntryModal(row) {
+    var hintName = '';
+    if (row) {
+      var nameEl = row.querySelector('.row-name');
+      hintName = nameEl ? nameEl.textContent.trim() : '';
+    }
+    var formHTML =
+      '<div class="form-group">' +
+        '<label class="form-label">姓名 <span style="color:var(--danger)">*</span></label>' +
+        '<input class="form-input" id="entryName" placeholder="请输入姓名" value="' + hintName + '">' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group">' +
+          '<label class="form-label">手机号</label>' +
+          '<input class="form-input" id="entryPhone" placeholder="138****5678">' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">邮箱</label>' +
+          '<input class="form-input" id="entryEmail" placeholder="name@email.com">' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group">' +
+          '<label class="form-label">当前公司</label>' +
+          '<input class="form-input" id="entryCompany" placeholder="当前/最新公司">' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">职位</label>' +
+          '<input class="form-input" id="entryPosition" placeholder="职位名称">' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group">' +
+          '<label class="form-label">工作年限</label>' +
+          '<select class="form-input" id="entryYears">' +
+            '<option value="">请选择</option>' +
+            '<option value="1年以下">1年以下</option>' +
+            '<option value="1-3年">1-3年</option>' +
+            '<option value="3-5年">3-5年</option>' +
+            '<option value="5-10年">5-10年</option>' +
+            '<option value="10年以上">10年以上</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">学历</label>' +
+          '<select class="form-input" id="entryEducation">' +
+            '<option value="">请选择</option>' +
+            '<option value="大专">大专</option>' +
+            '<option value="本科">本科</option>' +
+            '<option value="硕士">硕士</option>' +
+            '<option value="博士">博士</option>' +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label class="form-label">期望薪资</label>' +
+        '<input class="form-input" id="entrySalary" placeholder="如：20k-30k">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label class="form-label">核心技能</label>' +
+        '<div class="tag-input-area" id="tagInputArea" onclick="this.querySelector(\'input\').focus()">' +
+          '<input class="tag-input-field" id="tagInputField" placeholder="输入技能后按回车添加">' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label class="form-label">自我评价</label>' +
+        '<textarea class="form-textarea" id="entrySelfIntro" rows="2" placeholder="简要描述个人优势和职业方向"></textarea>' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label class="form-label">工作经历</label>' +
+        '<div class="entry-records-container" id="entryWorkRecords">' +
+          '<div class="entry-record">' +
+            '<button class="delete-record-btn" onclick="if(this.parentElement.parentElement.children.length>1){this.parentElement.remove();showToast(\'已移除\',\'info\')}else{showToast(\'至少保留一条记录\',\'warning\')}"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>' +
+            '<div class="form-row"><div class="form-group"><label class="form-label" style="font-size:0.7rem">公司</label><input class="form-input" placeholder="公司名称"></div><div class="form-group"><label class="form-label" style="font-size:0.7rem">职位</label><input class="form-input" placeholder="职位名称"></div></div>' +
+            '<div class="form-row"><div class="form-group"><label class="form-label" style="font-size:0.7rem">起止时间</label><input class="form-input" placeholder="如：2020.01-2023.06"></div></div>' +
+            '<div class="form-group"><label class="form-label" style="font-size:0.7rem">工作描述</label><textarea class="form-textarea" rows="2" placeholder="主要工作内容和成果"></textarea></div>' +
+          '</div>' +
+        '</div>' +
+        '<button type="button" class="add-record-btn" onclick="addEntryRecord(\'entryWorkRecords\', workRecordTemplate)"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> 添加工作经历</button>' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label class="form-label">教育背景</label>' +
+        '<div class="entry-records-container" id="entryEduRecords">' +
+          '<div class="entry-record">' +
+            '<button class="delete-record-btn" onclick="if(this.parentElement.parentElement.children.length>1){this.parentElement.remove();showToast(\'已移除\',\'info\')}else{showToast(\'至少保留一条记录\',\'warning\')}"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>' +
+            '<div class="form-row"><div class="form-group"><label class="form-label" style="font-size:0.7rem">学校</label><input class="form-input" placeholder="学校名称"></div><div class="form-group"><label class="form-label" style="font-size:0.7rem">专业</label><input class="form-input" placeholder="专业名称"></div></div>' +
+            '<div class="form-row"><div class="form-group"><label class="form-label" style="font-size:0.7rem">学历</label><input class="form-input" placeholder="如：本科/硕士"></div><div class="form-group"><label class="form-label" style="font-size:0.7rem">时间</label><input class="form-input" placeholder="如：2016-2020"></div></div>' +
+          '</div>' +
+        '</div>' +
+        '<button type="button" class="add-record-btn" onclick="addEntryRecord(\'entryEduRecords\', eduRecordTemplate)"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> 添加教育背景</button>' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label class="form-label">项目经验</label>' +
+        '<div class="entry-records-container" id="entryProjectRecords">' +
+          '<div class="entry-record">' +
+            '<button class="delete-record-btn" onclick="if(this.parentElement.parentElement.children.length>1){this.parentElement.remove();showToast(\'已移除\',\'info\')}else{showToast(\'至少保留一条记录\',\'warning\')}"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>' +
+            '<div class="form-group"><label class="form-label" style="font-size:0.7rem">项目名称</label><input class="form-input" placeholder="项目名称"></div>' +
+            '<div class="form-group"><label class="form-label" style="font-size:0.7rem">项目描述</label><textarea class="form-textarea" rows="2" placeholder="项目描述和职责"></textarea></div>' +
+          '</div>' +
+        '</div>' +
+        '<button type="button" class="add-record-btn" onclick="addEntryRecord(\'entryProjectRecords\', projectRecordTemplate)"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M4 10h12"/></svg> 添加项目经验</button>' +
+      '</div>';
+
+    var modal = showModal('人工补录', formHTML, function(modalEl) {
+      var name = modalEl.querySelector('#entryName').value.trim();
+      if (!name) { showToast('请输入姓名', 'warning'); return; }
+      var phone = modalEl.querySelector('#entryPhone').value.trim();
+      var email = modalEl.querySelector('#entryEmail').value.trim();
+      var company = modalEl.querySelector('#entryCompany').value.trim();
+      var position = modalEl.querySelector('#entryPosition').value.trim();
+      var years = modalEl.querySelector('#entryYears').value;
+      var education = modalEl.querySelector('#entryEducation').value;
+      var salary = modalEl.querySelector('#entrySalary').value.trim();
+      var skills = [];
+      modalEl.querySelectorAll('.tag-item').forEach(function(tag) {
+        skills.push(tag.textContent.replace('×', '').trim());
+      });
+
+      // If editing an existing failed row
+      if (row) {
+        var nameEl = row.querySelector('.row-name');
+        if (nameEl) { nameEl.textContent = name; nameEl.style.color = ''; }
+        var statusCell = row.querySelector('.status-badge');
+        if (statusCell) {
+          statusCell.className = 'status-badge success';
+          statusCell.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 人工录入';
+        }
+        row.classList.remove('status-fail', 'status-warning');
+        row.classList.add('status-success');
+        // Update confidence
+        var confCell = row.querySelector('.confidence-cell');
+        if (confCell) {
+          var score = 80;
+          var offset = (97.4 * (100 - score)) / 100;
+          confCell.innerHTML =
+            '<div class="confidence-circle"><svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg><span class="confidence-value">' + score + '</span></div>';
+        }
+        if (company) {
+          var companyEl = row.querySelector('.row-company');
+          if (companyEl) companyEl.textContent = company;
+        }
+        if (years) {
+          var yearsEl = row.querySelector('.row-years');
+          if (yearsEl) yearsEl.textContent = years;
+        }
+        // Update skills
+        if (skills.length > 0) {
+          var skillsEl = row.querySelector('.row-skills');
+          if (skillsEl) {
+            skillsEl.innerHTML = skills.map(function(s) { return '<span class="skill-tag">' + s + '</span>'; }).join('');
+          }
+        }
+        showToast('补录成功: ' + name, 'success');
+      } else {
+        // Add new row to table
+        addNewRow(name, phone, email, company, position, years, education, salary, skills);
+        showToast('已添加候选人: ' + name, 'success');
+      }
+    });
+
+    // Bind tag input behavior after modal is rendered
+    var tagInputField = modal.querySelector('#tagInputField');
+    var tagInputArea = modal.querySelector('#tagInputArea');
+    if (tagInputField && tagInputArea) {
+      tagInputField.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          var val = tagInputField.value.trim();
+          if (val && tagInputArea.querySelectorAll('.tag-item').length < 10) {
+            var tag = document.createElement('span');
+            tag.className = 'tag-item';
+            tag.innerHTML = val + ' <span class="tag-remove" onclick="event.stopPropagation();this.parentElement.remove()">×</span>';
+            tagInputArea.insertBefore(tag, tagInputField);
+            tagInputField.value = '';
+          }
+        }
+        if (e.key === 'Backspace' && !tagInputField.value) {
+          var lastTag = tagInputArea.querySelector('.tag-item:last-of-type');
+          if (lastTag) lastTag.remove();
+        }
+      });
+    }
+  }
+
+  function addNewRow(name, phone, email, company, position, years, education, salary, skills) {
+    var table = document.querySelector('.resume-table');
+    var lastRow = table.querySelector('.resume-row:last-of-type');
+    var nextIdx = table.querySelectorAll('.resume-row').length + 1;
+
+    var displayYears = years || '—';
+    var displaySkills = (skills && skills.length > 0) ? skills.map(function(s) { return '<span class="skill-tag">' + s + '</span>'; }).join('') : (position ? '<span class="skill-tag">' + position + '</span>' : '<span class="empty-cell">—</span>');
+
+    var newRow = document.createElement('div');
+    newRow.className = 'resume-row status-success';
+    newRow.setAttribute('onclick', 'selectRow(this, ' + nextIdx + ')');
+    newRow.innerHTML =
+      '<div class="row-index">' + nextIdx + '</div>' +
+      '<div class="row-name">' + name + '</div>' +
+      '<div><span class="status-badge success"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 人工录入</span></div>' +
+      '<div class="row-years">' + displayYears + '</div>' +
+      '<div class="row-company">' + (company || '—') + '</div>' +
+      '<div class="row-skills">' + displaySkills + '</div>' +
+      '<div class="resume-source"><span class="empty-cell">—</span></div>' +
+      '<div class="confidence-cell"><div class="confidence-circle"><svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="19.5"/></svg><span class="confidence-value">80</span></div></div>' +
+      '<div class="row-actions">' +
+        '<button class="row-action-btn" onclick="event.stopPropagation();toggleExpand(\'expand-new-' + nextIdx + '\')"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg> 展开</button>' +
+        '<button class="row-action-btn" onclick="event.stopPropagation();">详情</button>' +
+        '<button class="row-action-btn" onclick="event.stopPropagation();openJDPanel();"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 11V5l5-4 5 4v6"/></svg> JD</button>' +
+      '</div>';
+
+    var expandedDiv = document.createElement('div');
+    expandedDiv.className = 'expanded-row';
+    expandedDiv.id = 'expand-new-' + nextIdx;
+    expandedDiv.innerHTML = '<div class="expanded-inner"><div class="chapter-content" style="color:var(--ink-tertiary);font-size:0.82rem;">人工录入的候选人信息</div></div>';
+
+    if (lastRow) {
+      lastRow.after(newRow);
+      newRow.after(expandedDiv);
+    } else {
+      table.appendChild(newRow);
+      table.appendChild(expandedDiv);
+    }
+
+    // Bind detail button
+    newRow.querySelectorAll('.row-action-btn').forEach(function(btn) {
+      if (btn.textContent.trim() === '详情') {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          toggleExpand('expand-new-' + nextIdx);
+        });
+      }
+    });
+  }
+
+  /* ===== 重新解析 BUTTON (for failed/warning) ===== */
+  document.querySelectorAll('.row-action-btn').forEach(function(btn) {
+    if (btn.textContent.trim() === '重新解析') {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var row = btn.closest('.resume-row');
+        var statusCell = row.querySelector('.status-badge');
+        if (!statusCell) return;
+
+        // Set loading state
+        var origHTML = statusCell.innerHTML;
+        statusCell.className = 'status-badge warning';
+        statusCell.innerHTML = '<span class="loading-spinner">解析中...</span>';
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+
+        setTimeout(function() {
+          var success = Math.random() < 0.7;
+          if (success) {
+            row.classList.remove('status-fail', 'status-warning');
+            row.classList.add('status-success');
+            statusCell.className = 'status-badge success';
+            statusCell.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg> 成功';
+            // Update confidence
+            var confCell = row.querySelector('.confidence-cell');
+            if (confCell) {
+              var score = Math.floor(Math.random() * 20) + 75;
+              var offset = (97.4 * (100 - score)) / 100;
+              confCell.innerHTML =
+                '<div class="confidence-circle"><svg viewBox="0 0 36 36"><circle class="bg-ring" cx="18" cy="18" r="15.5"/><circle class="fg-ring high" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg><span class="confidence-value">' + score + '</span></div>';
+            }
+            showToast(row.querySelector('.row-name').textContent.trim() + ' 解析成功', 'success');
+          } else {
+            statusCell.className = 'status-badge danger';
+            statusCell.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l6 6m0-6l-6 6"/></svg> 失败';
+            showToast(row.querySelector('.row-name').textContent.trim() + ' 解析失败', 'error');
+          }
+          btn.disabled = false;
+          btn.style.opacity = '';
+        }, 2000);
+      });
+    }
+  });
+
+  /* ===== PAGINATION ===== */
+  document.querySelectorAll('.pagination-controls .page-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (btn.classList.contains('disabled')) return;
+      var text = btn.textContent.trim();
+      // Arrow navigation
+      if (text === '') {
+        // It's an arrow
+        var isNext = btn.querySelector('path:last-of-type');
+        // Simple: just show toast
+        showToast('翻页功能（演示）', 'info');
+        return;
+      }
+      var pageNum = parseInt(text);
+      if (isNaN(pageNum)) { showToast('翻页功能（演示）', 'info'); return; }
+      document.querySelectorAll('.pagination-controls .page-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var countLabel = document.querySelector('.resume-table-count');
+      if (countLabel) countLabel.textContent = '(第 ' + pageNum + ' 页)';
+      var infoEl = document.querySelector('.pagination-info');
+      if (infoEl) {
+        var start = (pageNum - 1) * 10 + 1;
+        var end = Math.min(pageNum * 10, 30);
+        infoEl.innerHTML = '显示 <strong>' + start + '-' + end + '</strong> / 共 <strong>30</strong> 条记录';
+      }
+      showToast('显示第 ' + pageNum + ' 页', 'info');
+    });
+  });
+
+  /* ===== SEARCH / FILTER ===== */
+  // Add search box and filter pills to table header
+  var tableActions = document.querySelector('.resume-table-actions');
+  if (tableActions) {
+    tableActions.innerHTML =
+      '<div class="search-wrapper">' +
+        '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5l3 3"/></svg>' +
+        '<input class="search-input" id="searchInput" placeholder="搜索姓名...">' +
+      '</div>' +
+      '<div class="filter-pills">' +
+        '<span class="filter-pill active" data-filter="all">全部</span>' +
+        '<span class="filter-pill" data-filter="success">成功</span>' +
+        '<span class="filter-pill" data-filter="warning">低置信</span>' +
+        '<span class="filter-pill" data-filter="fail">失败</span>' +
+      '</div>';
+
+    // Search input
+    document.getElementById('searchInput').addEventListener('input', function() {
+      filterRows();
+    });
+
+    // Filter pills
+    tableActions.querySelectorAll('.filter-pill').forEach(function(pill) {
+      pill.addEventListener('click', function() {
+        tableActions.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.remove('active'); });
+        pill.classList.add('active');
+        currentFilter = pill.dataset.filter;
+        filterRows();
+      });
+    });
+  }
+
+  function filterRows() {
+    var query = document.getElementById('searchInput').value.trim().toLowerCase();
+    document.querySelectorAll('.resume-row').forEach(function(row) {
+      var name = row.querySelector('.row-name');
+      var nameText = name ? name.textContent.trim().toLowerCase() : '';
+      var matchName = !query || nameText.includes(query);
+
+      var matchFilter = true;
+      if (currentFilter !== 'all') {
+        if (currentFilter === 'success' && !row.classList.contains('status-success')) matchFilter = false;
+        if (currentFilter === 'warning' && !row.classList.contains('status-warning')) matchFilter = false;
+        if (currentFilter === 'fail' && !row.classList.contains('status-fail')) matchFilter = false;
+      }
+
+      if (matchName && matchFilter) {
+        row.style.display = '';
+        // Also show the following expanded-row and fail-reason if exists
+        var next = row.nextElementSibling;
+        if (next && (next.classList.contains('expanded-row') || next.classList.contains('fail-reason'))) {
+          next.style.display = '';
+        }
+      } else {
+        row.style.display = 'none';
+        var next = row.nextElementSibling;
+        if (next && (next.classList.contains('expanded-row') || next.classList.contains('fail-reason'))) {
+          next.style.display = 'none';
+        }
+      }
+    });
+  }
+
+  /* ===== MULTI-RECORD ADD FUNCTIONS FOR EXPANDED DETAIL ===== */
+
+  // Template for adding education records in expanded detail
+  function addEduRecord() {
+    var chapter = document.querySelector('.expanded-row.open .expanded-chapters');
+    if (!chapter) return;
+    // Find the education chapter-content
+    var chapters = chapter.querySelectorAll('.expanded-chapter');
+    var eduContent = null;
+    for (var i = 0; i < chapters.length; i++) {
+      var label = chapters[i].querySelector('.chapter-label');
+      if (label && label.textContent.indexOf('\u6559\u80b2\u80cc\u666f') !== -1) {
+        eduContent = chapters[i].querySelector('.chapter-content');
+        break;
+      }
+    }
+    if (!eduContent) return;
+    var addBtn = eduContent.querySelector('.add-record-btn');
+    var wrapper = document.createElement('div');
+    wrapper.className = 'editable-record';
+    wrapper.innerHTML = '<button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast(\'\u8bb0\u5f55\u5df2\u5220\u9664\',\'info\')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button><div class="edit-info-grid" style="margin-top:8px"><div class="edit-info-item"><label>\u5b66\u6821</label><input type="text" value=""></div><div class="edit-info-item"><label>\u4e13\u4e1a</label><input type="text" value=""></div><div class="edit-info-item"><label>\u5b66\u5386</label><input type="text" value=""></div><div class="edit-info-item"><label>\u65f6\u95f4</label><input type="text" value=""></div></div>';
+    if (addBtn) {
+      eduContent.insertBefore(wrapper, addBtn);
+    } else {
+      eduContent.appendChild(wrapper);
+    }
+    showToast('\u5df2\u6dfb\u52a0\u65b0\u7684\u6559\u80b2\u7ecf\u5386', 'success');
+  }
+
+  // Template for adding work records in expanded detail
+  function addWorkRecord() {
+    var chapter = document.querySelector('.expanded-row.open .expanded-chapters');
+    if (!chapter) return;
+    var chapters = chapter.querySelectorAll('.expanded-chapter');
+    var workContent = null;
+    for (var i = 0; i < chapters.length; i++) {
+      var label = chapters[i].querySelector('.chapter-label');
+      if (label && label.textContent.indexOf('\u5de5\u4f5c\u7ecf\u5386') !== -1) {
+        workContent = chapters[i].querySelector('.chapter-content');
+        break;
+      }
+    }
+    if (!workContent) return;
+    var addBtn = workContent.querySelector('.add-record-btn');
+    var wrapper = document.createElement('div');
+    wrapper.className = 'editable-record';
+    wrapper.innerHTML = '<button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast(\'\u8bb0\u5f55\u5df2\u5220\u9664\',\'info\')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button><div class="edit-info-grid" style="margin-top:8px;border-left:3px solid var(--primary-bg);padding-left:12px"><div class="edit-info-item"><label>\u516c\u53f8</label><input type="text" value=""></div><div class="edit-info-item"><label>\u804c\u4f4d</label><input type="text" value=""></div><div class="edit-info-item"><label>\u8d77\u6b62\u65f6\u95f4</label><input type="text" value=""></div><div class="edit-info-item" style="grid-column:span 2"><label>\u5de5\u4f5c\u63cf\u8ff0</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2"></textarea></div></div>';
+    if (addBtn) {
+      workContent.insertBefore(wrapper, addBtn);
+    } else {
+      workContent.appendChild(wrapper);
+    }
+    showToast('\u5df2\u6dfb\u52a0\u65b0\u7684\u5de5\u4f5c\u7ecf\u5386', 'success');
+  }
+
+  // Template for adding project records in expanded detail
+  function addProjectRecord() {
+    var chapter = document.querySelector('.expanded-row.open .expanded-chapters');
+    if (!chapter) return;
+    var chapters = chapter.querySelectorAll('.expanded-chapter');
+    var projContent = null;
+    for (var i = 0; i < chapters.length; i++) {
+      var label = chapters[i].querySelector('.chapter-label');
+      if (label && label.textContent.indexOf('\u9879\u76ee\u7ecf\u9a8c') !== -1) {
+        projContent = chapters[i].querySelector('.chapter-content');
+        break;
+      }
+    }
+    if (!projContent) return;
+    var addBtn = projContent.querySelector('.add-record-btn');
+    var wrapper = document.createElement('div');
+    wrapper.className = 'editable-record';
+    wrapper.innerHTML = '<button class="delete-record-btn" onclick="event.stopPropagation();this.parentElement.remove();showToast(\'\u8bb0\u5f55\u5df2\u5220\u9664\',\'info\')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button><div class="edit-info-grid" style="margin-top:8px"><div class="edit-info-item" style="grid-column:span 2"><label>\u9879\u76ee\u540d\u79f0</label><input type="text" value=""></div><div class="edit-info-item" style="grid-column:span 2"><label>\u9879\u76ee\u63cf\u8ff0</label><textarea style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:0.8rem;font-family:var(--font-body);resize:vertical;min-height:40px" rows="2"></textarea></div></div>';
+    if (addBtn) {
+      projContent.insertBefore(wrapper, addBtn);
+    } else {
+      projContent.appendChild(wrapper);
+    }
+    showToast('\u5df2\u6dfb\u52a0\u65b0\u7684\u9879\u76ee\u7ecf\u9a8c', 'success');
+  }
+
+  /* ===== MULTI-RECORD ADD FUNCTIONS FOR MANUAL ENTRY MODAL ===== */
+
+  // Entry record templates for modal form
+  var workRecordTemplate = '<div class="entry-record">' +
+    '<button class="delete-record-btn" onclick="if(this.parentElement.parentElement.children.length>1){this.parentElement.remove();showToast(\'\u5df2\u79fb\u9664\',\'info\')}else{showToast(\'\u81f3\u5c11\u4fdd\u7559\u4e00\u6761\u8bb0\u5f55\',\'warning\')}"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>' +
+    '<div class="form-row"><div class="form-group"><label class="form-label" style="font-size:0.7rem">\u516c\u53f8</label><input class="form-input" placeholder="\u516c\u53f8\u540d\u79f0"></div><div class="form-group"><label class="form-label" style="font-size:0.7rem">\u804c\u4f4d</label><input class="form-input" placeholder="\u804c\u4f4d\u540d\u79f0"></div></div>' +
+    '<div class="form-row"><div class="form-group"><label class="form-label" style="font-size:0.7rem">\u8d77\u6b62\u65f6\u95f4</label><input class="form-input" placeholder="\u5982\uff1a2020.01-2023.06"></div></div>' +
+    '<div class="form-group"><label class="form-label" style="font-size:0.7rem">\u5de5\u4f5c\u63cf\u8ff0</label><textarea class="form-textarea" rows="2" placeholder="\u4e3b\u8981\u5de5\u4f5c\u5185\u5bb9\u548c\u6210\u679c"></textarea></div>' +
+  '</div>';
+
+  var eduRecordTemplate = '<div class="entry-record">' +
+    '<button class="delete-record-btn" onclick="if(this.parentElement.parentElement.children.length>1){this.parentElement.remove();showToast(\'\u5df2\u79fb\u9664\',\'info\')}else{showToast(\'\u81f3\u5c11\u4fdd\u7559\u4e00\u6761\u8bb0\u5f55\',\'warning\')}"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>' +
+    '<div class="form-row"><div class="form-group"><label class="form-label" style="font-size:0.7rem">\u5b66\u6821</label><input class="form-input" placeholder="\u5b66\u6821\u540d\u79f0"></div><div class="form-group"><label class="form-label" style="font-size:0.7rem">\u4e13\u4e1a</label><input class="form-input" placeholder="\u4e13\u4e1a\u540d\u79f0"></div></div>' +
+    '<div class="form-row"><div class="form-group"><label class="form-label" style="font-size:0.7rem">\u5b66\u5386</label><input class="form-input" placeholder="\u5982\uff1a\u672c\u79d1/\u7855\u58eb"></div><div class="form-group"><label class="form-label" style="font-size:0.7rem">\u65f6\u95f4</label><input class="form-input" placeholder="\u5982\uff1a2016-2020"></div></div>' +
+  '</div>';
+
+  var projectRecordTemplate = '<div class="entry-record">' +
+    '<button class="delete-record-btn" onclick="if(this.parentElement.parentElement.children.length>1){this.parentElement.remove();showToast(\'\u5df2\u79fb\u9664\',\'info\')}else{showToast(\'\u81f3\u5c11\u4fdd\u7559\u4e00\u6761\u8bb0\u5f55\',\'warning\')}"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>' +
+    '<div class="form-group"><label class="form-label" style="font-size:0.7rem">\u9879\u76ee\u540d\u79f0</label><input class="form-input" placeholder="\u9879\u76ee\u540d\u79f0"></div>' +
+    '<div class="form-group"><label class="form-label" style="font-size:0.7rem">\u9879\u76ee\u63cf\u8ff0</label><textarea class="form-textarea" rows="2" placeholder="\u9879\u76ee\u63cf\u8ff0\u548c\u804c\u8d23"></textarea></div>' +
+  '</div>';
+
+  function addEntryRecord(containerId, template) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var temp = document.createElement('div');
+    temp.innerHTML = template;
+    var record = temp.firstElementChild;
+    container.appendChild(record);
+  }
+
+  /* ===== SIDEBAR NAV LINKS ===== */
+  // All sidebar nav items already have href attributes pointing to other pages.
+  // They work as standard links. The active class is set in HTML for the current page.
+
+})();
+</script>
+</body>
+</html>

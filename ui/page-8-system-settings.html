@@ -1,0 +1,2180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能招聘 Agent — 系统设置</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ========== CSS VARIABLES ========== */
+:root {
+  --primary: #0D9488;
+  --primary-dark: #0F766E;
+  --primary-light: #99F6E4;
+  --primary-bg: rgba(13,148,136,0.06);
+  --accent: #EA580C;
+  --accent-bg: rgba(234,88,12,0.06);
+  --success: #16A34A;
+  --success-bg: rgba(22,163,74,0.06);
+  --danger: #DC2626;
+  --danger-bg: rgba(220,38,38,0.06);
+  --warning: #D97706;
+  --warning-bg: rgba(217,119,6,0.06);
+  --bg: #F8F7F6;
+  --bg-secondary: #F0EFED;
+  --bg-elevated: #FFFFFF;
+  --ink: #1C1917;
+  --ink-secondary: #78716C;
+  --ink-tertiary: #A8A29E;
+  --border: #E7E5E4;
+  --border-light: #F5F5F4;
+  --shadow-sm: 0 1px 2px rgba(28,25,23,0.04);
+  --shadow-md: 0 4px 12px rgba(28,25,23,0.06);
+  --shadow-lg: 0 8px 24px rgba(28,25,23,0.08);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --sidebar-w: 260px;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Space Grotesk', 'DM Sans', sans-serif;
+}
+
+/* ========== RESET ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--ink); height: 100vh; overflow: hidden; }
+button { font-family: var(--font-body); cursor: pointer; border: none; background: none; }
+input, textarea, select { font-family: var(--font-body); }
+
+/* ========== CUSTOM SCROLLBAR ========== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--primary-light); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+/* ========== APP SHELL ========== */
+.app-shell { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+/* ========== LEFT SIDEBAR ========== */
+.sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  background: var(--bg-elevated); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 10;
+}
+.sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+.sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+.brand-icon { width: 34px; height: 34px; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: flex; align-items: center; justify-content: center; color: #fff; font-family: var(--font-heading); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
+.brand-text { font-family: var(--font-heading); font-size: 1rem; font-weight: 700; color: var(--ink); letter-spacing: -0.3px; line-height: 1.2; }
+.brand-sub { font-size: 0.72rem; color: var(--ink-tertiary); margin-top: 1px; font-weight: 400; }
+
+/* Sidebar nav */
+.sidebar-nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+.nav-section-label {
+  font-size: 0.7rem; font-weight: 600; color: var(--ink-tertiary);
+  text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  font-size: 0.88rem; color: var(--ink-secondary);
+  transition: all 0.15s; margin-bottom: 2px; text-decoration: none;
+}
+.nav-item:hover { background: var(--primary-bg); color: var(--primary-dark); }
+.nav-item.active { background: var(--primary-bg); color: var(--primary-dark); font-weight: 600; }
+.nav-item .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+.nav-item.active .nav-icon { opacity: 1; }
+
+/* Phase 2 nav items */
+.nav-item.phase2 { opacity: 0.7; }
+.nav-item.phase2:hover { opacity: 1; }
+.nav-item.phase2 .nav-icon { opacity: 0.5; }
+.nav-item.phase2:hover .nav-icon { opacity: 0.8; }
+.nav-item.phase2.active { opacity: 1; }
+.nav-item.phase2.active .nav-icon { opacity: 1; }
+.nav-badge--phase2 { background: var(--bg-secondary); color: var(--ink-tertiary); border: 1px solid var(--border); margin-left: auto; font-size: 0.65rem; font-weight: 600; padding: 1px 7px; border-radius: 10px; line-height: 1.5; white-space: nowrap; }
+
+.sidebar-footer {
+  padding: 14px 16px; border-top: 1px solid var(--border-light);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-footer .avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; color: var(--primary-dark);
+}
+.sidebar-footer .user-info { flex: 1; }
+.sidebar-footer .user-name { font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+.sidebar-footer .user-role { font-size: 0.72rem; color: var(--ink-tertiary); }
+
+/* ========== MAIN AREA ========== */
+.main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; z-index: 1; }
+
+/* ========== TOP NAV BAR ========== */
+.top-nav {
+  display: flex; align-items: center; padding: 12px 24px;
+  border-bottom: 1px solid var(--border); background: var(--bg-elevated);
+  gap: 16px; flex-shrink: 0; min-height: 54px;
+}
+.breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; color: var(--ink-tertiary); white-space: nowrap;
+}
+.breadcrumb a { color: var(--ink-tertiary); text-decoration: none; transition: color 0.15s; }
+.breadcrumb a:hover { color: var(--primary); }
+.breadcrumb .bc-sep { opacity: 0.4; }
+.breadcrumb .bc-current { color: var(--ink-secondary); font-weight: 500; }
+.top-nav-title {
+  font-family: var(--font-heading); font-size: 1.15rem; font-weight: 700;
+  color: var(--ink); white-space: nowrap;
+}
+
+/* ========== TAB BAR ========== */
+.tab-bar {
+  display: flex; align-items: center; gap: 0;
+  padding: 0 24px; background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.tab-btn {
+  padding: 12px 20px; font-size: 0.88rem; font-weight: 500;
+  color: var(--ink-tertiary); border-bottom: 2px solid transparent;
+  transition: all 0.2s; position: relative;
+}
+.tab-btn:hover { color: var(--ink-secondary); }
+.tab-btn.active { color: var(--primary-dark); font-weight: 600; border-bottom-color: var(--primary); }
+
+/* ========== CONTENT AREA ========== */
+.settings-content { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ========== SECTION HEADER ========== */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: var(--font-heading); font-size: 0.95rem; font-weight: 600;
+  color: var(--ink);
+}
+
+/* ========== BUTTONS ========== */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  font-size: 0.82rem; font-weight: 500; transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn svg { width: 14px; height: 14px; }
+.btn-primary {
+  background: var(--primary); color: #fff;
+}
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-outline {
+  border: 1px solid var(--border); color: var(--ink-secondary); background: var(--bg-elevated);
+}
+.btn-outline:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+.btn-ghost {
+  color: var(--ink-secondary); background: transparent;
+}
+.btn-ghost:hover { color: var(--primary); background: var(--primary-bg); }
+.btn-danger-ghost {
+  color: var(--danger); background: transparent;
+}
+.btn-danger-ghost:hover { background: var(--danger-bg); }
+.btn-sm { padding: 5px 12px; font-size: 0.78rem; }
+.btn-xs { padding: 3px 8px; font-size: 0.72rem; }
+
+/* ========== MODEL CONFIG CARDS ========== */
+.model-card {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 0;
+  margin-bottom: 16px; transition: all 0.2s; position: relative; overflow: hidden;
+}
+.model-card:hover { box-shadow: var(--shadow-md); }
+.model-card.card-default {
+  border-left: 3px solid var(--primary);
+}
+.model-card.card-active:not(.card-default) {
+  border-left: 3px solid var(--success);
+}
+.model-card.card-disabled {
+  opacity: 0.7;
+  border-left: 3px solid var(--border);
+}
+
+.model-card-inner {
+  display: flex; align-items: flex-start; gap: 24px; padding: 20px 24px;
+}
+
+.model-card-main { flex: 1; min-width: 0; }
+.model-card-actions {
+  display: flex; flex-direction: column; gap: 6px;
+  flex-shrink: 0; align-items: flex-end;
+}
+
+.model-card-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.model-card-name {
+  font-family: var(--font-heading); font-size: 1rem; font-weight: 600;
+  color: var(--ink);
+}
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 10px; border-radius: 20px;
+  font-size: 0.72rem; font-weight: 600; white-space: nowrap;
+}
+.badge svg { width: 12px; height: 12px; }
+.badge-default {
+  background: var(--primary); color: #fff;
+}
+.badge-enabled {
+  background: var(--success-bg); color: var(--success);
+}
+.badge-disabled {
+  background: var(--danger-bg); color: var(--danger);
+}
+
+/* Status dot */
+.status-dot {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; flex-shrink: 0;
+}
+.status-dot.green { background: var(--success); }
+.status-dot.red { background: var(--danger); }
+.status-dot.green {
+  animation: pulse-green 2s ease-in-out infinite;
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(22,163,74,0); }
+}
+
+/* Field grid */
+.field-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px 32px;
+}
+.field-item {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 0.82rem;
+}
+.field-label {
+  color: var(--ink-tertiary); font-weight: 500;
+  flex-shrink: 0; min-width: 90px;
+}
+.field-value {
+  color: var(--ink); font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+}
+.field-value code {
+  font-family: 'Space Grotesk', monospace; font-size: 0.78rem;
+  background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px;
+  color: var(--ink-secondary);
+}
+.mask-toggle {
+  font-size: 0.72rem; color: var(--primary); cursor: pointer;
+  font-weight: 500; transition: color 0.15s;
+}
+.mask-toggle:hover { color: var(--primary-dark); text-decoration: underline; }
+
+/* Radio default */
+.default-radio {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.78rem; color: var(--ink-secondary); cursor: pointer;
+}
+.default-radio input[type="radio"] {
+  accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer;
+}
+
+/* ========== MODAL ========== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(28,25,23,0.45);
+  z-index: 100; display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: var(--bg-elevated); border-radius: var(--radius-lg);
+  border: 1px solid var(--border); width: 640px; max-height: 85vh;
+  box-shadow: var(--shadow-lg); display: flex; flex-direction: column;
+  animation: modal-in 0.2s ease-out;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px; border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  font-family: var(--font-heading); font-size: 1rem; font-weight: 600;
+  color: var(--ink);
+}
+.modal-close {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-tertiary); transition: all 0.15s;
+}
+.modal-close:hover { background: var(--bg-secondary); color: var(--ink); }
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.modal-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 16px 24px; border-top: 1px solid var(--border);
+}
+
+/* Form */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.form-label {
+  display: block; font-size: 0.78rem; font-weight: 600;
+  color: var(--ink-secondary); margin-bottom: 6px;
+}
+.form-input, .form-select {
+  width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 0.82rem;
+  color: var(--ink); background: var(--bg-elevated);
+  transition: border-color 0.15s; outline: none;
+}
+.form-input:focus, .form-select:focus {
+  border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg);
+}
+.form-hint {
+  font-size: 0.72rem; color: var(--ink-tertiary); margin-top: 4px;
+}
+
+/* ========== SCORING TABLE ========== */
+.scoring-table {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); overflow: hidden;
+}
+.scoring-table thead th {
+  padding: 10px 16px; font-size: 0.75rem; font-weight: 600;
+  color: var(--ink-tertiary); text-align: left;
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.scoring-table tbody td {
+  padding: 12px 16px; font-size: 0.82rem; color: var(--ink);
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+.scoring-table tbody tr:last-child td { border-bottom: none; }
+.scoring-table tbody tr:hover { background: var(--primary-bg); }
+
+.weight-value {
+  font-family: var(--font-heading); font-weight: 600;
+  color: var(--primary-dark); min-width: 40px; display: inline-block;
+}
+.weight-total {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; margin-top: 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.weight-total-label { font-size: 0.85rem; color: var(--ink-secondary); }
+.weight-total-value {
+  font-family: var(--font-heading); font-size: 0.92rem; font-weight: 700;
+  color: var(--success);
+}
+.weight-total-value svg { width: 14px; height: 14px; vertical-align: middle; margin-left: 2px; }
+
+/* ========== THRESHOLD SECTION ========== */
+.threshold-section {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 20px 24px; margin-top: 20px;
+}
+.threshold-section .section-title {
+  font-family: var(--font-heading); font-size: 0.95rem; font-weight: 600;
+  color: var(--ink); margin-bottom: 18px;
+}
+.threshold-item {
+  margin-bottom: 20px;
+}
+.threshold-item:last-child { margin-bottom: 0; }
+.threshold-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.threshold-label {
+  font-size: 0.82rem; font-weight: 500; color: var(--ink);
+}
+.threshold-hint {
+  font-size: 0.75rem; color: var(--ink-tertiary);
+}
+.threshold-row {
+  display: flex; align-items: center; gap: 16px;
+}
+.threshold-slider {
+  flex: 1; -webkit-appearance: none; appearance: none;
+  height: 6px; background: var(--bg-secondary); border-radius: 3px;
+  outline: none;
+}
+.threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--primary); cursor: pointer;
+  border: 3px solid var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s;
+}
+.threshold-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.threshold-number {
+  width: 60px; padding: 6px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600;
+  color: var(--primary-dark); text-align: center; background: var(--bg-elevated);
+  font-family: var(--font-heading); outline: none;
+}
+.threshold-number:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+
+/* Toggle switch */
+.toggle-row {
+  display: flex; align-items: center; gap: 12px; margin-top: 18px;
+}
+.toggle-label {
+  font-size: 0.82rem; color: var(--ink);
+}
+.toggle-switch {
+  position: relative; width: 40px; height: 22px; cursor: pointer;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-track {
+  position: absolute; inset: 0; background: var(--border);
+  border-radius: 11px; transition: background 0.2s;
+}
+.toggle-switch input:checked + .toggle-track { background: var(--primary); }
+.toggle-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; background: #fff;
+  border-radius: 50%; transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.toggle-switch input:checked ~ .toggle-thumb { transform: translateX(18px); }
+.toggle-hint {
+  font-size: 0.75rem; color: var(--ink-tertiary);
+}
+
+/* ========== SYSTEM PARAMS SECTIONS ========== */
+.param-section {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 20px 24px; margin-bottom: 20px;
+}
+.param-section:last-of-type { margin-bottom: 20px; }
+.param-section-title {
+  font-family: var(--font-heading); font-size: 0.95rem; font-weight: 600;
+  color: var(--ink); margin-bottom: 18px;
+  display: flex; align-items: center; gap: 8px;
+}
+.param-section-title svg { width: 16px; height: 16px; color: var(--primary); }
+
+.param-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 18px 32px;
+}
+.param-item { }
+.param-item.full-width { grid-column: 1 / -1; }
+.param-top-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.param-label {
+  font-size: 0.82rem; font-weight: 500; color: var(--ink);
+}
+.param-input-group {
+  display: flex; align-items: center; gap: 6px;
+}
+.param-input {
+  width: 120px; padding: 7px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 0.82rem;
+  color: var(--ink); background: var(--bg-elevated); outline: none;
+  font-family: var(--font-heading); font-weight: 500; text-align: right;
+  transition: border-color 0.15s;
+}
+.param-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.param-select {
+  width: 160px; padding: 7px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 0.82rem;
+  color: var(--ink); background: var(--bg-elevated); outline: none;
+  transition: border-color 0.15s;
+}
+.param-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.param-unit {
+  font-size: 0.78rem; color: var(--ink-tertiary); flex-shrink: 0;
+}
+.param-hint {
+  font-size: 0.72rem; color: var(--ink-tertiary); margin-top: 4px;
+}
+
+/* Progress bar */
+.usage-bar-track {
+  width: 100%; height: 8px; background: var(--bg-secondary);
+  border-radius: 4px; overflow: hidden; margin-top: 8px;
+}
+.usage-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+  transition: width 0.6s ease;
+}
+.usage-bar-label {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 6px; font-size: 0.75rem; color: var(--ink-tertiary);
+}
+.usage-bar-value {
+  font-family: var(--font-heading); font-weight: 600; color: var(--ink-secondary);
+}
+
+/* Radio group */
+.radio-group {
+  display: flex; gap: 16px; margin-top: 4px;
+}
+.radio-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; color: var(--ink-secondary); cursor: pointer;
+}
+.radio-item input[type="radio"] {
+  accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer;
+}
+.radio-item.checked { color: var(--primary-dark); font-weight: 600; }
+
+/* Warning indicator */
+.warning-icon {
+  color: var(--warning); flex-shrink: 0;
+}
+.warning-icon svg { width: 16px; height: 16px; }
+
+/* Action bar */
+.action-bar {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* ========== TOAST NOTIFICATION ========== */
+.toast-container {
+  position: fixed; top: 20px; right: 20px; z-index: 200;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  padding: 12px 18px; border-radius: var(--radius-md);
+  background: var(--ink); color: #fff;
+  font-size: 0.82rem; font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  animation: toast-in 0.3s ease-out, toast-out 0.3s ease-in 2.5s forwards;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast svg { width: 16px; height: 16px; flex-shrink: 0; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* Spinner animation */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
+
+/* Edit mode on cards */
+.model-card.editing .field-value span:not(.mask-toggle),
+.model-card.editing .field-value code:not(.masked-key) {
+  display: none;
+}
+.model-card.editing .field-value .edit-input {
+  display: inline-block;
+}
+.field-value .edit-input {
+  display: none;
+  padding: 3px 8px; border: 1px solid var(--primary); border-radius: 4px;
+  font-size: 0.82rem; font-family: var(--font-body); color: var(--ink);
+  background: var(--bg); outline: none; min-width: 80px;
+}
+.field-value .edit-input:focus { box-shadow: 0 0 0 3px var(--primary-bg); }
+.model-card.editing .field-value code.masked-key { display: none; }
+.model-card.editing .field-value .edit-key-input { display: inline-block; }
+.field-value .edit-key-input {
+  display: none;
+  padding: 3px 8px; border: 1px solid var(--primary); border-radius: 4px;
+  font-size: 0.78rem; font-family: 'Space Grotesk', monospace; color: var(--ink);
+  background: var(--bg); outline: none; min-width: 200px;
+}
+
+/* Weight edit inline */
+.weight-edit-input {
+  width: 50px; padding: 2px 6px; border: 1px solid var(--primary);
+  border-radius: 4px; font-size: 0.82rem; font-family: var(--font-heading);
+  font-weight: 600; color: var(--primary-dark); text-align: center; outline: none;
+  background: var(--bg);
+}
+.weight-edit-input:focus { box-shadow: 0 0 0 3px var(--primary-bg); }
+
+/* Card fade-out */
+.model-card.removing {
+  animation: card-remove 0.35s ease-in forwards;
+}
+@keyframes card-remove {
+  to { opacity: 0; transform: translateY(-8px); max-height: 0; margin-bottom: 0; padding: 0; overflow: hidden; }
+}
+
+/* Toast error variant */
+.toast.toast-error { background: var(--danger); }
+.toast.toast-success { background: var(--success); }
+.toast.toast-warning { background: var(--warning); }
+.toast.toast-info { background: var(--ink); }
+
+/* Card transition helper */
+.model-card { transition: opacity 0.3s, box-shadow 0.2s, border-color 0.2s; }
+
+/* Validation error on form inputs */
+.form-input.error, .form-select.error { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-bg); }
+.form-error-msg { font-size: 0.72rem; color: var(--danger); margin-top: 4px; display: none; }
+.form-error-msg.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- ========== LEFT SIDEBAR ========== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">RA</div>
+      <div>
+        <div class="brand-text">智能招聘 Agent</div>
+        <div class="brand-sub">Smart Recruitment</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">核心流程</div>
+      <a class="nav-item" href="page-2-task-kanban.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
+        任务看板
+      </a>
+      <a class="nav-item" href="page-1-chat-task-center.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6l-3 3V5a1 1 0 0 1 1-1z"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="11" x2="11" y2="11"/></svg>
+        任务中心
+      </a>
+      <a class="nav-item" href="page-3-jd-management.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="11" y2="13"/></svg>
+        JD 管理
+      </a>
+      <a class="nav-item" href="page-4-resume-workspace.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h8l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="12,3 12,7 16,7"/><line x1="6" y1="10" x2="13" y2="10"/><line x1="6" y1="13" x2="11" y2="13"/></svg>
+        简历工作台
+      </a>
+      <a class="nav-item" href="page-5-scoring-report.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2.5 5.5L18 9l-4 4 1 5.5L10 16l-5 2.5 1-5.5-4-4 5.5-1.5z"/></svg>
+        评分报告
+      </a>
+      <a class="nav-item" href="page-6-push-feedback.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l2-7 8-8 5 5-8 8-7 2z"/><line x1="12" y1="5" x2="15" y2="8"/></svg>
+        推送反馈
+      </a>
+      <div class="nav-section-label">分析与设置</div>
+      <a class="nav-item" href="page-7-analytics-dashboard.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="7"/><line x1="14" y1="14" x2="14" y2="5"/></svg>
+        数据看板
+      </a>
+      <a class="nav-item active" href="page-8-system-settings.html">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="3"/><path d="M10 2v2m0 12v2m-8-8h2m12 0h2"/><path d="M4.9 4.9l1.4 1.4m7.4 7.4l1.4 1.4m0-10.2l-1.4 1.4M6.3 13.7l-1.4 1.4"/></svg>
+        系统设置
+      </a>
+      <div class="nav-section-label">更多功能</div>
+      <a class="nav-item phase2" href="page-placeholder.html?module=面试安排">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="4"/><line x1="13" y1="2" x2="13" y2="4"/><circle cx="10" cy="12" r="1.5" fill="currentColor"/></svg>
+        面试安排
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=候选人沟通">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6l-3 3V5a1 1 0 0 1 1-1z"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>
+        候选人沟通
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=流程跟踪">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="16" r="2"/><circle cx="16" cy="10" r="2"/><line x1="6" y1="5" x2="14" y2="9"/><line x1="6" y1="15" x2="14" y2="11"/></svg>
+        流程跟踪
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+      <a class="nav-item phase2" href="page-placeholder.html?module=对比分析">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="12" rx="2"/><rect x="7" y="4" width="10" height="12" rx="2"/></svg>
+        对比分析
+        <span class="nav-badge nav-badge--phase2">Phase 2</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">管</div>
+      <div class="user-info">
+        <div class="user-name">管理员</div>
+        <div class="user-role">超级管理员</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========== MAIN ========== -->
+  <div class="main-area">
+    <!-- Top Nav -->
+    <div class="top-nav">
+      <div class="breadcrumb">
+        <a href="page-2-task-kanban.html">智能招聘 Agent</a>
+        <span class="bc-sep">&#8250;</span>
+        <span class="bc-current">系统设置</span>
+      </div>
+      <div class="top-nav-title">系统设置</div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="tab-llm">LLM 模型配置</button>
+      <button class="tab-btn" data-tab="tab-scoring">评分引擎参数</button>
+      <button class="tab-btn" data-tab="tab-system">系统参数</button>
+    </div>
+
+    <!-- Content -->
+    <div class="settings-content">
+
+      <!-- ====== TAB 1: LLM 模型配置 ====== -->
+      <div class="tab-panel active" id="tab-llm">
+        <div class="section-header">
+          <div></div>
+          <button class="btn btn-primary" id="btn-add-model">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            新增模型配置
+          </button>
+        </div>
+
+        <!-- Card 1: GPT-4o Default -->
+        <div class="model-card card-default card-active">
+          <div class="model-card-inner">
+            <div class="model-card-main">
+              <div class="model-card-header">
+                <span class="model-card-name">GPT-4o 生产环境</span>
+                <span class="badge badge-default">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  默认模型
+                </span>
+                <span class="badge badge-enabled">
+                  <span class="status-dot green"></span>
+                  已启用
+                </span>
+              </div>
+              <div class="field-grid">
+                <div class="field-item">
+                  <span class="field-label">配置名称</span>
+                  <span class="field-value">GPT-4o 生产环境</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">提供商</span>
+                  <span class="field-value">OpenAI</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">API Base URL</span>
+                  <span class="field-value"><code>https://api.openai.com/v1</code></span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">API Key</span>
+                  <span class="field-value">
+                    <code class="masked-key" data-key="sk-proj-aBcDeFgHiJkLmNoPqRsTuVwXyZ3xK7">sk-***************3xK7</code>
+                    <span class="mask-toggle">显示</span>
+                  </span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">模型名称</span>
+                  <span class="field-value"><code>gpt-4o</code></span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">最大 Token</span>
+                  <span class="field-value">4096</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">温度</span>
+                  <span class="field-value">0.7</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">任务分配</span>
+                  <span class="field-value">全部任务</span>
+                </div>
+              </div>
+            </div>
+            <div class="model-card-actions">
+              <button class="btn btn-outline btn-sm btn-test-conn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                测试连通性
+              </button>
+              <button class="btn btn-ghost btn-sm btn-edit">编辑</button>
+              <button class="btn btn-danger-ghost btn-sm btn-toggle-disable">禁用</button>
+              <label class="default-radio">
+                <input type="radio" name="default-model" checked disabled>
+                设为默认
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: DeepSeek -->
+        <div class="model-card card-active">
+          <div class="model-card-inner">
+            <div class="model-card-main">
+              <div class="model-card-header">
+                <span class="model-card-name">DeepSeek 本地备用</span>
+                <span class="badge badge-enabled">
+                  <span class="status-dot green"></span>
+                  已启用
+                </span>
+              </div>
+              <div class="field-grid">
+                <div class="field-item">
+                  <span class="field-label">配置名称</span>
+                  <span class="field-value">DeepSeek 本地备用</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">提供商</span>
+                  <span class="field-value">DeepSeek</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">API Base URL</span>
+                  <span class="field-value"><code>https://api.deepseek.com/v1</code></span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">API Key</span>
+                  <span class="field-value">
+                    <code class="masked-key" data-key="sk-aBcDeFgHiJkLmNoPqRsTuVwXyZ8mP2">sk-***************8mP2</code>
+                    <span class="mask-toggle">显示</span>
+                  </span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">模型名称</span>
+                  <span class="field-value"><code>deepseek-chat</code></span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">最大 Token</span>
+                  <span class="field-value">8192</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">温度</span>
+                  <span class="field-value">0.5</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">任务分配</span>
+                  <span class="field-value">简历解析 / 意图识别</span>
+                </div>
+              </div>
+            </div>
+            <div class="model-card-actions">
+              <button class="btn btn-outline btn-sm btn-test-conn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                测试连通性
+              </button>
+              <button class="btn btn-ghost btn-sm btn-edit">编辑</button>
+              <button class="btn btn-ghost btn-sm btn-set-default">设为默认</button>
+              <button class="btn btn-danger-ghost btn-sm btn-toggle-disable">禁用</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Qwen (Disabled) -->
+        <div class="model-card card-disabled">
+          <div class="model-card-inner">
+            <div class="model-card-main">
+              <div class="model-card-header">
+                <span class="model-card-name">通义千问 测试环境</span>
+                <span class="badge badge-disabled">
+                  <span class="status-dot red"></span>
+                  已禁用
+                </span>
+              </div>
+              <div class="field-grid">
+                <div class="field-item">
+                  <span class="field-label">配置名称</span>
+                  <span class="field-value">通义千问 测试环境</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">提供商</span>
+                  <span class="field-value">阿里云</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">API Base URL</span>
+                  <span class="field-value"><code>https://dashscope.aliyuncs.com/compatible-mode/v1</code></span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">API Key</span>
+                  <span class="field-value">
+                    <code class="masked-key" data-key="sk-aBcDeFgHiJkLmNoPqRsTuVwXyZ2nR5">sk-***************2nR5</code>
+                    <span class="mask-toggle">显示</span>
+                  </span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">模型名称</span>
+                  <span class="field-value"><code>qwen-plus</code></span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">最大 Token</span>
+                  <span class="field-value">4096</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">温度</span>
+                  <span class="field-value">0.8</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">任务分配</span>
+                  <span class="field-value" style="color:var(--ink-tertiary);">未分配</span>
+                </div>
+              </div>
+            </div>
+            <div class="model-card-actions">
+              <button class="btn btn-outline btn-sm btn-test-conn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                测试连通性
+              </button>
+              <button class="btn btn-ghost btn-sm btn-edit">编辑</button>
+              <button class="btn btn-ghost btn-sm btn-toggle-enable" style="color:var(--success);">启用</button>
+              <button class="btn btn-danger-ghost btn-sm btn-delete">删除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== TAB 2: 评分引擎参数 ====== -->
+      <div class="tab-panel" id="tab-scoring">
+
+        <!-- Section 1: Default Scoring Dimensions -->
+        <div class="section-header">
+          <div class="section-title">默认评分维度</div>
+        </div>
+
+        <table class="scoring-table">
+          <thead>
+            <tr>
+              <th>维度名称</th>
+              <th>默认权重</th>
+              <th>状态</th>
+              <th>说明</th>
+              <th style="width:160px;text-align:right;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight:600;">技能匹配</td>
+              <td><span class="weight-value">35%</span></td>
+              <td><span class="badge badge-enabled"><span class="status-dot green"></span>启用</span></td>
+              <td style="color:var(--ink-secondary);">JD 要求的技能在简历中的覆盖程度</td>
+              <td style="text-align:right;">
+                <button class="btn btn-ghost btn-xs">编辑权重</button>
+                <label class="toggle-switch" style="display:inline-block;">
+                  <input type="checkbox" checked>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">经验年限</td>
+              <td><span class="weight-value">25%</span></td>
+              <td><span class="badge badge-enabled"><span class="status-dot green"></span>启用</span></td>
+              <td style="color:var(--ink-secondary);">相关领域工作年限与 JD 要求的匹配度</td>
+              <td style="text-align:right;">
+                <button class="btn btn-ghost btn-xs">编辑权重</button>
+                <label class="toggle-switch" style="display:inline-block;">
+                  <input type="checkbox" checked>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">项目相关性</td>
+              <td><span class="weight-value">20%</span></td>
+              <td><span class="badge badge-enabled"><span class="status-dot green"></span>启用</span></td>
+              <td style="color:var(--ink-secondary);">过往项目与目标岗位的业务/技术相关性</td>
+              <td style="text-align:right;">
+                <button class="btn btn-ghost btn-xs">编辑权重</button>
+                <label class="toggle-switch" style="display:inline-block;">
+                  <input type="checkbox" checked>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">教育背景</td>
+              <td><span class="weight-value">10%</span></td>
+              <td><span class="badge badge-enabled"><span class="status-dot green"></span>启用</span></td>
+              <td style="color:var(--ink-secondary);">学历、专业与 JD 要求的匹配</td>
+              <td style="text-align:right;">
+                <button class="btn btn-ghost btn-xs">编辑权重</button>
+                <label class="toggle-switch" style="display:inline-block;">
+                  <input type="checkbox" checked>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">稳定性</td>
+              <td><span class="weight-value">5%</span></td>
+              <td><span class="badge badge-enabled"><span class="status-dot green"></span>启用</span></td>
+              <td style="color:var(--ink-secondary);">平均在职时长、跳槽频率</td>
+              <td style="text-align:right;">
+                <button class="btn btn-ghost btn-xs">编辑权重</button>
+                <label class="toggle-switch" style="display:inline-block;">
+                  <input type="checkbox" checked>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">其他</td>
+              <td><span class="weight-value">5%</span></td>
+              <td><span class="badge badge-enabled"><span class="status-dot green"></span>启用</span></td>
+              <td style="color:var(--ink-secondary);">企业自定义维度（预留）</td>
+              <td style="text-align:right;">
+                <button class="btn btn-ghost btn-xs">编辑权重</button>
+                <label class="toggle-switch" style="display:inline-block;">
+                  <input type="checkbox" checked>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
+          <button class="btn btn-outline btn-sm" id="btn-add-dimension">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            添加自定义维度
+          </button>
+          <div class="weight-total">
+            <span class="weight-total-label">总权重: 100%</span>
+            <span class="weight-total-value">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              权重分配有效
+            </span>
+          </div>
+        </div>
+
+        <!-- Section 2: Scoring Thresholds -->
+        <div class="threshold-section">
+          <div class="section-title">评分阈值配置</div>
+
+          <div class="threshold-item">
+            <div class="threshold-header">
+              <span class="threshold-label">低置信度阈值</span>
+              <span class="threshold-hint">低于此值标记为需复核</span>
+            </div>
+            <div class="threshold-row">
+              <input type="range" class="threshold-slider" min="0" max="100" value="70">
+              <input type="text" class="threshold-number" value="0.7">
+            </div>
+          </div>
+
+          <div class="threshold-item">
+            <div class="threshold-header">
+              <span class="threshold-label">强制人工复核阈值</span>
+              <span class="threshold-hint">低于此值强制转人工</span>
+            </div>
+            <div class="threshold-row">
+              <input type="range" class="threshold-slider" min="0" max="100" value="50">
+              <input type="text" class="threshold-number" value="0.5">
+            </div>
+          </div>
+
+          <div class="toggle-row" style="margin-top:0;margin-bottom:6px;">
+            <label class="toggle-switch">
+              <input type="checkbox" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span class="toggle-label">硬性条件一票否决</span>
+          </div>
+          <div class="param-hint" style="margin-left:52px;">经验年限不足最低要求时直接淘汰</div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" id="btn-save-scoring">保存配置</button>
+        </div>
+      </div>
+
+      <!-- ====== TAB 3: 系统参数 ====== -->
+      <div class="tab-panel" id="tab-system">
+
+        <!-- Section 1: Resume Parsing -->
+        <div class="param-section">
+          <div class="param-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            简历解析
+          </div>
+          <div class="param-grid">
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">批量上传上限</span>
+              </div>
+              <div class="param-input-group">
+                <input type="number" class="param-input" value="100" min="1">
+                <span class="param-unit">份</span>
+              </div>
+              <div class="param-hint">单次批量上传简历最大数量</div>
+            </div>
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">单文件大小限制</span>
+              </div>
+              <div class="param-input-group">
+                <input type="number" class="param-input" value="10" min="1">
+                <span class="param-unit">MB</span>
+              </div>
+              <div class="param-hint">单个简历文件的最大尺寸</div>
+            </div>
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">OCR 引擎</span>
+              </div>
+              <div class="param-input-group">
+                <select class="param-select">
+                  <option value="tesseract" selected>Tesseract</option>
+                  <option value="paddleocr">PaddleOCR</option>
+                </select>
+              </div>
+              <div class="param-hint">图片格式简历的 OCR 识别引擎</div>
+            </div>
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">解析超时时间</span>
+              </div>
+              <div class="param-input-group">
+                <input type="number" class="param-input" value="30" min="5">
+                <span class="param-unit">秒</span>
+              </div>
+              <div class="param-hint">单份简历解析的最大等待时间</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Agent Behavior -->
+        <div class="param-section">
+          <div class="param-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a4 4 0 0 1 4 4v2H8V6a4 4 0 0 1 4-4z"/><rect x="3" y="8" width="18" height="12" rx="2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            Agent 行为
+          </div>
+          <div class="param-grid">
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">追问轮次上限</span>
+              </div>
+              <div class="param-input-group">
+                <input type="number" class="param-input" value="1" min="1" max="3">
+                <span class="param-unit">次</span>
+              </div>
+              <div class="param-hint">模糊需求最多追问次数（范围 1-3）</div>
+            </div>
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">Plan 阶段自动执行阈值</span>
+              </div>
+              <div class="param-input-group">
+                <input type="number" class="param-input" value="5" min="1">
+                <span class="param-unit">秒</span>
+              </div>
+              <div class="param-hint">预估耗时低于此值时自动执行，不请求确认</div>
+            </div>
+            <div class="param-item full-width">
+              <div class="toggle-row" style="margin-top:0;">
+                <label class="toggle-switch">
+                  <input type="checkbox" checked>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+                <div>
+                  <div class="toggle-label" style="margin-bottom:2px;">思考过程展示</div>
+                  <div class="toggle-hint">是否向用户展示 Agent 的完整思考过程</div>
+                </div>
+              </div>
+            </div>
+            <div class="param-item full-width">
+              <div class="toggle-row" style="margin-top:10px;">
+                <label class="toggle-switch">
+                  <input type="checkbox">
+                  <span class="toggle-track"></span>
+                  <span class="toggle-thumb"></span>
+                </label>
+                <div>
+                  <div class="toggle-label" style="margin-bottom:2px;">节省模式</div>
+                  <div class="toggle-hint">跳过 thinking 消息类型，仅展示结果</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Resource Quota -->
+        <div class="param-section">
+          <div class="param-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            资源配额
+          </div>
+          <div class="param-grid">
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">Token 日消耗上限</span>
+              </div>
+              <div class="param-input-group">
+                <input type="number" class="param-input" value="500000" min="0" style="width:150px;">
+              </div>
+              <div class="param-hint">每日 Token 消耗最大额度</div>
+            </div>
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">Token 月消耗上限</span>
+              </div>
+              <div class="param-input-group">
+                <input type="number" class="param-input" value="10000000" min="0" style="width:150px;">
+              </div>
+              <div class="param-hint">每月 Token 消耗最大额度</div>
+            </div>
+            <div class="param-item full-width">
+              <div class="param-top-row">
+                <span class="param-label">当前月已用</span>
+                <span style="font-size:0.78rem;color:var(--ink-secondary);">32%</span>
+              </div>
+              <div class="usage-bar-track">
+                <div class="usage-bar-fill" style="width:32%;"></div>
+              </div>
+              <div class="usage-bar-label">
+                <span class="usage-bar-value">3,245,678</span>
+                <span style="color:var(--ink-tertiary);">/ 10,000,000</span>
+              </div>
+            </div>
+            <div class="param-item full-width" style="margin-top:8px;">
+              <div class="param-top-row" style="margin-bottom:8px;">
+                <span class="param-label" style="display:flex;align-items:center;gap:6px;">
+                  <span class="warning-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  </span>
+                  超额策略
+                </span>
+              </div>
+              <div class="radio-group">
+                <label class="radio-item checked">
+                  <input type="radio" name="overdraft" checked>
+                  停止服务
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="overdraft">
+                  降级模型
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="overdraft">
+                  仅告警
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Data Retention -->
+        <div class="param-section">
+          <div class="param-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            数据保留
+          </div>
+          <div class="param-grid">
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">简历保留期限</span>
+              </div>
+              <div class="param-input-group">
+                <select class="param-select">
+                  <option value="forever" selected>永久保留</option>
+                  <option value="1y">1 年</option>
+                  <option value="2y">2 年</option>
+                  <option value="3y">3 年</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </div>
+              <div class="param-hint">简历数据在系统中的保存时长</div>
+            </div>
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">任务归档周期</span>
+              </div>
+              <div class="param-input-group">
+                <select class="param-select">
+                  <option value="6m" selected>关闭后6个月</option>
+                  <option value="3m">关闭后3个月</option>
+                  <option value="12m">关闭后12个月</option>
+                  <option value="forever">永久保留</option>
+                </select>
+              </div>
+              <div class="param-hint">已完成任务数据的归档保留时间</div>
+            </div>
+            <div class="param-item">
+              <div class="param-top-row">
+                <span class="param-label">操作审计日志</span>
+              </div>
+              <div class="param-input-group">
+                <select class="param-select">
+                  <option value="1y" selected>保留1年</option>
+                  <option value="6m">保留6个月</option>
+                  <option value="2y">保留2年</option>
+                  <option value="forever">永久保留</option>
+                </select>
+              </div>
+              <div class="param-hint">系统操作日志的保留时间</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-outline" id="btn-reset-system">恢复默认</button>
+          <button class="btn btn-primary" id="btn-save-system">保存参数</button>
+        </div>
+      </div>
+
+    </div><!-- /settings-content -->
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+
+<!-- ====== ADD MODEL MODAL ====== -->
+<div class="modal-overlay" id="modal-add-model">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">新增模型配置</span>
+      <button class="modal-close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">配置名称</label>
+        <input type="text" class="form-input" placeholder="例: GPT-4o 生产环境">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">提供商</label>
+          <select class="form-select">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="aliyun">阿里云</option>
+            <option value="zhipu">智谱 AI</option>
+            <option value="custom">自定义</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">模型名称</label>
+          <input type="text" class="form-input" placeholder="例: gpt-4o">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">API Base URL</label>
+        <input type="text" class="form-input" placeholder="https://api.openai.com/v1">
+        <div class="form-hint">API 服务的 Base URL 地址</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">API Key</label>
+        <input type="password" class="form-input" placeholder="sk-...">
+        <div class="form-hint">API 密钥将加密存储，展示时自动脱敏</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">最大 Token</label>
+          <input type="number" class="form-input" placeholder="4096" min="256" max="128000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">温度 (Temperature)</label>
+          <input type="number" class="form-input" placeholder="0.7" min="0" max="2" step="0.1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">任务分配</label>
+        <select class="form-select">
+          <option value="all">全部任务</option>
+          <option value="parse">简历解析</option>
+          <option value="intent">意图识别</option>
+          <option value="score">评分计算</option>
+          <option value="custom">自定义组合</option>
+        </select>
+        <div class="form-hint">指定该模型负责处理的任务类型</div>
+      </div>
+      <div class="toggle-row">
+        <label class="toggle-switch">
+          <input type="checkbox" checked>
+          <span class="toggle-track"></span>
+          <span class="toggle-thumb"></span>
+        </label>
+        <div>
+          <div class="toggle-label" style="margin-bottom:2px;">创建后立即启用</div>
+          <div class="toggle-hint">关闭则创建为禁用状态</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-modal-cancel">取消</button>
+      <button class="btn btn-primary" id="btn-modal-save">确认创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== TOAST CONTAINER ====== -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ====== SCRIPTS ====== -->
+<script>
+(function() {
+  'use strict';
+
+  /* =========================================================
+     1. TOAST NOTIFICATION SYSTEM
+     ========================================================= */
+  function showToast(message, type) {
+    type = type || 'info';
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    var icon = '';
+    switch(type) {
+      case 'success':
+        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+        break;
+      case 'error':
+        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+        break;
+      case 'warning':
+        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        break;
+      case 'info':
+      default:
+        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        break;
+    }
+    toast.innerHTML = icon + message;
+    container.appendChild(toast);
+    setTimeout(function() {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 3000);
+  }
+
+  /* =========================================================
+     2. CONFIRMATION DIALOG SYSTEM
+     ========================================================= */
+  function showConfirm(message, onConfirm) {
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show';
+    overlay.style.zIndex = '300';
+    var box = document.createElement('div');
+    box.className = 'modal-box';
+    box.style.width = '420px';
+    box.innerHTML =
+      '<div class="modal-header">' +
+        '<span class="modal-title">确认操作</span>' +
+        '<button class="modal-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>' +
+      '</div>' +
+      '<div class="modal-body">' +
+        '<p style="font-size:0.92rem;color:var(--ink);line-height:1.6;">' + message + '</p>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-outline confirm-cancel">取消</button>' +
+        '<button class="btn btn-primary confirm-ok">确认</button>' +
+      '</div>';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    box.querySelector('.confirm-cancel').addEventListener('click', close);
+    box.querySelector('.modal-close').addEventListener('click', close);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+    box.querySelector('.confirm-ok').addEventListener('click', function() { close(); onConfirm(); });
+  }
+
+  /* =========================================================
+     3. TAB SWITCHING
+     ========================================================= */
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  /* =========================================================
+     4. MODAL — Add Model Config
+     ========================================================= */
+  var addModelOverlay = document.getElementById('modal-add-model');
+
+  document.getElementById('btn-add-model').addEventListener('click', function() {
+    addModelOverlay.classList.add('show');
+    // Reset form
+    addModelOverlay.querySelectorAll('.form-input, .form-select').forEach(function(el) {
+      if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
+      el.classList.remove('error');
+    });
+    addModelOverlay.querySelectorAll('.form-error-msg').forEach(function(el) { el.classList.remove('show'); });
+  });
+
+  function closeAddModal() {
+    addModelOverlay.classList.remove('show');
+  }
+
+  addModelOverlay.querySelector('.modal-close').addEventListener('click', closeAddModal);
+  document.getElementById('btn-modal-cancel').addEventListener('click', closeAddModal);
+  addModelOverlay.addEventListener('click', function(e) { if (e.target === addModelOverlay) closeAddModal(); });
+
+  // Save new model config
+  document.getElementById('btn-modal-save').addEventListener('click', function() {
+    var nameInput = addModelOverlay.querySelector('.form-group:first-child .form-input');
+    var urlInput = addModelOverlay.querySelectorAll('.form-group')[3].querySelector('.form-input');
+    var valid = true;
+
+    // Clear previous errors
+    nameInput.classList.remove('error');
+    urlInput.classList.remove('error');
+
+    if (!nameInput.value.trim()) {
+      nameInput.classList.add('error');
+      if (!nameInput.nextElementSibling || !nameInput.nextElementSibling.classList.contains('form-error-msg')) {
+        var errMsg = document.createElement('div');
+        errMsg.className = 'form-error-msg';
+        errMsg.textContent = '请填写配置名称';
+        nameInput.parentNode.appendChild(errMsg);
+      }
+      nameInput.parentNode.querySelector('.form-error-msg').classList.add('show');
+      valid = false;
+    }
+    if (!urlInput.value.trim()) {
+      urlInput.classList.add('error');
+      if (!urlInput.nextElementSibling || !urlInput.nextElementSibling.classList.contains('form-error-msg')) {
+        var errMsg2 = document.createElement('div');
+        errMsg2.className = 'form-error-msg';
+        errMsg2.textContent = '请填写 API Base URL';
+        urlInput.parentNode.appendChild(errMsg2);
+      }
+      urlInput.parentNode.querySelector('.form-error-msg').classList.add('show');
+      valid = false;
+    }
+    if (!valid) return;
+
+    // Gather form values
+    var formData = {};
+    addModelOverlay.querySelectorAll('.form-input, .form-select').forEach(function(el) {
+      if (el.type === 'password') return;
+      formData[el.type === 'number' ? 'number' : 'text'] = el.value;
+    });
+
+    var provider = addModelOverlay.querySelectorAll('.form-select')[0].value;
+    var providerName = addModelOverlay.querySelectorAll('.form-select')[0].options[addModelOverlay.querySelectorAll('.form-select')[0].selectedIndex].text;
+    var modelName = addModelOverlay.querySelectorAll('.form-input')[2] ? addModelOverlay.querySelectorAll('.form-input')[2].value : '';
+    var maxToken = addModelOverlay.querySelectorAll('input[type="number"]')[0] ? addModelOverlay.querySelectorAll('input[type="number"]')[0].value : '4096';
+    var temperature = addModelOverlay.querySelectorAll('input[type="number"]')[1] ? addModelOverlay.querySelectorAll('input[type="number"]')[1].value : '0.7';
+    var taskSelect = addModelOverlay.querySelectorAll('.form-select')[1];
+    var taskName = taskSelect.options[taskSelect.selectedIndex].text;
+    var apiBase = urlInput.value.trim();
+    var configName = nameInput.value.trim();
+    var isEnabled = addModelOverlay.querySelector('.toggle-switch input').checked;
+
+    // Build new card
+    var card = document.createElement('div');
+    card.className = 'model-card' + (isEnabled ? ' card-active' : ' card-disabled');
+    card.innerHTML =
+      '<div class="model-card-inner">' +
+        '<div class="model-card-main">' +
+          '<div class="model-card-header">' +
+            '<span class="model-card-name">' + configName + '</span>' +
+            '<span class="badge badge-enabled"><span class="status-dot green"></span>已启用</span>' +
+          '</div>' +
+          '<div class="field-grid">' +
+            '<div class="field-item"><span class="field-label">配置名称</span><span class="field-value">' + configName + '</span></div>' +
+            '<div class="field-item"><span class="field-label">提供商</span><span class="field-value">' + providerName + '</span></div>' +
+            '<div class="field-item"><span class="field-label">API Base URL</span><span class="field-value"><code>' + apiBase + '</code></span></div>' +
+            '<div class="field-item"><span class="field-label">API Key</span><span class="field-value"><code class="masked-key" data-key="sk-newModelKeyABC">sk-***************ABC</code><span class="mask-toggle">显示</span></span></div>' +
+            '<div class="field-item"><span class="field-label">模型名称</span><span class="field-value"><code>' + modelName + '</code></span></div>' +
+            '<div class="field-item"><span class="field-label">最大 Token</span><span class="field-value">' + maxToken + '</span></div>' +
+            '<div class="field-item"><span class="field-label">温度</span><span class="field-value">' + temperature + '</span></div>' +
+            '<div class="field-item"><span class="field-label">任务分配</span><span class="field-value">' + taskName + '</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="model-card-actions">' +
+          '<button class="btn btn-outline btn-sm btn-test-conn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>测试连通性</button>' +
+          '<button class="btn btn-ghost btn-sm btn-edit">编辑</button>' +
+          '<button class="btn btn-ghost btn-sm btn-set-default">设为默认</button>' +
+          '<button class="btn btn-danger-ghost btn-sm btn-toggle-disable">禁用</button>' +
+        '</div>' +
+      '</div>';
+
+    // Insert card before the add-model button's parent section header
+    var tabLLM = document.getElementById('tab-llm');
+    var sectionHeader = tabLLM.querySelector('.section-header');
+    sectionHeader.after(card);
+
+    // Scroll to new card
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    closeAddModal();
+    showToast('新模型配置已添加', 'success');
+  });
+
+  // Global ESC to close modal
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeAddModal();
+  });
+
+  /* =========================================================
+     5. LLM MODEL CARD INTERACTIONS (Event Delegation)
+     ========================================================= */
+  document.getElementById('tab-llm').addEventListener('click', function(e) {
+    var card = e.target.closest('.model-card');
+    if (!card) return;
+    var btn = e.target.closest('button');
+    if (!btn) {
+      // Handle mask toggle click
+      if (e.target.classList.contains('mask-toggle')) {
+        toggleKeyVisibility(e.target);
+      }
+      return;
+    }
+
+    // "测试连通性"
+    if (btn.classList.contains('btn-test-conn')) {
+      testConnectivity(btn, card);
+    }
+    // "编辑"
+    else if (btn.classList.contains('btn-edit')) {
+      toggleEditMode(card, btn);
+    }
+    // "禁用"
+    else if (btn.classList.contains('btn-toggle-disable')) {
+      disableCard(card, btn);
+    }
+    // "启用"
+    else if (btn.classList.contains('btn-toggle-enable')) {
+      enableCard(card, btn);
+    }
+    // "设为默认"
+    else if (btn.classList.contains('btn-set-default')) {
+      setAsDefault(card);
+    }
+    // "删除"
+    else if (btn.classList.contains('btn-delete')) {
+      deleteCard(card);
+    }
+    // "保存" (in edit mode)
+    else if (btn.classList.contains('btn-save-edit')) {
+      saveEdit(card);
+    }
+    // "取消" (in edit mode)
+    else if (btn.classList.contains('btn-cancel-edit')) {
+      cancelEdit(card);
+    }
+  });
+
+  // Also handle mask-toggle clicks via delegation (for non-card clicks)
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('mask-toggle')) {
+      toggleKeyVisibility(e.target);
+    }
+  });
+
+  // --- 5a. API Key visibility toggle ---
+  function toggleKeyVisibility(toggleEl) {
+    var code = toggleEl.previousElementSibling;
+    if (!code || !code.classList.contains('masked-key')) return;
+    var fullKey = code.dataset.key;
+    if (toggleEl.textContent === '显示') {
+      code.textContent = fullKey;
+      toggleEl.textContent = '隐藏';
+    } else {
+      code.textContent = 'sk-***************' + fullKey.slice(-4);
+      toggleEl.textContent = '显示';
+    }
+  }
+
+  // --- 5b. Test connectivity ---
+  function testConnectivity(btn, card) {
+    if (card.classList.contains('card-disabled')) {
+      showToast('模型已禁用，无法测试', 'warning');
+      return;
+    }
+    if (btn.disabled) return;
+    btn.disabled = true;
+    var origHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span> 测试中...';
+
+    setTimeout(function() {
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+      var success = Math.random() < 0.8;
+      if (success) {
+        var latency = Math.floor(Math.random() * 400 + 100);
+        showToast('连通测试成功 — 延迟 ' + latency + 'ms', 'success');
+      } else {
+        showToast('连接失败: API Key 无效', 'error');
+      }
+    }, 1500);
+  }
+
+  // --- 5c. Edit mode toggle ---
+  function toggleEditMode(card, editBtn) {
+    if (card.classList.contains('editing')) return; // Already in edit mode
+    card.classList.add('editing');
+    card.dataset.originalHTML = card.querySelector('.field-grid').innerHTML;
+
+    // Replace display values with edit inputs
+    var fieldItems = card.querySelectorAll('.field-item');
+    fieldItems.forEach(function(item) {
+      var label = item.querySelector('.field-label').textContent.trim();
+      var valEl = item.querySelector('.field-value');
+      var displayText = valEl.childNodes[0] ? valEl.childNodes[0].textContent.trim() : '';
+      var codeEl = valEl.querySelector('code');
+
+      if (label === 'API Key') {
+        // Key input (special)
+        var keyInput = document.createElement('input');
+        keyInput.type = 'text';
+        keyInput.className = 'edit-key-input';
+        var maskedCode = valEl.querySelector('.masked-key');
+        keyInput.value = maskedCode ? maskedCode.dataset.key : displayText;
+        // Hide mask toggle during edit
+        var maskToggle = valEl.querySelector('.mask-toggle');
+        if (maskToggle) maskToggle.style.display = 'none';
+        valEl.appendChild(keyInput);
+      } else if (codeEl) {
+        // Values in <code> tags
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'edit-input';
+        input.value = codeEl.textContent.trim();
+        valEl.appendChild(input);
+      } else {
+        var input2 = document.createElement('input');
+        input2.type = 'text';
+        input2.className = 'edit-input';
+        input2.value = displayText;
+        valEl.appendChild(input2);
+      }
+    });
+
+    // Replace "编辑" button with "保存" + "取消"
+    var actions = card.querySelector('.model-card-actions');
+    var editBtnHTML = editBtn.outerHTML;
+    editBtn.style.display = 'none';
+
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-primary btn-sm btn-save-edit';
+    saveBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> 保存';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-outline btn-sm btn-cancel-edit';
+    cancelBtn.textContent = '取消';
+
+    editBtn.parentNode.insertBefore(saveBtn, editBtn.nextSibling);
+    editBtn.parentNode.insertBefore(cancelBtn, saveBtn.nextSibling);
+  }
+
+  function saveEdit(card) {
+    // Read edit inputs and update display
+    var fieldItems = card.querySelectorAll('.field-item');
+    fieldItems.forEach(function(item) {
+      var valEl = item.querySelector('.field-value');
+      var keyInput = valEl.querySelector('.edit-key-input');
+      var editInput = valEl.querySelector('.edit-input');
+
+      if (keyInput) {
+        var maskedCode = valEl.querySelector('.masked-key');
+        if (maskedCode) {
+          maskedCode.dataset.key = keyInput.value;
+          maskedCode.textContent = 'sk-***************' + keyInput.value.slice(-4);
+        }
+        var maskToggle = valEl.querySelector('.mask-toggle');
+        if (maskToggle) maskToggle.style.display = '';
+        keyInput.remove();
+      } else if (editInput) {
+        var codeEl = valEl.querySelector('code:not(.masked-key)');
+        if (codeEl) {
+          codeEl.textContent = editInput.value;
+        } else {
+          valEl.childNodes[0].textContent = editInput.value;
+        }
+        editInput.remove();
+      }
+    });
+
+    // Update card name from config name field
+    var nameField = card.querySelectorAll('.field-item')[0];
+    if (nameField) {
+      var nameVal = nameField.querySelector('.field-value').childNodes[0].textContent.trim();
+      card.querySelector('.model-card-name').textContent = nameVal;
+    }
+
+    card.classList.remove('editing');
+
+    // Remove save/cancel buttons, restore edit button
+    var saveBtn = card.querySelector('.btn-save-edit');
+    var cancelBtn = card.querySelector('.btn-cancel-edit');
+    if (saveBtn) saveBtn.remove();
+    if (cancelBtn) cancelBtn.remove();
+    var editBtn = card.querySelector('.btn-edit');
+    if (editBtn) editBtn.style.display = '';
+
+    showToast('配置已保存', 'success');
+  }
+
+  function cancelEdit(card) {
+    card.classList.remove('editing');
+
+    // Remove edit inputs
+    card.querySelectorAll('.edit-input, .edit-key-input').forEach(function(el) { el.remove(); });
+
+    // Restore mask toggles
+    card.querySelectorAll('.mask-toggle').forEach(function(el) { el.style.display = ''; });
+
+    // Remove save/cancel buttons, restore edit button
+    var saveBtn = card.querySelector('.btn-save-edit');
+    var cancelBtn = card.querySelector('.btn-cancel-edit');
+    if (saveBtn) saveBtn.remove();
+    if (cancelBtn) cancelBtn.remove();
+    var editBtn = card.querySelector('.btn-edit');
+    if (editBtn) editBtn.style.display = '';
+
+    showToast('已取消', 'info');
+  }
+
+  // --- 5d. Disable card ---
+  function disableCard(card, btn) {
+    card.classList.remove('card-active');
+    card.classList.add('card-disabled');
+
+    // Update badge
+    var badge = card.querySelector('.badge-enabled');
+    if (badge) {
+      badge.className = 'badge badge-disabled';
+      badge.innerHTML = '<span class="status-dot red"></span>已禁用';
+    }
+
+    // Remove default badge if present
+    var defaultBadge = card.querySelector('.badge-default');
+    if (defaultBadge) {
+      defaultBadge.remove();
+      card.classList.remove('card-default');
+    }
+
+    // Replace "禁用" button with "启用"
+    btn.className = 'btn btn-ghost btn-sm btn-toggle-enable';
+    btn.style.color = 'var(--success)';
+    btn.textContent = '启用';
+
+    // Hide "设为默认" button
+    var setDefaultBtn = card.querySelector('.btn-set-default');
+    if (setDefaultBtn) setDefaultBtn.style.display = 'none';
+
+    showToast(card.querySelector('.model-card-name').textContent + ' 已禁用', 'warning');
+  }
+
+  // --- 5e. Enable card ---
+  function enableCard(card, btn) {
+    card.classList.remove('card-disabled');
+    card.classList.add('card-active');
+
+    // Update badge
+    var badge = card.querySelector('.badge-disabled');
+    if (badge) {
+      badge.className = 'badge badge-enabled';
+      badge.innerHTML = '<span class="status-dot green"></span>已启用';
+    }
+
+    // Replace "启用" button with "禁用"
+    btn.className = 'btn btn-danger-ghost btn-sm btn-toggle-disable';
+    btn.style.color = '';
+    btn.textContent = '禁用';
+
+    // Show "设为默认" button
+    var setDefaultBtn = card.querySelector('.btn-set-default');
+    if (setDefaultBtn) setDefaultBtn.style.display = '';
+
+    showToast(card.querySelector('.model-card-name').textContent + ' 已启用', 'success');
+  }
+
+  // --- 5f. Set as default ---
+  function setAsDefault(card) {
+    // Remove default from all cards
+    document.querySelectorAll('.model-card').forEach(function(c) {
+      c.classList.remove('card-default');
+      var badge = c.querySelector('.badge-default');
+      if (badge) badge.remove();
+      var radio = c.querySelector('.default-radio input');
+      if (radio) radio.checked = false;
+    });
+
+    // Set default on this card
+    card.classList.add('card-default');
+    var header = card.querySelector('.model-card-header');
+    var nameEl = card.querySelector('.model-card-name');
+    var defaultBadge = document.createElement('span');
+    defaultBadge.className = 'badge badge-default';
+    defaultBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>默认模型';
+    nameEl.after(defaultBadge);
+
+    // Check radio if exists
+    var radio = card.querySelector('.default-radio input');
+    if (radio) radio.checked = true;
+
+    showToast(nameEl.textContent + ' 已设为默认模型', 'success');
+  }
+
+  // --- 5g. Delete card ---
+  function deleteCard(card) {
+    var name = card.querySelector('.model-card-name').textContent;
+    showConfirm('确定删除模型配置「' + name + '」？删除后无法恢复。', function() {
+      card.classList.add('removing');
+      setTimeout(function() {
+        if (card.parentNode) card.parentNode.removeChild(card);
+      }, 350);
+      showToast('已删除', 'info');
+    });
+  }
+
+  /* =========================================================
+     6. TAB 2 — SCORING ENGINE PARAMETERS
+     ========================================================= */
+
+  // --- 6a. Weight edit ---
+  var scoringTable = document.querySelector('.scoring-table tbody');
+  if (scoringTable) {
+    scoringTable.addEventListener('click', function(e) {
+      var btn = e.target.closest('.btn');
+      if (!btn) return;
+      var tr = btn.closest('tr');
+
+      // "编辑权重" button
+      if (btn.textContent.trim() === '编辑权重' || btn.textContent.trim() === '保存权重') {
+        var weightSpan = tr.querySelector('.weight-value');
+        var currentWeight = parseInt(weightSpan.textContent);
+
+        if (btn.textContent.trim() === '编辑权重') {
+          // Switch to edit mode
+          var input = document.createElement('input');
+          input.type = 'number';
+          input.className = 'weight-edit-input';
+          input.value = currentWeight;
+          input.min = 0;
+          input.max = 100;
+          weightSpan.style.display = 'none';
+          weightSpan.parentNode.insertBefore(input, weightSpan);
+          input.focus();
+          input.select();
+          btn.textContent = '保存权重';
+          btn.className = 'btn btn-primary btn-xs';
+        } else {
+          // Save weight
+          var editInput = tr.querySelector('.weight-edit-input');
+          var newWeight = parseInt(editInput.value) || 0;
+          newWeight = Math.max(0, Math.min(100, newWeight));
+          weightSpan.textContent = newWeight + '%';
+          weightSpan.style.display = '';
+          editInput.remove();
+          btn.textContent = '编辑权重';
+          btn.className = 'btn btn-ghost btn-xs';
+
+          // Check total weight
+          updateWeightTotal();
+          showToast('权重已更新', 'success');
+        }
+      }
+    });
+  }
+
+  function updateWeightTotal() {
+    var total = 0;
+    document.querySelectorAll('.scoring-table tbody tr').forEach(function(tr) {
+      var span = tr.querySelector('.weight-value');
+      if (span && span.style.display !== 'none') {
+        total += parseInt(span.textContent) || 0;
+      }
+    });
+    var totalLabel = document.querySelector('.weight-total-label');
+    var totalValue = document.querySelector('.weight-total-value');
+    if (totalLabel) totalLabel.textContent = '总权重: ' + total + '%';
+    if (totalValue) {
+      if (total === 100) {
+        totalValue.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 权重分配有效';
+        totalValue.style.color = 'var(--success)';
+      } else {
+        totalValue.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 权重总和不等于 100%';
+        totalValue.style.color = 'var(--warning)';
+      }
+    }
+  }
+
+  // --- 6b. Dimension toggle switches ---
+  if (scoringTable) {
+    scoringTable.addEventListener('change', function(e) {
+      if (e.target.type === 'checkbox' && e.target.closest('.toggle-switch')) {
+        var tr = e.target.closest('tr');
+        var dimName = tr.querySelector('td').textContent.trim();
+        var badge = tr.querySelector('.badge');
+        if (e.target.checked) {
+          tr.style.opacity = '';
+          badge.className = 'badge badge-enabled';
+          badge.innerHTML = '<span class="status-dot green"></span>启用';
+          showToast(dimName + ' 已启用', 'success');
+        } else {
+          tr.style.opacity = '0.5';
+          badge.className = 'badge badge-disabled';
+          badge.innerHTML = '<span class="status-dot red"></span>禁用';
+          showToast('已禁用: ' + dimName, 'warning');
+        }
+        updateWeightTotal();
+      }
+    });
+  }
+
+  // --- 6c. Threshold sliders (real-time sync) ---
+  document.querySelectorAll('.threshold-row').forEach(function(row) {
+    var slider = row.querySelector('.threshold-slider');
+    var numberInput = row.querySelector('.threshold-number');
+    if (!slider || !numberInput) return;
+
+    slider.addEventListener('input', function() {
+      numberInput.value = (parseInt(this.value) / 100).toFixed(1);
+    });
+
+    numberInput.addEventListener('input', function() {
+      var v = parseFloat(this.value);
+      if (!isNaN(v)) {
+        slider.value = Math.round(v * 100);
+      }
+    });
+
+    numberInput.addEventListener('blur', function() {
+      var v = parseFloat(this.value);
+      if (isNaN(v) || v < 0) { this.value = '0.0'; slider.value = 0; }
+      else if (v > 1) { this.value = '1.0'; slider.value = 100; }
+      else { this.value = v.toFixed(1); }
+    });
+  });
+
+  // --- 6d. Save scoring config ---
+  document.getElementById('btn-save-scoring').addEventListener('click', function() {
+    showToast('评分配置已保存', 'success');
+  });
+
+  // --- 6e. Add custom dimension ---
+  document.getElementById('btn-add-dimension').addEventListener('click', function() {
+    showToast('功能演示: 添加自定义维度', 'info');
+  });
+
+  /* =========================================================
+     7. TAB 3 — SYSTEM PARAMETERS
+     ========================================================= */
+
+  // --- 7a. Save system params ---
+  document.getElementById('btn-save-system').addEventListener('click', function() {
+    showToast('参数已保存', 'success');
+  });
+
+  // --- 7b. Reset to defaults ---
+  document.getElementById('btn-reset-system').addEventListener('click', function() {
+    showConfirm('确定要恢复所有参数为默认值吗？当前修改将丢失。', function() {
+      // Reset number inputs to default values
+      var defaults = {
+        '批量上传上限': 100,
+        '单文件大小限制': 10,
+        '解析超时时间': 30,
+        '追问轮次上限': 1,
+        'Plan 阶段自动执行阈值': 5,
+        'Token 日消耗上限': 500000,
+        'Token 月消耗上限': 10000000
+      };
+      document.querySelectorAll('#tab-system .param-item').forEach(function(item) {
+        var label = item.querySelector('.param-label');
+        if (!label) return;
+        var labelText = label.textContent.trim();
+        var numInput = item.querySelector('input[type="number"]');
+        if (numInput && defaults[labelText] !== undefined) {
+          numInput.value = defaults[labelText];
+        }
+        // Reset selects to first option
+        var sel = item.querySelector('select');
+        if (sel) sel.selectedIndex = 0;
+      });
+
+      // Reset toggle switches
+      document.querySelectorAll('#tab-system .toggle-switch input').forEach(function(cb) {
+        if (cb.closest('.param-section:nth-child(2)')) {
+          // Agent behavior section: first toggle ON, second OFF
+        }
+      });
+
+      // Reset radio to "停止服务"
+      var stopRadio = document.querySelector('input[name="overdraft"][value="stop"]');
+      // First radio in the group
+      var firstRadio = document.querySelector('input[name="overdraft"]');
+      if (firstRadio) {
+        firstRadio.checked = true;
+        document.querySelectorAll('.radio-item').forEach(function(ri) { ri.classList.remove('checked'); });
+        firstRadio.closest('.radio-item').classList.add('checked');
+      }
+
+      showToast('已恢复默认参数', 'success');
+    });
+  });
+
+  // --- 7c. Radio group for system params ---
+  document.querySelectorAll('#tab-system .radio-item input').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      document.querySelectorAll('#tab-system .radio-item').forEach(function(item) {
+        item.classList.remove('checked');
+      });
+      radio.closest('.radio-item').classList.add('checked');
+    });
+  });
+
+  // Also ensure other radio groups work
+  document.querySelectorAll('.radio-group .radio-item input').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      document.querySelectorAll('.radio-group').forEach(function(group) {
+        // Only affect the same radio group
+        var name = radio.name;
+        group.querySelectorAll('.radio-item input[name="' + name + '"]').forEach(function(r) {
+          r.closest('.radio-item').classList.remove('checked');
+        });
+        radio.closest('.radio-item').classList.add('checked');
+      });
+    });
+  });
+
+  /* =========================================================
+     8. NAVIGATION — Sidebar links are already <a> tags
+     ========================================================= */
+  // No additional JS needed; sidebar links use href attributes natively.
+
+  /* =========================================================
+     9. GLOBAL ESCAPE KEY
+     ========================================================= */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      // Close any open confirmation dialogs
+      var topOverlay = document.querySelector('.modal-overlay.show[style*="z-index"]');
+      if (topOverlay) topOverlay.classList.remove('show');
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
