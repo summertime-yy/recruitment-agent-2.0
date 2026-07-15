@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Table,
   Button,
@@ -34,11 +34,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { resumeApi } from '@/services/resume';
-import type { Resume, ResumeParseStatus } from '@/types';
+import type { Resume, ResumeParseStatus, CandidateStatus, DedupStatus, TagsMetaResponse } from '@/types';
 import ResumeEditModal from '@/components/ResumeEditModal';
+import CandidateStatusSwitch from '@/components/CandidateStatusSwitch';
 
 const { Dragger } = Upload;
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { Search } = Input;
 
 const parseStatusConfig: Record<ResumeParseStatus, { color: string; text: string; bgColor: string }> = {
@@ -79,7 +80,12 @@ const ResumesPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
-  const [parseStatus, setParseStatus] = useState<string | undefined>(undefined);
+  const [parseStatus, setParseStatus] = useState<ResumeParseStatus | undefined>(undefined);
+  const [candidateStatus, setCandidateStatus] = useState<CandidateStatus | undefined>(undefined);
+  const [tagFilter, setTagFilter] = useState<string | undefined>(undefined);
+  const [sourceFilter, setSourceFilter] = useState<string | undefined>(undefined);
+  const [dedupFilter, setDedupFilter] = useState<DedupStatus | undefined>(undefined);
+  const [tagsMeta, setTagsMeta] = useState<TagsMetaResponse>({ tags: [], sources: [] });
   const [uploading, setUploading] = useState(false);
   const [stats, setStats] = useState({ total: 0, parsed: 0, pending: 0, failed: 0 });
   const [parsingIds, setParsingIds] = useState<Set<string>>(new Set());
@@ -87,11 +93,11 @@ const ResumesPage: React.FC = () => {
   const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingResume, setEditingResume] = useState<Resume | null>(null);
-  const pollingTimers = React.useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const pollingTimers = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const fetchAllStats = async () => {
     try {
-      const res = await resumeApi.list({ page: 1, page_size: 100 });
+      const res = await resumeApi.list({ page, page_size: pageSize, keyword: keyword || undefined, parse_status: parseStatus, candidate_status: candidateStatus, tag: tagFilter, source: sourceFilter, dedup_status: dedupFilter });
       const items = res.items;
       setStats({
         total: res.total,
@@ -161,10 +167,10 @@ const ResumesPage: React.FC = () => {
   const fetchResumes = async () => {
     setLoading(true);
     try {
-      const res = await resumeApi.list({ page, page_size: pageSize, keyword: keyword || undefined, parse_status: parseStatus });
+      const res = await resumeApi.list({ page, page_size: pageSize, keyword: keyword || undefined, parse_status: parseStatus, candidate_status: candidateStatus });
       setResumes(res.items);
       setTotal(res.total);
-      if (!keyword && !parseStatus) {
+      if (!keyword && !parseStatus && !candidateStatus && !tagFilter && !sourceFilter && !dedupFilter) {
         setStats({
           total: res.total,
           parsed: res.items.filter(r => r.parse_status === 'PARSED').length,
@@ -183,7 +189,11 @@ const ResumesPage: React.FC = () => {
 
   useEffect(() => {
     fetchResumes();
-  }, [page, pageSize, parseStatus]);
+  }, [page, pageSize, parseStatus, candidateStatus, keyword, tagFilter, sourceFilter, dedupFilter]);
+
+  useEffect(() => {
+    resumeApi.getTagsMeta().then(setTagsMeta).catch(() => {});
+  }, []);
 
   const handleSearch = (value: string) => {
     setKeyword(value);
@@ -239,7 +249,7 @@ const ResumesPage: React.FC = () => {
       message.loading({ content: '已开始后台解析，状态将自动更新...', key: `parse-${resumeId}`, duration: 2 });
       startPolling(resumeId);
       setResumes(prev => prev.map(r =>
-        r.resume_id === resumeId ? { ...r, parse_status: 'PARSING' as const, parse_error: null } : r
+        r.resume_id === resumeId ? { ...r, parse_status: 'PARSING' as const, parse_error: undefined } : r
       ));
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
@@ -343,6 +353,39 @@ const ResumesPage: React.FC = () => {
         >
           {parsingIds.has(record.resume_id) ? '解析中' : parseStatusConfig[status].text}
         </Tag>
+      ),
+    },
+    {
+      title: '候选人状态',
+      dataIndex: 'candidate_status',
+      key: 'candidate_status',
+      width: 130,
+      render: (status: CandidateStatus, record: Resume) => (
+        <CandidateStatusSwitch
+          resumeId={record.resume_id}
+          status={status}
+          operator='recruiter'
+          onChange={() => {
+            // 切换后刷新列表以同步状态
+            fetchResumes();
+          }}
+        />
+      ),
+    },
+    {
+      title: '标签',
+      dataIndex: 'tags',
+      key: 'tags',
+      width: 150,
+      render: (tags?: string[], record?: Resume) => (
+        <Space size={4} wrap>
+          {(tags || []).map(t => <Tag key={t} color='blue'>{t}</Tag>)}
+          {record?.dedup_status && record.dedup_status !== 'NONE' && (
+            <Tag color={record.dedup_status === 'SUSPECTED' ? 'warning' : record.dedup_status === 'CONFIRMED_DUP' ? 'error' : 'default'}>
+              {record.dedup_status === 'SUSPECTED' ? '疑似重复' : record.dedup_status === 'CONFIRMED_DUP' ? '重复' : '已忽略'}
+            </Tag>
+          )}
+        </Space>
       ),
     },
     {
@@ -635,6 +678,53 @@ const ResumesPage: React.FC = () => {
                     { value: 'PENDING', label: '待解析' },
                     { value: 'PARSING', label: '解析中' },
                     { value: 'FAILED', label: '解析失败' },
+                  ]}
+                />
+                <Select
+                  placeholder="候选人状态"
+                  allowClear
+                  size="small"
+                  style={{ width: 130 }}
+                  value={candidateStatus}
+                  onChange={(v) => { setCandidateStatus(v); setPage(1); }}
+                  options={[
+                    { value: 'NEW', label: '新简历' },
+                    { value: 'SCREENING_PASSED', label: '初筛通过' },
+                    { value: 'INTERVIEWING', label: '面试中' },
+                    { value: 'OFFERED', label: '已录用' },
+                    { value: 'SCREENING_REJECTED', label: '初筛淘汰' },
+                    { value: 'ARCHIVED', label: '已归档' },
+                  ]}
+                />
+                <Select
+                  placeholder='标签'
+                  allowClear
+                  size='small'
+                  style={{ width: 120 }}
+                  value={tagFilter}
+                  onChange={(v) => { setTagFilter(v); setPage(1); }}
+                  options={tagsMeta.tags.map(t => ({ value: t, label: t }))}
+                />
+                <Select
+                  placeholder='来源'
+                  allowClear
+                  size='small'
+                  style={{ width: 110 }}
+                  value={sourceFilter}
+                  onChange={(v) => { setSourceFilter(v); setPage(1); }}
+                  options={tagsMeta.sources.map(s => ({ value: s, label: s }))}
+                />
+                <Select
+                  placeholder='重复状态'
+                  allowClear
+                  size='small'
+                  style={{ width: 120 }}
+                  value={dedupFilter}
+                  onChange={(v) => { setDedupFilter(v); setPage(1); }}
+                  options={[
+                    { value: 'SUSPECTED', label: '疑似重复' },
+                    { value: 'CONFIRMED_DUP', label: '已确认重复' },
+                    { value: 'IGNORED', label: '已忽略' },
                   ]}
                 />
               </Space>

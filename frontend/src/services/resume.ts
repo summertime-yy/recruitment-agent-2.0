@@ -1,11 +1,17 @@
-import request from '@/utils/request';
-import type { Resume, ResumeUploadResponse, PaginatedResponse, ParsedContent } from '@/types';
+﻿import request from '@/utils/request';
+import type { Resume, ResumeUploadResponse, PaginatedResponse, ParsedContent, TagsMetaResponse, DedupStatus, CandidateStatus, ResumeParseStatus } from '@/types';
 
 export interface ResumeListParams {
   page?: number;
   page_size?: number;
-  parse_status?: string;
+  parse_status?: ResumeParseStatus;
+  candidate_status?: CandidateStatus;
   keyword?: string;
+  tag?: string;
+  source?: string;
+  dedup_status?: DedupStatus;
+  date_from?: string;
+  date_to?: string;
 }
 
 export interface ResumeUpdateData {
@@ -13,6 +19,8 @@ export interface ResumeUpdateData {
   phone?: string;
   email?: string;
   parsed_content?: ParsedContent;
+  tags?: string[];
+  source?: string;
 }
 
 export const resumeApi = {
@@ -48,4 +56,15 @@ export const resumeApi = {
   getPreviewUrl(resumeId: string): string {
     return `/api/v1/resumes/${resumeId}/preview`;
   },
+
+  /** 获取所有已用标签与来源（用于筛选下拉） */
+  getTagsMeta(): Promise<TagsMetaResponse> {
+    return request.get('/resumes/tags/meta');
+  },
+
+  /** 处理疑似重复：CONFIRM_DUP / IGNORE / RECHECK */
+  handleDedup(resumeId: string, action: 'CONFIRM_DUP' | 'IGNORE' | 'RECHECK'): Promise<Resume> {
+    return request.post(`/resumes/${resumeId}/dedup`, { action });
+  },
 };
+

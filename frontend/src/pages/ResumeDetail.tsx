@@ -9,6 +9,7 @@ import {
   Typography,
   Timeline,
   Alert,
+  Divider,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -29,18 +30,22 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
+import CandidateStatusSwitch from '@/components/CandidateStatusSwitch';
+import CandidateStatusTimeline from '@/components/CandidateStatusTimeline';
+import CandidateNotesCard from '@/components/CandidateNotesCard';
 import { resumeApi } from '@/services/resume';
 import type { Resume, ResumeParseStatus, EducationItem, WorkExperienceItem, ProjectExperienceItem } from '@/types';
+import { DEDUP_STATUS_LABEL } from '@/types';
 import ResumeEditModal from '@/components/ResumeEditModal';
 import dayjs from 'dayjs';
 
 const { Text, Paragraph } = Typography;
 
 const parseStatusMap: Record<ResumeParseStatus, { color: string; text: string; icon: React.ReactNode }> = {
-  PENDING: { color: 'default', text: 'å¾…è§£æ', icon: <ClockCircleOutlined /> },
-  PARSING: { color: 'processing', text: 'è§£æä¸­', icon: <LoadingOutlined /> },
-  PARSED: { color: 'success', text: 'å·²è§£æ', icon: <CheckCircleOutlined /> },
-  FAILED: { color: 'error', text: 'è§£æå¤±è´¥', icon: <CloseCircleOutlined /> },
+  PENDING: { color: 'default', text: '´ı½âÎö', icon: <ClockCircleOutlined /> },
+  PARSING: { color: 'processing', text: '½âÎöÖĞ', icon: <LoadingOutlined /> },
+  PARSED: { color: 'success', text: 'ÒÑ½âÎö', icon: <CheckCircleOutlined /> },
+  FAILED: { color: 'error', text: '½âÎöÊ§°Ü', icon: <CloseCircleOutlined /> },
 };
 
 const formatFileSize = (bytes?: number) => {
@@ -56,9 +61,10 @@ const ResumeDetailPage: React.FC = () => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
+  const [statusRefreshKey, setStatusRefreshKey] = useState(0);
   const [resume, setResume] = useState<Resume | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const pollTimer = useRef<NodeJS.Timeout | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchResume = async (silent = false) => {
     if (!id) return;
@@ -91,12 +97,12 @@ const ResumeDetailPage: React.FC = () => {
         return;
       }
       if (updated.parse_status === 'PARSED') {
-        message.success(`${updated.candidate_name || updated.file_name} è§£æå®Œæˆ`);
+        message.success(`${updated.candidate_name || updated.file_name} ½âÎöÍê³É`);
         setParsing(false);
         return;
       }
       if (updated.parse_status === 'FAILED') {
-        message.error(`è§£æå¤±è´¥: ${updated.parse_error || 'æœªçŸ¥é”™è¯¯'}`);
+        message.error(`½âÎöÊ§°Ü: ${updated.parse_error || 'Î´Öª´íÎó'}`);
         setParsing(false);
         return;
       }
@@ -123,14 +129,14 @@ const ResumeDetailPage: React.FC = () => {
     if (!id) return;
     setParsing(true);
     try {
-      message.loading({ content: 'æ­£åœ¨å¼€å§‹è§£æ...', key: 'parse' });
+      message.loading({ content: 'ÕıÔÚ¿ªÊ¼½âÎö...', key: 'parse' });
       await resumeApi.parse(id);
-      message.success({ content: 'å·²å¼€å§‹è§£æï¼Œè¯·ç¨å€™...', key: 'parse' });
-      setResume(prev => prev ? { ...prev, parse_status: 'PARSING', parse_error: null } : prev);
+      message.success({ content: 'ÒÑ¿ªÊ¼½âÎö£¬ÇëÉÔºò...', key: 'parse' });
+      setResume(prev => prev ? { ...prev, parse_status: 'PARSING', parse_error: undefined } : prev);
       startPolling();
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      message.error({ content: detail || 'è§£æå¤±è´¥', key: 'parse' });
+      message.error({ content: detail || '½âÎöÊ§°Ü', key: 'parse' });
       setParsing(false);
     }
   };
@@ -143,15 +149,26 @@ const ResumeDetailPage: React.FC = () => {
 
   const handleEditSaved = (updated: Resume) => {
     setResume(updated);
-    message.success('ä¿å­˜æˆåŠŸ');
+    message.success('±£´æ³É¹¦');
     setEditModalVisible(false);
+  };
+
+  const handleDedup = async (action: 'CONFIRM_DUP' | 'IGNORE' | 'RECHECK') => {
+    if (!id) return;
+    try {
+      const updated = await resumeApi.handleDedup(id, action);
+      setResume(updated);
+      message.success('ÒÑ¸üĞÂ');
+    } catch {
+      message.error('²Ù×÷Ê§°Ü');
+    }
   };
 
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: 100 }}>
         <Spin size="large" />
-        <div style={{ marginTop: 16, color: 'var(--ink-tertiary)' }}>åŠ è½½ä¸­...</div>
+        <div style={{ marginTop: 16, color: 'var(--ink-tertiary)' }}>¼ÓÔØÖĞ...</div>
       </div>
     );
   }
@@ -159,9 +176,9 @@ const ResumeDetailPage: React.FC = () => {
   if (!resume) {
     return (
       <div style={{ textAlign: 'center', padding: 100 }}>
-        <div style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 8 }}>ç®€å†ä¸å­˜åœ¨</div>
-        <div style={{ color: 'var(--ink-tertiary)', marginBottom: 24 }}>è¯¥ç®€å†å¯èƒ½å·²è¢«åˆ é™¤æˆ–IDæ— æ•ˆ</div>
-        <Button type="primary" onClick={() => navigate('/resumes')}>è¿”å›åˆ—è¡¨</Button>
+        <div style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 8 }}>¼òÀú²»´æÔÚ</div>
+        <div style={{ color: 'var(--ink-tertiary)', marginBottom: 24 }}>¸Ã¼òÀú¿ÉÄÜÒÑ±»É¾³ı»òIDÎŞĞ§</div>
+        <Button type="primary" onClick={() => navigate('/resumes')}>·µ»ØÁĞ±í</Button>
       </div>
     );
   }
@@ -173,7 +190,7 @@ const ResumeDetailPage: React.FC = () => {
     <div>
       <div style={{ marginBottom: 24 }}>
         <Button type="link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/resumes')} style={{ paddingLeft: 0, marginBottom: 8 }}>
-          è¿”å›ç®€å†åˆ—è¡¨
+          ·µ»Ø¼òÀúÁĞ±í
         </Button>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
@@ -187,6 +204,14 @@ const ResumeDetailPage: React.FC = () => {
                 {resume.candidate_name || resume.file_name.replace(/\.(pdf|docx)$/i, '')}
               </h1>
               <Tag icon={status.icon} color={status.color} style={{ fontSize: '0.85rem' }}>{status.text}</Tag>
+              <Divider type="vertical" style={{ height: 20 }} />
+              <span style={{ fontSize: '0.85rem', color: '#78716C' }}>ºòÑ¡ÈË£º</span>
+              <CandidateStatusSwitch
+                resumeId={resume.resume_id}
+                status={resume.candidate_status}
+                operator='recruiter'
+                onChange={(newStatus) => { setResume(prev => prev ? { ...prev, candidate_status: newStatus } : prev); setStatusRefreshKey(k => k + 1); }}
+              />
             </div>
             <Space size={12} wrap>
               {resume.phone && (
@@ -202,34 +227,34 @@ const ResumeDetailPage: React.FC = () => {
                 </Space>
               )}
               <Text type="secondary">{resume.file_name}</Text>
-              <Text type="secondary">Â·</Text>
+              <Text type="secondary">¡¤</Text>
               <Text type="secondary">{formatFileSize(resume.file_size)}</Text>
               {resume.parse_time_ms && (
                 <>
-                  <Text type="secondary">Â·</Text>
-                  <Text type="secondary">è§£æè€—æ—¶ {(resume.parse_time_ms / 1000).toFixed(1)}s</Text>
+                  <Text type="secondary">¡¤</Text>
+                  <Text type="secondary">½âÎöºÄÊ± {(resume.parse_time_ms / 1000).toFixed(1)}s</Text>
                 </>
               )}
             </Space>
             <div style={{ marginTop: 4, color: '#78716C', fontSize: '0.85rem' }}>
-              ä¸Šä¼ äº {dayjs(resume.created_at).format('YYYY-MM-DD HH:mm')}
+              ÉÏ´«ÓÚ {dayjs(resume.created_at).format('YYYY-MM-DD HH:mm')}
             </div>
           </div>
           <Space>
             <Button icon={<EyeOutlined />} onClick={handleViewOriginal}>
-              æŸ¥çœ‹åŸå§‹ç®€å†
+              ²é¿´Ô­Ê¼¼òÀú
             </Button>
             {resume.parse_status === 'PARSED' && (
               <Button icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>
-                ç¼–è¾‘ä¿®æ­£
+                ±à¼­ĞŞÕı
               </Button>
             )}
             {resume.parse_status === 'FAILED' || resume.parse_status === 'PENDING' ? (
               <Button type="primary" icon={<ReloadOutlined />} loading={parsing} onClick={handleParse}>
-                {resume.parse_status === 'FAILED' ? 'é‡æ–°è§£æ' : 'å¼€å§‹è§£æ'}
+                {resume.parse_status === 'FAILED' ? 'ÖØĞÂ½âÎö' : '¿ªÊ¼½âÎö'}
               </Button>
             ) : resume.parse_status === 'PARSED' ? (
-              <Button icon={<ReloadOutlined />} loading={parsing} onClick={handleParse}>é‡æ–°è§£æ</Button>
+              <Button icon={<ReloadOutlined />} loading={parsing} onClick={handleParse}>ÖØĞÂ½âÎö</Button>
             ) : null}
           </Space>
         </div>
@@ -237,21 +262,21 @@ const ResumeDetailPage: React.FC = () => {
 
       {resume.parse_error && (
         <Alert
-          message="è§£æå¤±è´¥"
+          message="½âÎöÊ§°Ü"
           description={resume.parse_error}
           type="error"
           showIcon
           style={{ marginBottom: 16 }}
           action={
-            <Button size="small" danger onClick={handleParse} loading={parsing}>é‡è¯•</Button>
+            <Button size="small" danger onClick={handleParse} loading={parsing}>ÖØÊÔ</Button>
           }
         />
       )}
 
       {resume.parse_status === 'PARSING' && (
         <Alert
-          message="æ­£åœ¨è§£æä¸­"
-          description="AIæ­£åœ¨è§£æç®€å†å†…å®¹ï¼Œè¯·ç¨å€™..."
+          message="ÕıÔÚ½âÎöÖĞ"
+          description="AIÕıÔÚ½âÎö¼òÀúÄÚÈİ£¬ÇëÉÔºò..."
           type="info"
           showIcon
           icon={<LoadingOutlined />}
@@ -261,16 +286,59 @@ const ResumeDetailPage: React.FC = () => {
 
       {parsed ? (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Card
+            title={
+              <Space>
+                <SolutionOutlined style={{ color: '#0D9488' }} />
+                <span>ºòÑ¡ÈË×´Ì¬Á÷×ª</span>
+              </Space>
+            }
+          >
+            <div style={{ marginBottom: 16 }}>
+              <Text type="secondary">µ±Ç°ºòÑ¡ÈË×´Ì¬£º</Text>{' '}
+              <CandidateStatusSwitch
+                resumeId={resume.resume_id}
+                status={resume.candidate_status}
+                operator='recruiter'
+                onChange={(newStatus) => { setResume(prev => prev ? { ...prev, candidate_status: newStatus } : prev); setStatusRefreshKey(k => k + 1); }}
+              />
+            </div>
+            <Divider style={{ margin: '8px 0 16px' }} />
+            <Text type="secondary">Á÷×ªÀúÊ·£º</Text>
+            <div style={{ marginTop: 12 }}>
+              <CandidateStatusTimeline resumeId={resume.resume_id} refreshKey={statusRefreshKey} />
+            </div>
+          </Card>
+          {resume.dedup_status && resume.dedup_status !== 'NONE' && (
+            <Alert
+              showIcon
+              type={resume.dedup_status === 'CONFIRMED_DUP' ? 'error' : 'warning'}
+              message={"ÒÉËÆÖØ¸´¼òÀú"}
+              description={
+                <Space>
+                  <span>{DEDUP_STATUS_LABEL[resume.dedup_status]}</span>
+                  {resume.dedup_status === 'SUSPECTED' && (
+                    <>
+                      <Button size='small' type='link' onClick={() => handleDedup('CONFIRM_DUP')}>È·ÈÏÖØ¸´</Button>
+                      <Button size='small' type='link' onClick={() => handleDedup('IGNORE')}>ºöÂÔ</Button>
+                      <Button size='small' type='link' onClick={() => handleDedup('RECHECK')}>ÖØĞÂ¼ì²â</Button>
+                    </>
+                  )}
+                </Space>
+              }
+            />
+          )}
+          <CandidateNotesCard resumeId={resume.resume_id} refreshKey={statusRefreshKey} />
           {parsed.summary && (
             <Card
               title={
                 <Space>
                   <ProfileOutlined style={{ color: '#0D9488' }} />
-                  <span>ä¸ªäººç®€ä»‹</span>
+                  <span>¸öÈË¼ò½é</span>
                 </Space>
               }
               extra={
-                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>ç¼–è¾‘</Button>
+                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>±à¼­</Button>
               }
             >
               <Paragraph style={{ margin: 0, lineHeight: 1.8, color: '#57534E' }}>
@@ -284,12 +352,12 @@ const ResumeDetailPage: React.FC = () => {
               title={
                 <Space>
                   <CodeOutlined style={{ color: '#0D9488' }} />
-                  <span>æŠ€èƒ½æ ‡ç­¾</span>
-                  <Tag color="blue" style={{ marginLeft: 8 }}>{parsed.skills.length} é¡¹</Tag>
+                  <span>¼¼ÄÜ±êÇ©</span>
+                  <Tag color="blue" style={{ marginLeft: 8 }}>{parsed.skills.length} Ïî</Tag>
                 </Space>
               }
               extra={
-                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>ç¼–è¾‘</Button>
+                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>±à¼­</Button>
               }
             >
               <Space wrap size={[8, 8]}>
@@ -307,11 +375,11 @@ const ResumeDetailPage: React.FC = () => {
               title={
                 <Space>
                   <BankOutlined style={{ color: '#0D9488' }} />
-                  <span>æ•™è‚²ç»å†</span>
+                  <span>½ÌÓı¾­Àú</span>
                 </Space>
               }
               extra={
-                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>ç¼–è¾‘</Button>
+                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>±à¼­</Button>
               }
             >
               <Timeline
@@ -321,11 +389,11 @@ const ResumeDetailPage: React.FC = () => {
                       <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: 4 }}>
                         {edu.school}
                       </div>
-                      <Space split={<Text type="secondary">Â·</Text>}>
+                      <Space split={<Text type="secondary">¡¤</Text>}>
                         <Text>{edu.degree}</Text>
                         <Text>{edu.major}</Text>
                         {(edu.start_date || edu.end_date) && (
-                          <Text type="secondary">{edu.start_date} - {edu.end_date || 'è‡³ä»Š'}</Text>
+                          <Text type="secondary">{edu.start_date} - {edu.end_date || 'ÖÁ½ñ'}</Text>
                         )}
                       </Space>
                     </div>
@@ -341,11 +409,11 @@ const ResumeDetailPage: React.FC = () => {
               title={
                 <Space>
                   <SolutionOutlined style={{ color: '#0D9488' }} />
-                  <span>å·¥ä½œç»å†</span>
+                  <span>¹¤×÷¾­Àú</span>
                 </Space>
               }
               extra={
-                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>ç¼–è¾‘</Button>
+                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>±à¼­</Button>
               }
             >
               <Timeline
@@ -356,7 +424,7 @@ const ResumeDetailPage: React.FC = () => {
                         <Text strong style={{ fontSize: '1rem' }}>{work.position}</Text>
                         {(work.start_date || work.end_date) && (
                           <Text type="secondary" style={{ fontSize: '0.85rem' }}>
-                            {work.start_date} - {work.end_date || 'è‡³ä»Š'}
+                            {work.start_date} - {work.end_date || 'ÖÁ½ñ'}
                           </Text>
                         )}
                       </div>
@@ -379,11 +447,11 @@ const ResumeDetailPage: React.FC = () => {
               title={
                 <Space>
                   <ProfileOutlined style={{ color: '#0D9488' }} />
-                  <span>é¡¹ç›®ç»å†</span>
+                  <span>ÏîÄ¿¾­Àú</span>
                 </Space>
               }
               extra={
-                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>ç¼–è¾‘</Button>
+                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditModalVisible(true)}>±à¼­</Button>
               }
             >
               <Timeline
@@ -394,11 +462,11 @@ const ResumeDetailPage: React.FC = () => {
                         <Text strong style={{ fontSize: '1rem' }}>{proj.name}</Text>
                         {(proj.start_date || proj.end_date) && (
                           <Text type="secondary" style={{ fontSize: '0.85rem' }}>
-                            {proj.start_date} - {proj.end_date || 'è‡³ä»Š'}
+                            {proj.start_date} - {proj.end_date || 'ÖÁ½ñ'}
                           </Text>
                         )}
                       </div>
-                      {proj.role && <div style={{ color: '#57534E', marginBottom: 6 }}>è§’è‰²ï¼š{proj.role}</div>}
+                      {proj.role && <div style={{ color: '#57534E', marginBottom: 6 }}>½ÇÉ«£º{proj.role}</div>}
                       {proj.description && (
                         <Paragraph style={{ margin: 0, color: '#57534E', lineHeight: 1.7, fontSize: '0.9rem' }}>
                           {proj.description}
@@ -415,10 +483,10 @@ const ResumeDetailPage: React.FC = () => {
       ) : resume.parse_status === 'PENDING' ? (
         <Card style={{ textAlign: 'center', padding: '60px 0' }}>
           <ClockCircleOutlined style={{ fontSize: 48, color: '#A8A29E', opacity: 0.4, marginBottom: 16 }} />
-          <div style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 8 }}>ç®€å†å¾…è§£æ</div>
-          <div style={{ color: '#78716C', marginBottom: 24 }}>ç‚¹å‡»å³ä¸Šè§’ã€Œå¼€å§‹è§£æã€æŒ‰é’®ï¼ŒAIå°†æå–ç®€å†ä¸­çš„ç»“æ„åŒ–ä¿¡æ¯</div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 8 }}>¼òÀú´ı½âÎö</div>
+          <div style={{ color: '#78716C', marginBottom: 24 }}>µã»÷ÓÒÉÏ½Ç¡¸¿ªÊ¼½âÎö¡¹°´Å¥£¬AI½«ÌáÈ¡¼òÀúÖĞµÄ½á¹¹»¯ĞÅÏ¢</div>
           <Button type="primary" size="large" icon={<ReloadOutlined />} loading={parsing} onClick={handleParse}>
-            å¼€å§‹è§£æ
+            ¿ªÊ¼½âÎö
           </Button>
         </Card>
       ) : null}
