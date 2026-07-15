@@ -4,8 +4,8 @@ from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import api_v1_router
 from app.agent.skill_registry import get_skill_registry
+from app.api.v1 import api_v1_router
 from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.minio import ensure_buckets

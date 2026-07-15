@@ -1,5 +1,4 @@
 from functools import lru_cache
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,7 +22,7 @@ class Settings(BaseSettings):
 
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
-    REDIS_PASSWORD: Optional[str] = None
+    REDIS_PASSWORD: str | None = None
     REDIS_DB: int = 0
 
     MINIO_ENDPOINT: str = "localhost:9000"
@@ -32,8 +31,8 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False
     MINIO_RESUME_BUCKET: str = "resumes"
 
-    LLM_BASE_URL: Optional[str] = None
-    LLM_API_KEY: Optional[str] = None
+    LLM_BASE_URL: str | None = None
+    LLM_API_KEY: str | None = None
     LLM_MODEL: str = "deepseek-chat"
     LLM_TEMPERATURE: float = 0.3
     LLM_MAX_TOKENS: int = 4096

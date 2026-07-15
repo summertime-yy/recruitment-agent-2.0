@@ -1,7 +1,6 @@
 import logging
 
 from minio import Minio
-from minio.error import S3Error
 
 from app.core.config import get_settings
 

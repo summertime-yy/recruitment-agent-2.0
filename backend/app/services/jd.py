@@ -1,11 +1,9 @@
 import uuid
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.base_skill import ExecutionStatus
 from app.agent.skill_registry import get_skill_registry
 from app.models import JD, SkillExecutionLog
 from app.schemas import JDGenerateRequest, JDUpdateRequest
