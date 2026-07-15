@@ -1,9 +1,12 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+﻿from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models import Resume
 from app.schemas import (
+    ResumeDedupActionRequest,
     ResumeListResponse,
     ResumeResponse,
     ResumeUpdateRequest,
@@ -104,17 +107,42 @@ async def preview_resume(resume_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.get("/tags/meta", summary="获取所有已用标签与来源（用于筛选下拉）")
+async def get_tags_meta(db: AsyncSession = Depends(get_db)):
+    """聚合所有简历的 tags 和 source，供前端筛选下拉使用。"""
+    result = await db.execute(select(Resume.tags, Resume.source))
+    rows = result.all()
+    tag_set: set[str] = set()
+    source_set: set[str] = set()
+    for tags, source in rows:
+        if tags:
+            for t in tags:
+                if t:
+                    tag_set.add(t)
+        if source:
+            source_set.add(source)
+    return {"tags": sorted(tag_set), "sources": sorted(source_set)}
+
+
 @router.get("", response_model=ResumeListResponse, summary="查询简历列表")
 async def list_resumes(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(10, ge=1, le=100, description="每页条数"),
-    parse_status: str | None = Query(None, description="解析状态筛选：PENDING/PARSING/PARSED/FAILED"),
+    parse_status: str | None = Query(None, description="解析状态筛选"),
+    candidate_status: str | None = Query(None, description="候选人状态筛选"),
     keyword: str | None = Query(None, description="关键词搜索（姓名、文件名、手机、邮箱）"),
+    tag: str | None = Query(None, description="标签筛选（精确匹配单个标签）"),
+    source: str | None = Query(None, description="来源渠道筛选"),
+    dedup_status: str | None = Query(None, description="去重状态筛选：NONE/SUSPECTED/CONFIRMED_DUP/IGNORED"),
+    date_from: str | None = Query(None, description="上传起始时间 ISO 格式，如 2026-07-01"),
+    date_to: str | None = Query(None, description="上传结束时间 ISO 格式，如 2026-07-31"),
     db: AsyncSession = Depends(get_db),
 ):
     service = ResumeService(db)
     items, total = await service.list_resumes(
-        page=page, page_size=page_size, parse_status=parse_status, keyword=keyword
+        page=page, page_size=page_size, parse_status=parse_status, keyword=keyword,
+        candidate_status=candidate_status, tag=tag, source=source,
+        dedup_status=dedup_status, date_from=date_from, date_to=date_to,
     )
     return ResumeListResponse(
         items=[ResumeResponse.model_validate(item) for item in items],
@@ -133,7 +161,7 @@ async def get_resume(resume_id: str, db: AsyncSession = Depends(get_db)):
     return ResumeResponse.model_validate(resume)
 
 
-@router.put("/{resume_id}", response_model=ResumeResponse, summary="更新简历信息（手动编辑解析结果）")
+@router.put("/{resume_id}", response_model=ResumeResponse, summary="更新简历信息（含标签/来源）")
 async def update_resume(
     resume_id: str,
     data: ResumeUpdateRequest,
@@ -141,6 +169,22 @@ async def update_resume(
 ):
     service = ResumeService(db)
     resume = await service.update_resume(resume_id, data)
+    if not resume:
+        raise HTTPException(status_code=404, detail="简历不存在")
+    return ResumeResponse.model_validate(resume)
+
+
+@router.post("/{resume_id}/dedup", response_model=ResumeResponse, summary="处理疑似重复（确认/忽略/重新检测）")
+async def handle_dedup(
+    resume_id: str,
+    data: ResumeDedupActionRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    service = ResumeService(db)
+    try:
+        resume = await service.handle_dedup_action(resume_id, data.action)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not resume:
         raise HTTPException(status_code=404, detail="简历不存在")
     return ResumeResponse.model_validate(resume)

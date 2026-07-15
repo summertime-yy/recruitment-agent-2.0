@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import logging
 import uuid
 from datetime import datetime
@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.minio import get_minio
 from app.models import Resume, SkillExecutionLog
-from app.schemas.resume import ParsedContent, ResumeUpdateRequest
+from app.schemas.resume import ResumeUpdateRequest
 from app.utils.document_parser import extract_text
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,59 @@ class ResumeService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.minio: Minio = get_minio()
+
+    # -----------------------------------------------------------------------
+    # Stage 3：候选人级去重（硬匹配手机号/邮箱）
+    # -----------------------------------------------------------------------
+    async def _detect_duplicate(self, resume: Resume) -> None:
+        """解析成功后检测是否存在疑似重复的候选人。
+
+        硬匹配规则（命中任一即标记 SUSPECTED）：
+        - phone 非空 且 与其他 resume 的 phone 完全相等
+        - email 非空 且 与其他 resume 的 email（小写）相等
+        只标记不拦截，由人工决定合并/忽略。
+        """
+        if not resume.phone and not resume.email:
+            return
+        conditions = []
+        if resume.phone:
+            conditions.append(Resume.phone == resume.phone)
+        if resume.email:
+            conditions.append(Resume.email == resume.email.lower())
+        from sqlalchemy import or_
+        result = await self.db.execute(
+            select(Resume.resume_id).where(
+                Resume.resume_id != resume.resume_id,
+                Resume.parse_status == "PARSED",
+                or_(*conditions),
+            ).order_by(Resume.created_at.asc()).limit(1)
+        )
+        dup_id = result.scalar_one_or_none()
+        if dup_id:
+            resume.duplicate_of_resume_id = dup_id
+            resume.dedup_status = "SUSPECTED"
+        else:
+            resume.duplicate_of_resume_id = None
+            resume.dedup_status = "NONE"
+
+    async def handle_dedup_action(self, resume_id: str, action: str) -> Resume | None:
+        """人工处理去重状态。"""
+        resume = await self.get_resume(resume_id)
+        if not resume:
+            return None
+        if action == "CONFIRM_DUP":
+            resume.dedup_status = "CONFIRMED_DUP"
+        elif action == "IGNORE":
+            resume.dedup_status = "IGNORED"
+        elif action == "RECHECK":
+            await self._detect_duplicate(resume)
+        else:
+            raise ValueError(f"unsupported dedup action: {action}")
+        resume.updated_at = datetime.utcnow()
+        await self.db.commit()
+        await self.db.refresh(resume)
+        return resume
+
 
     @staticmethod
     def _generate_id() -> str:
@@ -120,6 +173,8 @@ class ResumeService:
 
         resume.parse_status = "PARSING"
         resume.parse_error = None
+        # Stage 3：解析成功后执行候选人级去重检测（硬匹配手机号/邮箱）
+        await self._detect_duplicate(resume)
         await self.db.flush()
 
         start_time = datetime.utcnow()
@@ -194,6 +249,12 @@ class ResumeService:
         page_size: int = 10,
         parse_status: str | None = None,
         keyword: str | None = None,
+        candidate_status: str | None = None,
+        tag: str | None = None,
+        source: str | None = None,
+        dedup_status: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> tuple[list[Resume], int]:
         query = select(Resume)
         count_query = select(Resume)
@@ -202,19 +263,49 @@ class ResumeService:
             query = query.where(Resume.parse_status == parse_status)
             count_query = count_query.where(Resume.parse_status == parse_status)
 
+        if candidate_status:
+            query = query.where(Resume.candidate_status == candidate_status)
+            count_query = count_query.where(Resume.candidate_status == candidate_status)
+
+        if source:
+            query = query.where(Resume.source == source)
+            count_query = count_query.where(Resume.source == source)
+
+        if dedup_status:
+            query = query.where(Resume.dedup_status == dedup_status)
+            count_query = count_query.where(Resume.dedup_status == dedup_status)
+
+        if tag:
+            # JSONB 数组包含查询：tags @> '["tag"]'
+            query = query.where(Resume.tags.contains([tag]))
+            count_query = count_query.where(Resume.tags.contains([tag]))
+
+        if date_from:
+            try:
+                df = datetime.fromisoformat(date_from)
+                query = query.where(Resume.created_at >= df)
+                count_query = count_query.where(Resume.created_at >= df)
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                dt = datetime.fromisoformat(date_to)
+                query = query.where(Resume.created_at <= dt)
+                count_query = count_query.where(Resume.created_at <= dt)
+            except ValueError:
+                pass
+
         if keyword:
-            query = query.where(
-                (Resume.candidate_name.ilike(f"%{keyword}%"))
-                | (Resume.file_name.ilike(f"%{keyword}%"))
-                | (Resume.phone.ilike(f"%{keyword}%"))
-                | (Resume.email.ilike(f"%{keyword}%"))
+            kw = f"%{keyword}%"
+            kw_cond = (
+                (Resume.candidate_name.ilike(kw))
+                | (Resume.file_name.ilike(kw))
+                | (Resume.phone.ilike(kw))
+                | (Resume.email.ilike(kw))
             )
-            count_query = count_query.where(
-                (Resume.candidate_name.ilike(f"%{keyword}%"))
-                | (Resume.file_name.ilike(f"%{keyword}%"))
-                | (Resume.phone.ilike(f"%{keyword}%"))
-                | (Resume.email.ilike(f"%{keyword}%"))
-            )
+            query = query.where(kw_cond)
+            count_query = count_query.where(kw_cond)
 
         total_result = await self.db.execute(count_query.with_only_columns(Resume.resume_id))
         total = len(total_result.fetchall())
@@ -238,8 +329,9 @@ class ResumeService:
         return True
 
     async def get_file_stream(self, resume_id: str):
-        from minio.error import S3Error
         import io
+
+        from minio.error import S3Error
 
         result = await self.db.execute(select(Resume).where(Resume.resume_id == resume_id))
         resume = result.scalar_one_or_none()
@@ -276,6 +368,10 @@ class ResumeService:
             resume.email = update_data["email"]
         if "parsed_content" in update_data and update_data["parsed_content"] is not None:
             resume.parsed_content = update_data["parsed_content"].model_dump()
+        if "tags" in update_data:
+            resume.tags = update_data["tags"]
+        if "source" in update_data:
+            resume.source = update_data["source"]
 
         resume.updated_at = datetime.utcnow()
         await self.db.commit()

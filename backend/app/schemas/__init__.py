@@ -1,3 +1,15 @@
+﻿from app.schemas.candidate import (
+    CandidateNoteCreateRequest,
+    CandidateNoteItem,
+    CandidateNoteListResponse,
+    CandidateNoteUpdateRequest,
+    CandidateStatusHistoryItem,
+    CandidateStatusHistoryResponse,
+    CandidateStatusInfo,
+    CandidateStatusMetaResponse,
+    CandidateStatusUpdateRequest,
+    build_status_meta,
+)
 from app.schemas.jd import (
     JDGenerateRequest,
     JDGenerateResponse,
@@ -9,6 +21,7 @@ from app.schemas.resume import (
     EducationItem,
     ParsedContent,
     ProjectExperienceItem,
+    ResumeDedupActionRequest,
     ResumeListResponse,
     ResumeParseRequest,
     ResumeResponse,
@@ -18,14 +31,28 @@ from app.schemas.resume import (
 )
 
 __all__ = [
+    # candidate
+    "CandidateNoteCreateRequest",
+    "CandidateNoteItem",
+    "CandidateNoteListResponse",
+    "CandidateNoteUpdateRequest",
+    "CandidateStatusHistoryItem",
+    "CandidateStatusHistoryResponse",
+    "CandidateStatusInfo",
+    "CandidateStatusMetaResponse",
+    "CandidateStatusUpdateRequest",
+    "build_status_meta",
+    # jd
     "JDGenerateRequest",
     "JDGenerateResponse",
     "JDListResponse",
     "JDResponse",
     "JDUpdateRequest",
+    # resume
     "EducationItem",
     "ParsedContent",
     "ProjectExperienceItem",
+    "ResumeDedupActionRequest",
     "ResumeListResponse",
     "ResumeParseRequest",
     "ResumeResponse",
