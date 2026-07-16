@@ -360,7 +360,7 @@ interface TaskStatus {
 |-------|------|---------|---------|
 | Stage 2 | 简历解析 | `/api/v1/resumes` | 上传、解析、查询、列表 |
 | Stage 3 | 候选人 | `/api/v1/candidates` | CRUD、合并、画像、列表 |
-| Stage 4 | 评分匹配 | `/api/v1/match-scores` | 触发匹配、查询结果、排行 |
+| Stage 4 | 评分匹配 | `/api/v1/match-scores` | 触发匹配、查询结果、排行（详见 §8） |
 | Stage 5 | Agent对话 | `/api/v1/agent` | chat、stream、execute-plan、skip-to-score |
 | Stage 6 | 推送反馈 | `/api/v1/communications` | 发送、记录、反馈 |
 | Stage 7 | 看板设置 | `/api/v1/analytics`、`/api/v1/skills`、`/api/v1/settings` | 统计、Skill管理、系统配置 |
@@ -373,3 +373,152 @@ interface TaskStatus {
 2. **后端实现**：严格按照本文档的Schema实现Pydantic模型
 3. **前端对接**：严格按照本文档的TypeScript类型定义对接
 4. **版本演进**：重大变更升级API版本号（v2），不破坏现有接口
+
+---
+
+## 8. Stage 4 人岗匹配（评分匹配）接口（S4 实现）
+
+> 配套：任务拆解见 `docs/planning/TASKS.md`；数据模型见 `docs/data-model.md §3.3`。
+> 所有端点前缀 `/api/v1`。响应直接返回数据对象（遵循 §1.2 约定，无统一信封）。
+
+### 8.1 单点触发匹配
+
+```
+POST /api/v1/match-scores
+```
+
+**请求体：**
+```typescript
+interface MatchScoreRequest {
+  jd_id: string;       // 必填，≤50字符
+  resume_id: string;   // 必填，≤50字符
+  force?: boolean;     // 默认 false；true 时忽略缓存重新计算
+}
+```
+
+**响应（200）：** `MatchScoreResponse`（字段见 §8.7）
+**错误码：**
+- `404`：jd_id 或 resume_id 不存在
+- `409`：resume 的 `parse_status` 非 `PARSED`（未解析完成，不允许评分）
+- `400`：参数非法（如 jd_id 超长）
+
+### 8.2 批量匹配（JD 视角）
+
+```
+POST /api/v1/match-scores/batch
+```
+
+**请求体：**
+```typescript
+interface BatchMatchRequest {
+  jd_id: string;
+  resume_ids?: string[];   // 缺省时取该JD下最近 limit 条已解析(PARSED)且未忽略去重的简历
+  limit?: number;          // 1-200，缺省由后端决定
+  force?: boolean;
+}
+```
+
+**响应（202）：** `BatchTaskResponse { task_id, jd_id, total_submitted, submitted_at }`
+> 批量任务后端异步执行（并发 ≤ 4），通过 `task_id` 轮询状态；Stage 4 不启用 SSE（Stage 5 引入）。
+
+### 8.3 查询批量任务状态
+
+```
+GET /api/v1/match-scores/batch/{task_id}
+```
+
+**响应（200）：** `BatchTaskStatusResponse { task_id, jd_id, total, completed, failed, status, started_at, finished_at }`
+`status` ∈ `PENDING | RUNNING | COMPLETED | FAILED`
+**错误码：** `404` task_id 不存在
+
+### 8.4 查询单条评分详情
+
+```
+GET /api/v1/match-scores/{score_id}
+```
+
+**响应（200）：** `MatchScoreResponse`
+**错误码：** `404` score_id 不存在
+
+### 8.5 JD 维度排名
+
+```
+GET /api/v1/jds/{jd_id}/ranking?limit=&offset=
+```
+
+**查询参数：** `limit`（默认 20，最大 200）、`offset`（默认 0）
+**响应（200）：** `MatchRankingResponse { jd_id, total, items: MatchRankingItem[] }`
+items 按 `overall_score` 降序
+**错误码：** `404` jd_id 不存在
+
+### 8.6 简历维度匹配列表
+
+```
+GET /api/v1/resumes/{resume_id}/matches?limit=
+```
+
+**响应（200）：** `MatchRankingItem[]`，按 `overall_score` 降序
+**错误码：** `404` resume_id 不存在
+
+### 8.7 数据结构
+
+```typescript
+interface DimensionScore {
+  score: number;          // 0-100
+  rationale: string;
+  matched?: string[];     // 技能维度
+  missing?: string[];     // 技能维度
+  required?: string;      // 经验/学历维度
+  actual?: string;
+  years_required?: string;// 经验维度
+  years_actual?: string;
+}
+interface DimensionScoresPayload {
+  skill_match: DimensionScore;
+  experience_match: DimensionScore;
+  education_match: DimensionScore;
+  overall_reasoning: string;
+}
+interface MatchScoreResponse {
+  score_id: string;
+  jd_id: string;
+  resume_id: string;
+  overall_score: number;          // 0-100，Service层按 0.5*skill+0.3*exp+0.2*edu 重算
+  dimension_scores: DimensionScoresPayload;
+  matching_skill_id: string | null;
+  matching_skill_version: string | null;
+  skill_execution_id: number | null;
+  resume_updated_at_snapshot: string | null;
+  jd_updated_at_snapshot: string | null;
+  status: 'COMPLETED' | 'FAILED' | 'STALE';
+  error_message: string | null;
+  is_stale: boolean;              // Service层比对 snapshot 与当前 updated_at
+  created_at: string;
+  updated_at: string;
+}
+interface MatchRankingItem {
+  score_id: string;
+  resume_id: string;
+  candidate_name: string | null;
+  overall_score: number;
+  dimension_scores: DimensionScoresPayload;
+  is_stale: boolean;
+  created_at: string;
+}
+interface BatchTaskResponse {
+  task_id: string;
+  jd_id: string;
+  total_submitted: number;
+  submitted_at: string;      // ISO 8601
+}
+interface BatchTaskStatusResponse {
+  task_id: string;
+  jd_id: string;
+  total: number;
+  completed: number;
+  failed: number;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  started_at: string;
+  finished_at: string | null;
+}
+```

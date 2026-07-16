@@ -144,32 +144,53 @@
 | created_at | TIMESTAMP | NOT NULL | 创建时间 |
 | updated_at | TIMESTAMP | NOT NULL | 更新时间 |
 
-### 3.2 候选人表 `candidates`（Stage 3）
-| 字段 | 类型 | 说明 |
-|-----|------|------|
-| candidate_id | VARCHAR(50) PK | 候选人ID |
-| name | VARCHAR(100) | 姓名 |
-| phone | VARCHAR(30) | 手机号 |
-| email | VARCHAR(100) | 邮箱 |
-| resume_id | VARCHAR(50) FK→resumes | 关联简历 |
-| profile | JSON | 结构化画像（技能、经验等） |
+### 3.2 候选人字段（已合并入 `resumes` 表，Stage 3 实际落地）
+
+> **修订说明（Stage 4 / S4-01）**：原规划中的独立 `candidates` 表**未实际创建**。
+> Stage 3 已将候选人相关字段直接合并进 `resumes` 表，新增列：
+> `candidate_status`、`tags`（JSONB）、`source`、`duplicate_of_resume_id`、`dedup_status`，
+> 以及扩展表 `candidate_status_history`、`candidate_notes`。
+> **后续所有 Stage（含 Stage 4 人岗匹配）均以 `resumes.resume_id` 作为候选人引用键**，不再使用 `candidate_id`。
+
+| 字段 | 类型 | 说明（落在 `resumes` 表） |
+|------|------|------|
+| resume_id | VARCHAR(50) PK | 简历/候选人ID，格式 `res_xxxx` |
+| candidate_name | VARCHAR(100) | 候选人姓名 |
+| candidate_status | VARCHAR(30) | 候选人状态（NEW/…状态机见 `HANDOFF.md`） |
+| tags | JSONB | 候选人标签 |
 | source | VARCHAR(50) | 来源渠道 |
-| status | VARCHAR(20) | 候选人状态 |
-| created_at / updated_at | TIMESTAMP | 时间戳 |
+| duplicate_of_resume_id | VARCHAR(50) FK→resumes.resume_id | 去重指向（SET NULL） |
+| dedup_status | VARCHAR(20) | 去重状态：NONE/SUSPECTED/CONFIRMED_DUP/IGNORED |
 
-### 3.3 人岗匹配评分表 `match_scores`（Stage 4）
-| 字段 | 类型 | 说明 |
-|-----|------|------|
-| score_id | VARCHAR(50) PK | 评分记录ID |
-| jd_id | VARCHAR(50) FK→jds | JD ID |
-| candidate_id | VARCHAR(50) FK→candidates | 候选人ID |
-| overall_score | FLOAT | 综合匹配度(0-100) |
-| dimension_scores | JSON | 各维度分数（技能/经验/学历等） |
-| matching_skill_version | VARCHAR(20) | 匹配Skill版本 |
-| status | VARCHAR(20) | 状态 |
-| created_at / updated_at | TIMESTAMP | 时间戳 |
+### 3.3 人岗匹配评分表 `match_scores`（Stage 4，由 S4-02 落地迁移）
 
-> **注意依赖顺序**：`match_scores` 依赖 `candidates`（Stage 3）和 `jds`（Stage 1），因此Stage 4（评分匹配）**必须**在Stage 3（候选人）之后。
+> **修订说明（S4-01）**：取消原 `candidate_id` 外键，改为直接引用 `resumes.resume_id`（见 §3.2 决策）。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| score_id | VARCHAR(50) | PK | 评分记录ID，格式 `ms_<uuid4_hex_12>` |
+| jd_id | VARCHAR(50) | FK→jds.jd_id, NOT NULL, ON DELETE CASCADE | 关联JD |
+| resume_id | VARCHAR(50) | FK→resumes.resume_id, NOT NULL, ON DELETE CASCADE | 候选人/简历引用（取代原 `candidate_id`） |
+| overall_score | FLOAT | NOT NULL | 综合匹配度(0-100)，Service层按权重重算 |
+| dimension_scores | JSON | NOT NULL | 维度分 `{skill_match, experience_match, education_match, overall_reasoning}` |
+| matching_skill_id | VARCHAR(100) | NULL | 默认 `jd-candidate-matching` |
+| matching_skill_version | VARCHAR(20) | NULL | 如 `1.0.0` |
+| skill_execution_id | INTEGER | FK→skill_execution_logs.execution_id, NULL | 关联Skill执行日志 |
+| resume_updated_at_snapshot | TIMESTAMP | NULL | 生成时简历 `updated_at` 快照，用于陈旧判断 |
+| jd_updated_at_snapshot | TIMESTAMP | NULL | 生成时JD `updated_at` 快照 |
+| status | VARCHAR(20) | DEFAULT 'COMPLETED' | COMPLETED/FAILED/STALE |
+| error_message | TEXT | NULL | Skill失败原因 |
+| created_at | TIMESTAMP | NOT NULL | 创建时间 |
+| updated_at | TIMESTAMP | NOT NULL | 更新时间 |
+
+**唯一约束**：`UNIQUE(jd_id, resume_id)`，名称 `uq_match_scores_jd_resume`。
+**索引**：
+- `idx_match_scores_jd_id_overall`：复合 `(jd_id, overall_score DESC)`
+- `idx_match_scores_resume_id`：`(resume_id)`
+
+> **注**：本表 `jd_id`/`resume_id` 显式采用 `ON DELETE CASCADE`，是对 §1「外键默认 RESTRICT」约定的有意偏离（见 `docs/planning/PLAN.md` 决策 1），匹配结果随 JD/简历删除而清理。
+>
+> **依赖顺序**：依赖 `resumes`（Stage 2/3）、`jds`（Stage 1）、`skill_execution_logs`（Stage 0）；Stage 4 必须在 Stage 3 之后。
 
 ### 3.4 面试评估表 `interview_evaluations`（Stage 5+）
 （待设计）
