@@ -17,6 +17,17 @@ from app.schemas.jd import (
     JDResponse,
     JDUpdateRequest,
 )
+from app.schemas.match import (
+    BatchMatchRequest,
+    BatchTaskResponse,
+    BatchTaskStatusResponse,
+    DimensionScore,
+    DimensionScoresPayload,
+    MatchRankingItem,
+    MatchRankingResponse,
+    MatchScoreRequest,
+    MatchScoreResponse,
+)
 from app.schemas.resume import (
     EducationItem,
     ParsedContent,
@@ -48,6 +59,16 @@ __all__ = [
     "JDListResponse",
     "JDResponse",
     "JDUpdateRequest",
+    # match
+    "BatchMatchRequest",
+    "BatchTaskResponse",
+    "BatchTaskStatusResponse",
+    "DimensionScore",
+    "DimensionScoresPayload",
+    "MatchRankingItem",
+    "MatchRankingResponse",
+    "MatchScoreRequest",
+    "MatchScoreResponse",
     # resume
     "EducationItem",
     "ParsedContent",
