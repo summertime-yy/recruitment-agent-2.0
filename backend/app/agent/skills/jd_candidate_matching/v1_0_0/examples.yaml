@@ -1,0 +1,96 @@
+examples:
+  # 示例1：技能高度匹配 + 经验达标 → 高分
+  - input:
+      jd:
+        title: 高级后端开发工程师
+        experience_years: 5年以上
+        education_requirement: 本科及以上
+        required_skills:
+          - Python
+          - FastAPI
+          - PostgreSQL
+        preferred_skills:
+          - Redis
+          - Docker
+      resume:
+        candidate_name: 李明
+        parsed_content:
+          education: 计算机科学 本科
+          total_experience_years: 6
+          skills:
+            - Python
+            - FastAPI
+            - PostgreSQL
+            - Redis
+          work_experience:
+            - company: 某互联网公司
+              title: 后端工程师
+              years: 6
+              summary: 负责高并发招聘平台后端开发
+    output:
+      skill_match:
+        score: 95
+        rationale: 必备技能Python/FastAPI/PostgreSQL全部命中，且具备加分技能Redis
+        matched:
+          - Python
+          - FastAPI
+          - PostgreSQL
+          - Redis
+        missing: []
+      experience_match:
+        score: 90
+        rationale: 要求5年以上，候选人6年后端经验，满足且略高
+        years_required: 5年以上
+        years_actual: 6年
+      education_match:
+        score: 90
+        rationale: 要求本科及以上，候选人计算机本科，达标
+        required: 本科及以上
+        actual: 本科
+      overall_reasoning: 技能与经验高度匹配，学历达标，强烈建议进入面试。
+
+  # 示例2：经验不足 + 关键技能缺失 → 低分
+  - input:
+      jd:
+        title: 高级后端开发工程师
+        experience_years: 5年以上
+        education_requirement: 本科及以上
+        required_skills:
+          - Python
+          - FastAPI
+          - PostgreSQL
+        preferred_skills:
+          - Kubernetes
+      resume:
+        candidate_name: 王芳
+        parsed_content:
+          education: 工商管理 本科
+          total_experience_years: 1
+          skills:
+            - Java
+            - MySQL
+          work_experience:
+            - company: 某公司
+              title: 初级开发
+              years: 1
+              summary: 参与小型内部系统开发
+    output:
+      skill_match:
+        score: 25
+        rationale: 必备技能Python/FastAPI/PostgreSQL均未命中，仅有Java/MySQL相关经验
+        matched: []
+        missing:
+          - Python
+          - FastAPI
+          - PostgreSQL
+      experience_match:
+        score: 20
+        rationale: 要求5年以上，候选人仅1年经验，明显不足
+        years_required: 5年以上
+        years_actual: 1年
+      education_match:
+        score: 75
+        rationale: 学历为本科达标，但专业与岗位相关性一般
+        required: 本科及以上
+        actual: 本科
+      overall_reasoning: 核心技能缺失且经验严重不足，暂不建议进入面试。

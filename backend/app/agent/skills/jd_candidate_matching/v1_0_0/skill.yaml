@@ -1,0 +1,121 @@
+skill_id: jd-candidate-matching
+skill_name: JD候选人匹配
+version: "1.0.0"
+description: 输入JD与候选人简历结构化数据，输出技能/经验/学历多维匹配评分与理由
+author: recruitment-agent
+tags:
+  - matching
+  - scoring
+  - recruitment
+
+input_schema:
+  type: object
+  properties:
+    jd:
+      type: object
+      properties:
+        title:
+          type: string
+          description: 职位名称
+        summary:
+          type: string
+        requirements:
+          type: array
+          items:
+            type: string
+        required_skills:
+          type: array
+          items:
+            type: string
+        preferred_skills:
+          type: array
+          items:
+            type: string
+        experience_years:
+          type: string
+        education_requirement:
+          type: string
+      required:
+        - title
+    resume:
+      type: object
+      properties:
+        candidate_name:
+          type: string
+        parsed_content:
+          type: object
+      required:
+        - parsed_content
+  required:
+    - jd
+    - resume
+
+output_schema:
+  type: object
+  properties:
+    skill_match:
+      type: object
+      properties:
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: 技能匹配分0-100
+        rationale:
+          type: string
+          description: 打分依据
+        matched:
+          type: array
+          items:
+            type: string
+          description: 命中的技能
+        missing:
+          type: array
+          items:
+            type: string
+          description: 缺失的必备技能
+      required:
+        - score
+        - rationale
+    experience_match:
+      type: object
+      properties:
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+        rationale:
+          type: string
+        years_required:
+          type: string
+        years_actual:
+          type: string
+      required:
+        - score
+        - rationale
+    education_match:
+      type: object
+      properties:
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+        rationale:
+          type: string
+        required:
+          type: string
+        actual:
+          type: string
+      required:
+        - score
+        - rationale
+    overall_reasoning:
+      type: string
+      description: 综合评价与建议
+  required:
+    - skill_match
+    - experience_match
+    - education_match
+    - overall_reasoning
+
+max_retries: 0
