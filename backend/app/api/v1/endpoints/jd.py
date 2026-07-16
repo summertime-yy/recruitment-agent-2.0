@@ -8,8 +8,11 @@ from app.schemas import (
     JDListResponse,
     JDResponse,
     JDUpdateRequest,
+    MatchRankingItem,
+    MatchRankingResponse,
 )
 from app.services.jd import JDService
+from app.services.match import MatchService
 
 router = APIRouter(prefix="/jds", tags=["JD管理"])
 
@@ -47,6 +50,22 @@ async def list_jds(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/{jd_id}/ranking", response_model=MatchRankingResponse, summary="JD候选人匹配排名")
+async def rank_jd_candidates(
+    jd_id: str,
+    limit: int = Query(20, ge=1, le=200, description="返回条数"),
+    offset: int = Query(0, ge=0, description="偏移量"),
+    db: AsyncSession = Depends(get_db),
+):
+    service = MatchService(db)
+    items, total = await service.rank_by_jd_items(jd_id, limit=limit, offset=offset)
+    return MatchRankingResponse(
+        jd_id=jd_id,
+        total=total,
+        items=[MatchRankingItem.model_validate(item) for item in items],
     )
 
 

@@ -6,12 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models import Resume
 from app.schemas import (
+    MatchScoreResponse,
     ResumeDedupActionRequest,
     ResumeListResponse,
     ResumeResponse,
     ResumeUpdateRequest,
     ResumeUploadResponse,
 )
+from app.services.match import MatchService
 from app.services.resume import ResumeService
 
 router = APIRouter(prefix="/resumes", tags=["简历管理"])
@@ -150,6 +152,22 @@ async def list_resumes(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/{resume_id}/matches", response_model=list[MatchScoreResponse], summary="查询简历的匹配列表")
+async def list_resume_matches(
+    resume_id: str,
+    limit: int = Query(20, ge=1, le=200, description="返回条数"),
+    db: AsyncSession = Depends(get_db),
+):
+    service = MatchService(db)
+    scores = await service.list_by_resume(resume_id, limit=limit)
+    result = []
+    for score in scores:
+        resp = MatchScoreResponse.model_validate(score)
+        resp.is_stale = await service.compute_is_stale(score)
+        result.append(resp)
+    return result
 
 
 @router.get("/{resume_id}", response_model=ResumeResponse, summary="查询简历详情")
