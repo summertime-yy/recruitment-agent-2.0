@@ -59,3 +59,9 @@ backend/alembic/versions/__pycache__/
 
 # OS
 Thumbs.db
+
+# Build artifacts
+frontend/tsconfig.tsbuildinfo
+
+# Runtime uploads
+.uploads/
