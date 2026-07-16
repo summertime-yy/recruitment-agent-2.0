@@ -297,3 +297,74 @@ export interface ResumeListParams {
   date_from?: string;
   date_to?: string;
 }
+
+// ===== Stage 4: 人岗匹配 =====
+export interface DimensionScore {
+  score: number;
+  rationale: string;
+  matched?: string[] | null;
+  missing?: string[] | null;
+  required?: string | null;
+  actual?: string | null;
+  years_required?: string | null;
+  years_actual?: string | null;
+}
+
+export interface DimensionScoresPayload {
+  skill_match: DimensionScore;
+  experience_match: DimensionScore;
+  education_match: DimensionScore;
+  overall_reasoning: string;
+}
+
+export interface MatchScore {
+  score_id: string;
+  jd_id: string;
+  resume_id: string;
+  overall_score: number;
+  dimension_scores: DimensionScoresPayload;
+  matching_skill_id?: string | null;
+  matching_skill_version?: string | null;
+  skill_execution_id?: number | null;
+  resume_updated_at_snapshot?: string | null;
+  jd_updated_at_snapshot?: string | null;
+  status: string;
+  error_message?: string | null;
+  is_stale: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MatchRankingItem {
+  score_id: string;
+  resume_id: string;
+  candidate_name?: string | null;
+  overall_score: number;
+  dimension_scores: DimensionScoresPayload;
+  is_stale: boolean;
+  created_at: string;
+}
+
+export interface MatchRankingResponse {
+  jd_id: string;
+  total: number;
+  items: MatchRankingItem[];
+}
+
+export interface BatchTaskResponse {
+  task_id: string;
+  jd_id: string;
+  total_submitted: number;
+  submitted_at: string;
+}
+
+export interface BatchTaskStatus {
+  task_id: string;
+  jd_id: string;
+  total: number;
+  completed: number;
+  failed: number;
+  status: string;
+  started_at: string;
+  finished_at?: string | null;
+}

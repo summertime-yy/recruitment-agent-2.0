@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import PlaceholderPage from '@/components/PlaceholderPage';
-import ScoringReport from '@/pages/ScoringReport';
+import { matchApi } from '@/services/match';
 
 describe('前端测试基建 smoke', () => {
   test('test_placeholder_component_renders', () => {
@@ -19,13 +19,8 @@ describe('前端测试基建 smoke', () => {
   });
 
   test('test_alias_import_works', () => {
-    // 通过 @/ 别名深度 import 页面组件（其内部同样以 @/ 引用 PlaceholderPage），
-    // 验证 vite alias 与 tsconfig paths 在测试环境下一致。
-    render(
-      <MemoryRouter>
-        <ScoringReport />
-      </MemoryRouter>,
-    );
-    expect(screen.getAllByText('评分报告').length).toBeGreaterThan(0);
+    // 验证 @/ 别名可解析 TS 模块（service）
+    expect(typeof matchApi.matchOne).toBe('function');
+    expect(typeof matchApi.rankByJd).toBe('function');
   });
 });
