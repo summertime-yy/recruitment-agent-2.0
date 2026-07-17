@@ -14,7 +14,6 @@ import {
   Breadcrumb,
   Badge,
   Card,
-  Empty,
 } from 'antd';
 import {
   FilePdfOutlined,
@@ -34,7 +33,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { resumeApi } from '@/services/resume';
-import type { Resume, ResumeParseStatus, CandidateStatus, DedupStatus, TagsMetaResponse } from '@/types';
+import { jdApi } from '@/services/jd';
+import { matchApi } from '@/services/match';
+import type { Resume, ResumeParseStatus, CandidateStatus, DedupStatus, TagsMetaResponse, JD } from '@/types';
 import ResumeEditModal from '@/components/ResumeEditModal';
 import CandidateStatusSwitch from '@/components/CandidateStatusSwitch';
 
@@ -91,6 +92,9 @@ const ResumesPage: React.FC = () => {
   const [parsingIds, setParsingIds] = useState<Set<string>>(new Set());
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
   const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
+  const [matchJds, setMatchJds] = useState<JD[]>([]);
+  const [matchAgainstJdId, setMatchAgainstJdId] = useState<string | undefined>();
+  const [matchScoreMap, setMatchScoreMap] = useState<Record<string, number>>({});
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingResume, setEditingResume] = useState<Resume | null>(null);
   const pollingTimers = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -194,6 +198,28 @@ const ResumesPage: React.FC = () => {
   useEffect(() => {
     resumeApi.getTagsMeta().then(setTagsMeta).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    jdApi.list({ page_size: 200 }).then((res) => setMatchJds(res.items)).catch(() => setMatchJds([]));
+  }, []);
+
+  useEffect(() => {
+    if (!matchAgainstJdId) {
+      setMatchScoreMap({});
+      return;
+    }
+    let cancelled = false;
+    matchApi
+      .rankByJd(matchAgainstJdId, { limit: 200 })
+      .then((res) => {
+        if (cancelled) return;
+        const map: Record<string, number> = {};
+        res.items.forEach((it) => { map[it.resume_id] = it.overall_score; });
+        setMatchScoreMap(map);
+      })
+      .catch(() => { if (!cancelled) setMatchScoreMap({}); });
+    return () => { cancelled = true; };
+  }, [matchAgainstJdId]);
 
   const handleSearch = (value: string) => {
     setKeyword(value);
@@ -424,14 +450,18 @@ const ResumesPage: React.FC = () => {
       },
     },
     {
-      title: '置信度',
-      key: 'confidence',
+      title: '匹配分',
+      key: 'matchScore',
       width: 70,
       align: 'center',
       render: (_, record) => {
-        if (record.parse_status !== 'PARSED') return <Text type="secondary">-</Text>;
-        const score = record.parsed_content ? Math.min(98, 70 + Math.floor(Math.random() * 28)) : 0;
-        return <ScoreRing score={score} />;
+        const score = matchScoreMap[record.resume_id];
+        const hasScore = matchAgainstJdId !== undefined && score !== undefined;
+        return (
+          <span data-testid={`confidence-${record.resume_id}`}>
+            {hasScore ? <ScoreRing score={score as number} /> : <Text type="secondary">-</Text>}
+          </span>
+        );
       },
     },
     {
@@ -615,10 +645,20 @@ const ResumesPage: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Space size={8} wrap>
-            <Tag color="teal" style={{ borderRadius: 4, padding: '4px 12px', fontSize: '0.85rem' }}>
-              未关联筛选任务
-            </Tag>
+            <Space size={8} wrap>
+              <Select
+                aria-label="匹配JD"
+                placeholder="匹配 JD"
+                allowClear
+                size="small"
+                style={{ width: 160 }}
+                value={matchAgainstJdId}
+                onChange={(v) => setMatchAgainstJdId(v)}
+                options={matchJds.map((j) => ({ value: j.jd_id, label: j.title }))}
+              />
+              <Tag color="teal" style={{ borderRadius: 4, padding: '4px 12px', fontSize: '0.85rem' }}>
+                未关联筛选任务
+              </Tag>
             <Badge count={stats.total} showZero style={{ backgroundColor: '#8c8c8c' }}>
               <Tag style={{ borderRadius: 4, padding: '4px 12px', fontSize: '0.85rem' }}>总计</Tag>
             </Badge>
@@ -784,15 +824,41 @@ const ResumesPage: React.FC = () => {
 
             <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
               {selectedResume && selectedResume.parse_status === 'PARSED' ? (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={
-                    <Space direction="vertical" size={8}>
-                      <Text type="secondary" style={{ fontSize: '0.85rem' }}>候选人 → JD 匹配结果</Text>
-                      <Text type="secondary" style={{ fontSize: '0.8rem' }}>匹配功能将在 Stage 4 评分模块完成后开放</Text>
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  <Text strong>候选人 → JD 匹配</Text>
+                  {matchAgainstJdId ? (
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                      {matchScoreMap[selectedResume.resume_id] !== undefined ? (
+                        <ScoreRing score={matchScoreMap[selectedResume.resume_id] as number} />
+                      ) : (
+                        <Text type="secondary" style={{ fontSize: '0.85rem' }}>
+                          暂无匹配分，可在「评分报告」触发批量匹配后查看
+                        </Text>
+                      )}
+                      <Button
+                        size="small"
+                        type="primary"
+                        onClick={async () => {
+                          try {
+                            const score = await matchApi.matchOne({
+                              jd_id: matchAgainstJdId as string,
+                              resume_id: selectedResume.resume_id,
+                              force: true,
+                            });
+                            setMatchScoreMap((prev) => ({ ...prev, [selectedResume.resume_id]: score.overall_score }));
+                            message.success('匹配完成');
+                          } catch {
+                            message.error('匹配失败');
+                          }
+                        }}
+                      >
+                        重新匹配
+                      </Button>
                     </Space>
-                  }
-                />
+                  ) : (
+                    <Text type="secondary" style={{ fontSize: '0.85rem' }}>请先在上方选择一个匹配 JD</Text>
+                  )}
+                </Space>
               ) : (
                 <div style={{ textAlign: 'center', paddingTop: 60 }}>
                   <LinkOutlined style={{ fontSize: '3rem', color: '#d9d9d9', marginBottom: 16 }} />
