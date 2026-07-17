@@ -283,6 +283,7 @@ export interface CandidateNoteUpdateData {
 export interface TagsMetaResponse {
   tags: string[];
   sources: string[];
+  skills: string[];
 }
 
 export interface ResumeListParams {
@@ -293,6 +294,7 @@ export interface ResumeListParams {
   keyword?: string;
   tag?: string;
   source?: string;
+  skill?: string;
   dedup_status?: DedupStatus;
   date_from?: string;
   date_to?: string;

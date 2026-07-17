@@ -1,6 +1,7 @@
 ﻿from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import cast, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -109,9 +110,9 @@ async def preview_resume(resume_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.get("/tags/meta", summary="获取所有已用标签与来源（用于筛选下拉）")
+@router.get("/tags/meta", summary="获取所有已用标签/来源/核心技能（用于筛选下拉）")
 async def get_tags_meta(db: AsyncSession = Depends(get_db)):
-    """聚合所有简历的 tags 和 source，供前端筛选下拉使用。"""
+    """聚合所有简历的 tags、source 与核心技能，供前端筛选下拉使用。"""
     result = await db.execute(select(Resume.tags, Resume.source))
     rows = result.all()
     tag_set: set[str] = set()
@@ -123,7 +124,19 @@ async def get_tags_meta(db: AsyncSession = Depends(get_db)):
                     tag_set.add(t)
         if source:
             source_set.add(source)
-    return {"tags": sorted(tag_set), "sources": sorted(source_set)}
+    # 聚合所有简历解析内容中的核心技能（parsed_content.skills）
+    skill_result = await db.execute(
+        text(
+            "SELECT DISTINCT jsonb_array_elements_text(parsed_content::jsonb->'skills') AS skill "
+            "FROM resumes WHERE parsed_content IS NOT NULL AND parsed_content::jsonb->'skills' IS NOT NULL"
+        )
+    )
+    skill_set = {row[0] for row in skill_result.all() if row[0]}
+    return {
+        "tags": sorted(tag_set),
+        "sources": sorted(source_set),
+        "skills": sorted(skill_set),
+    }
 
 
 @router.get("", response_model=ResumeListResponse, summary="查询简历列表")
@@ -135,6 +148,7 @@ async def list_resumes(
     keyword: str | None = Query(None, description="关键词搜索（姓名、文件名、手机、邮箱）"),
     tag: str | None = Query(None, description="标签筛选（精确匹配单个标签）"),
     source: str | None = Query(None, description="来源渠道筛选"),
+    skill: str | None = Query(None, description="核心技能筛选（精确匹配单个技能）"),
     dedup_status: str | None = Query(None, description="去重状态筛选：NONE/SUSPECTED/CONFIRMED_DUP/IGNORED"),
     date_from: str | None = Query(None, description="上传起始时间 ISO 格式，如 2026-07-01"),
     date_to: str | None = Query(None, description="上传结束时间 ISO 格式，如 2026-07-31"),
@@ -143,7 +157,7 @@ async def list_resumes(
     service = ResumeService(db)
     items, total = await service.list_resumes(
         page=page, page_size=page_size, parse_status=parse_status, keyword=keyword,
-        candidate_status=candidate_status, tag=tag, source=source,
+        candidate_status=candidate_status, tag=tag, source=source, skill=skill,
         dedup_status=dedup_status, date_from=date_from, date_to=date_to,
     )
     return ResumeListResponse(

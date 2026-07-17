@@ -38,7 +38,7 @@ async def generate_jd(
 @router.get("", response_model=JDListResponse, summary="查询JD列表")
 async def list_jds(
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=100, description="每页条数"),
+    page_size: int = Query(10, ge=1, le=200, description="每页条数"),
     status: str | None = Query(None, description="JD状态筛选：DRAFT/PUBLISHED/ARCHIVED"),
     keyword: str | None = Query(None, description="关键词搜索（职位名称）"),
     db: AsyncSession = Depends(get_db),

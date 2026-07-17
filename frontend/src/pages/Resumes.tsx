@@ -14,6 +14,8 @@ import {
   Breadcrumb,
   Badge,
   Card,
+  Spin,
+  Empty,
 } from 'antd';
 import {
   FilePdfOutlined,
@@ -35,9 +37,10 @@ import type { ColumnsType } from 'antd/es/table';
 import { resumeApi } from '@/services/resume';
 import { jdApi } from '@/services/jd';
 import { matchApi } from '@/services/match';
-import type { Resume, ResumeParseStatus, CandidateStatus, DedupStatus, TagsMetaResponse, JD } from '@/types';
+import type { Resume, ResumeParseStatus, CandidateStatus, DedupStatus, TagsMetaResponse, JD, MatchScore } from '@/types';
 import ResumeEditModal from '@/components/ResumeEditModal';
 import CandidateStatusSwitch from '@/components/CandidateStatusSwitch';
+import MatchDetailDrawer from '@/components/MatchDetailDrawer';
 
 const { Dragger } = Upload;
 const { Text } = Typography;
@@ -83,10 +86,9 @@ const ResumesPage: React.FC = () => {
   const [keyword, setKeyword] = useState('');
   const [parseStatus, setParseStatus] = useState<ResumeParseStatus | undefined>(undefined);
   const [candidateStatus, setCandidateStatus] = useState<CandidateStatus | undefined>(undefined);
-  const [tagFilter, setTagFilter] = useState<string | undefined>(undefined);
-  const [sourceFilter, setSourceFilter] = useState<string | undefined>(undefined);
+  const [skillFilter, setSkillFilter] = useState<string | undefined>(undefined);
   const [dedupFilter, setDedupFilter] = useState<DedupStatus | undefined>(undefined);
-  const [tagsMeta, setTagsMeta] = useState<TagsMetaResponse>({ tags: [], sources: [] });
+  const [tagsMeta, setTagsMeta] = useState<TagsMetaResponse>({ tags: [], sources: [], skills: [] });
   const [uploading, setUploading] = useState(false);
   const [stats, setStats] = useState({ total: 0, parsed: 0, pending: 0, failed: 0 });
   const [parsingIds, setParsingIds] = useState<Set<string>>(new Set());
@@ -98,10 +100,16 @@ const ResumesPage: React.FC = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingResume, setEditingResume] = useState<Resume | null>(null);
   const pollingTimers = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [jdPanelOpen, setJdPanelOpen] = useState(false);
+  const [matchScores, setMatchScores] = useState<MatchScore[]>([]);
+  const [matchScoresLoading, setMatchScoresLoading] = useState(false);
+  const [associateJdId, setAssociateJdId] = useState<string | undefined>(undefined);
+  const [detailScore, setDetailScore] = useState<MatchScore | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const fetchAllStats = async () => {
     try {
-      const res = await resumeApi.list({ page, page_size: pageSize, keyword: keyword || undefined, parse_status: parseStatus, candidate_status: candidateStatus, tag: tagFilter, source: sourceFilter, dedup_status: dedupFilter });
+      const res = await resumeApi.list({ page, page_size: pageSize, keyword: keyword || undefined, parse_status: parseStatus, candidate_status: candidateStatus, skill: skillFilter, dedup_status: dedupFilter });
       const items = res.items;
       setStats({
         total: res.total,
@@ -171,10 +179,10 @@ const ResumesPage: React.FC = () => {
   const fetchResumes = async () => {
     setLoading(true);
     try {
-      const res = await resumeApi.list({ page, page_size: pageSize, keyword: keyword || undefined, parse_status: parseStatus, candidate_status: candidateStatus });
+      const res = await resumeApi.list({ page, page_size: pageSize, keyword: keyword || undefined, parse_status: parseStatus, candidate_status: candidateStatus, skill: skillFilter, dedup_status: dedupFilter });
       setResumes(res.items);
       setTotal(res.total);
-      if (!keyword && !parseStatus && !candidateStatus && !tagFilter && !sourceFilter && !dedupFilter) {
+      if (!keyword && !parseStatus && !candidateStatus && !skillFilter && !dedupFilter) {
         setStats({
           total: res.total,
           parsed: res.items.filter(r => r.parse_status === 'PARSED').length,
@@ -193,7 +201,7 @@ const ResumesPage: React.FC = () => {
 
   useEffect(() => {
     fetchResumes();
-  }, [page, pageSize, parseStatus, candidateStatus, keyword, tagFilter, sourceFilter, dedupFilter]);
+  }, [page, pageSize, parseStatus, candidateStatus, keyword, skillFilter, dedupFilter]);
 
   useEffect(() => {
     resumeApi.getTagsMeta().then(setTagsMeta).catch(() => {});
@@ -337,6 +345,54 @@ const ResumesPage: React.FC = () => {
     setExpandedRowKeys(prev =>
       prev.includes(resumeId) ? prev.filter(k => k !== resumeId) : [...prev, resumeId]
     );
+  };
+
+  const openJdPanel = (record: Resume) => {
+    setSelectedResume(record);
+    setJdPanelOpen(true);
+  };
+
+  // 右侧面板：加载该候选人已关联的 JD 与对应匹配评分
+  useEffect(() => {
+    if (!jdPanelOpen || !selectedResume) {
+      setMatchScores([]);
+      setAssociateJdId(undefined);
+      return;
+    }
+    let cancelled = false;
+    setMatchScoresLoading(true);
+    matchApi
+      .listByResume(selectedResume.resume_id, { limit: 50 })
+      .then((items) => { if (!cancelled) setMatchScores(items); })
+      .catch(() => { if (!cancelled) setMatchScores([]); })
+      .finally(() => { if (!cancelled) setMatchScoresLoading(false); });
+    return () => { cancelled = true; };
+  }, [jdPanelOpen, selectedResume]);
+
+  const handleRematch = async (jdId: string) => {
+    if (!selectedResume) return;
+    const hide = message.loading('匹配中...', 0);
+    try {
+      const score = await matchApi.matchOne({ jd_id: jdId, resume_id: selectedResume.resume_id, force: true });
+      setMatchScores((prev) => {
+        const idx = prev.findIndex((s) => s.jd_id === jdId);
+        const next = idx >= 0 ? [...prev] : [score, ...prev];
+        if (idx >= 0) next[idx] = score;
+        return next;
+      });
+      message.success('匹配完成');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      message.error(detail || '匹配失败');
+    } finally {
+      hide();
+    }
+  };
+
+  const handleAssociate = async () => {
+    if (!associateJdId) return;
+    await handleRematch(associateJdId);
+    setAssociateJdId(undefined);
   };
 
   const columns: ColumnsType<Resume> = [
@@ -503,6 +559,16 @@ const ResumesPage: React.FC = () => {
               解析
             </Button>
           )}
+          <Button
+            type="text"
+            size="small"
+            icon={<LinkOutlined />}
+            onClick={() => openJdPanel(record)}
+            title="关联 JD"
+            style={{ color: '#0D9488' }}
+          >
+            关联JD
+          </Button>
           <Popconfirm title="确定删除？" onConfirm={() => handleDelete(record.resume_id)} okText="删除" cancelText="取消">
             <Button type="text" size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
@@ -632,7 +698,7 @@ const ResumesPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <div style={{ padding: '16px 24px 0', borderBottom: '1px solid #f0f0f0', background: '#fff' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
@@ -682,7 +748,7 @@ const ResumesPage: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: 16, gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', padding: 16, gap: 16 }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <Card size="small" style={{ marginBottom: 12 }} styles={{ body: { padding: '12px 16px' } }}>
             <Dragger {...uploadProps} style={{ padding: '8px 0', background: '#fafafa' }}>
@@ -695,7 +761,7 @@ const ResumesPage: React.FC = () => {
             </Dragger>
           </Card>
 
-          <Card size="small" style={{ flex: 1, display: 'flex', flexDirection: 'column' }} styles={{ body: { padding: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}>
+          <Card size="small" styles={{ body: { padding: 0 } }}>
             <div style={{ padding: '10px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text strong>候选人列表 <Text type="secondary" style={{ fontWeight: 400 }}>(第 {page} 页)</Text></Text>
               <Space>
@@ -737,22 +803,13 @@ const ResumesPage: React.FC = () => {
                   ]}
                 />
                 <Select
-                  placeholder='标签'
+                  placeholder='核心技能标签'
                   allowClear
                   size='small'
-                  style={{ width: 120 }}
-                  value={tagFilter}
-                  onChange={(v) => { setTagFilter(v); setPage(1); }}
-                  options={tagsMeta.tags.map(t => ({ value: t, label: t }))}
-                />
-                <Select
-                  placeholder='来源'
-                  allowClear
-                  size='small'
-                  style={{ width: 110 }}
-                  value={sourceFilter}
-                  onChange={(v) => { setSourceFilter(v); setPage(1); }}
-                  options={tagsMeta.sources.map(s => ({ value: s, label: s }))}
+                  style={{ width: 150 }}
+                  value={skillFilter}
+                  onChange={(v) => { setSkillFilter(v); setPage(1); }}
+                  options={tagsMeta.skills.map(s => ({ value: s, label: s }))}
                 />
                 <Select
                   placeholder='重复状态'
@@ -769,7 +826,7 @@ const ResumesPage: React.FC = () => {
                 />
               </Space>
             </div>
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ padding: '4px' }}>
               <Table
                 columns={columns}
                 dataSource={resumes}
@@ -792,20 +849,21 @@ const ResumesPage: React.FC = () => {
                   expandIconColumnIndex: -1,
                   onExpand: (_, record) => toggleExpand(record.resume_id),
                 }}
-                scroll={{ x: 1000, y: 'calc(100vh - 420px)' }}
+                scroll={{ x: 1000 }}
               />
             </div>
           </Card>
         </div>
 
-        <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-          <Card size="small" style={{ flex: 1, display: 'flex', flexDirection: 'column' }} styles={{ body: { padding: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}>
+        {jdPanelOpen ? (
+        <div style={{ width: 300, flexShrink: 0 }}>
+          <Card size="small" styles={{ body: { padding: 0 } }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Space>
                 <LinkOutlined style={{ color: '#0D9488' }} />
-                <Text strong>关联 JD</Text>
+                <Text strong>候选人关联 JD</Text>
               </Space>
-              <Button type="text" size="small" icon={<CloseCircleFilled />} onClick={() => setSelectedResume(null)} />
+              <Button type="text" size="small" icon={<CloseCircleFilled />} onClick={() => setJdPanelOpen(false)} title="收起" />
             </div>
 
             <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', background: '#f6ffed' }}>
@@ -818,64 +876,121 @@ const ResumesPage: React.FC = () => {
                   </Button>
                 </Space>
               ) : (
-                <Text type="secondary" style={{ fontSize: '0.85rem' }}>点击操作列按钮查看候选人详情</Text>
+                <Text type="secondary" style={{ fontSize: '0.85rem' }}>点击简历行的「关联JD」按钮查看对应候选人</Text>
               )}
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
-              {selectedResume && selectedResume.parse_status === 'PARSED' ? (
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  <Text strong>候选人 → JD 匹配</Text>
-                  {matchAgainstJdId ? (
-                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                      {matchScoreMap[selectedResume.resume_id] !== undefined ? (
-                        <ScoreRing score={matchScoreMap[selectedResume.resume_id] as number} />
-                      ) : (
-                        <Text type="secondary" style={{ fontSize: '0.85rem' }}>
-                          暂无匹配分，可在「评分报告」触发批量匹配后查看
-                        </Text>
-                      )}
-                      <Button
-                        size="small"
-                        type="primary"
-                        onClick={async () => {
-                          try {
-                            const score = await matchApi.matchOne({
-                              jd_id: matchAgainstJdId as string,
-                              resume_id: selectedResume.resume_id,
-                              force: true,
-                            });
-                            setMatchScoreMap((prev) => ({ ...prev, [selectedResume.resume_id]: score.overall_score }));
-                            message.success('匹配完成');
-                          } catch {
-                            message.error('匹配失败');
-                          }
-                        }}
-                      >
-                        重新匹配
-                      </Button>
-                    </Space>
-                  ) : (
-                    <Text type="secondary" style={{ fontSize: '0.85rem' }}>请先在上方选择一个匹配 JD</Text>
-                  )}
-                </Space>
-              ) : (
+            <div style={{ padding: 16 }}>
+              {!selectedResume ? (
                 <div style={{ textAlign: 'center', paddingTop: 60 }}>
                   <LinkOutlined style={{ fontSize: '3rem', color: '#d9d9d9', marginBottom: 16 }} />
                   <div>
                     <Text type="secondary" style={{ fontSize: '0.85rem', display: 'block', marginBottom: 4 }}>
-                      {selectedResume ? '请先解析此简历' : '选择一个候选人'}
+                      选择一个候选人
                     </Text>
                     <Text type="secondary" style={{ fontSize: '0.75rem' }}>
-                      匹配功能开发中
+                      点击简历行的「关联JD」按钮
                     </Text>
                   </div>
+                </div>
+              ) : selectedResume.parse_status !== 'PARSED' ? (
+                <div style={{ textAlign: 'center', paddingTop: 60 }}>
+                  <LinkOutlined style={{ fontSize: '3rem', color: '#d9d9d9', marginBottom: 16 }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: '0.85rem', display: 'block', marginBottom: 4 }}>
+                      请先解析此简历后再关联 JD
+                    </Text>
+                  </div>
+                </div>
+              ) : matchScoresLoading ? (
+                <div style={{ textAlign: 'center', paddingTop: 60 }}>
+                  <Spin />
+                </div>
+              ) : matchScores.length === 0 ? (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={<Text type="secondary" style={{ fontSize: '0.82rem' }}>尚未关联任何 JD</Text>}
+                />
+              ) : (
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  <Text strong>已关联 JD 与匹配评分</Text>
+                  {matchScores.map((m) => {
+                    const jd = matchJds.find((j) => j.jd_id === m.jd_id);
+                    const failed = m.status === 'FAILED' || !!m.error_message;
+                    return (
+                      <Card key={m.jd_id} size="small" styles={{ body: { padding: 12 } }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.3 }}>
+                              {jd?.title || m.jd_id}
+                            </div>
+                            <Text type="secondary" style={{ fontSize: '0.72rem' }}>
+                              {jd?.department || '—'}
+                            </Text>
+                          </div>
+                          <ScoreRing score={m.overall_score} />
+                        </div>
+                        <div style={{ marginTop: 8 }}>
+                          {m.is_stale && <Tag color="orange" style={{ marginRight: 4 }}>简历已更新</Tag>}
+                          {failed && <Tag color="red">匹配失败</Tag>}
+                          {m.error_message && (
+                            <div><Text type="danger" style={{ fontSize: '0.72rem' }}>{m.error_message}</Text></div>
+                          )}
+                        </div>
+                        <Space size={4} style={{ marginTop: 8 }}>
+                          <Button
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => { setDetailScore(m); setDetailOpen(true); }}
+                          >
+                            查看详情
+                          </Button>
+                          <Button
+                            size="small"
+                            icon={<ReloadOutlined />}
+                            onClick={() => handleRematch(m.jd_id)}
+                          >
+                            重新匹配
+                          </Button>
+                        </Space>
+                      </Card>
+                    );
+                  })}
+                </Space>
+              )}
+
+              {selectedResume?.parse_status === 'PARSED' && (
+                <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+                  <Text type="secondary" style={{ fontSize: '0.75rem' }}>关联新 JD：</Text>
+                  <Space.Compact style={{ width: '100%', marginTop: 6 }}>
+                    <Select
+                      placeholder="选择 JD"
+                      style={{ flex: 1 }}
+                      value={associateJdId}
+                      onChange={setAssociateJdId}
+                      options={matchJds
+                        .filter((j) => !matchScores.some((m) => m.jd_id === j.jd_id))
+                        .map((j) => ({ value: j.jd_id, label: j.title }))}
+                    />
+                    <Button type="primary" disabled={!associateJdId} onClick={handleAssociate}>
+                      关联
+                    </Button>
+                  </Space.Compact>
                 </div>
               )}
             </div>
           </Card>
         </div>
-      </div>
+      ) : (
+        <div style={{ width: 44, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 16, borderLeft: '1px solid #f0f0f0', background: '#fff' }}>
+          <Button type="text" onClick={() => setJdPanelOpen(true)} title="展开关联 JD">
+            <Space direction="vertical" size={6} style={{ alignItems: 'center' }}>
+              <LinkOutlined style={{ color: '#0D9488', fontSize: '1.1rem' }} />
+              <span style={{ writingMode: 'vertical-rl', letterSpacing: 2, color: '#0D9488', fontSize: '0.8rem' }}>关联 JD</span>
+            </Space>
+          </Button>
+        </div>
+      )}
 
       {editModalVisible && editingResume && (
         <ResumeEditModal
@@ -885,6 +1000,9 @@ const ResumesPage: React.FC = () => {
           onSaved={handleEditSaved}
         />
       )}
+
+      <MatchDetailDrawer open={detailOpen} data={detailScore} onClose={() => setDetailOpen(false)} />
+    </div>
     </div>
   );
 };

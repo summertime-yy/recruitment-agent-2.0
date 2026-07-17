@@ -94,6 +94,8 @@ const ResumeDetailPage: React.FC = () => {
   const [matchJdId, setMatchJdId] = useState<string | undefined>();
   const [matchScore, setMatchScore] = useState<MatchScore | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
+  const [matchJdsLoading, setMatchJdsLoading] = useState(false);
+  const [matchJdsError, setMatchJdsError] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerData, setDrawerData] = useState<MatchScore | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -158,24 +160,36 @@ const ResumeDetailPage: React.FC = () => {
   }, [resume?.parse_status]);
 
   // Stage 4：加载 JD 列表与已存在的匹配评分，默认选中最近一条 JD
+  // 注意：JD 列表的加载不应依赖简历解析状态，任何简历详情都应可正常选取 JD 进行匹配
   useEffect(() => {
-    if (resume?.parse_status !== 'PARSED' || !resume?.resume_id) return;
+    if (!resume?.resume_id) return;
     let cancelled = false;
-    jdApi.list({ page_size: 200 })
+    setMatchJdsLoading(true);
+    setMatchJdsError(false);
+    jdApi.list({ page_size: 100 })
       .then((res) => {
         if (cancelled) return;
         setMatchJds(res.items);
         if (res.items.length > 0) setMatchJdId(res.items[0].jd_id);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (cancelled) return;
+        setMatchJdsError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setMatchJdsLoading(false);
+      });
     matchApi.listByResume(resume.resume_id)
       .then((items) => {
         if (cancelled) return;
-        if (items.length > 0) setMatchScore(items[0]);
+        if (items.length > 0) {
+          setMatchScore(items[0]);
+          setDrawerData(items[0]);
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [resume?.resume_id, resume?.parse_status]);
+  }, [resume?.resume_id]);
 
   const handleGenerateScore = async () => {
     if (!id || !matchJdId) return;
@@ -186,8 +200,9 @@ const ResumeDetailPage: React.FC = () => {
       setDrawerData(score);
       setDrawerOpen(true);
       message.success('评分生成完成');
-    } catch {
-      message.error('评分生成失败');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      message.error(typeof detail === 'string' ? detail : '评分生成失败，请稍后重试');
     } finally {
       setMatchLoading(false);
     }
@@ -415,18 +430,48 @@ const ResumeDetailPage: React.FC = () => {
                   style={{ width: 200 }}
                   value={matchJdId}
                   onChange={(v) => setMatchJdId(v)}
+                  showSearch
+                  optionFilterProp="label"
+                  loading={matchJdsLoading}
+                  disabled={matchJdsLoading}
+                  notFoundContent={
+                    matchJdsLoading ? (
+                      <span>加载中…</span>
+                    ) : matchJdsError ? (
+                      <span>JD 加载失败，请刷新页面</span>
+                    ) : (
+                      <span>暂无 JD，请先在「JD 管理」创建</span>
+                    )
+                  }
                   options={matchJds.map((j) => ({ value: j.jd_id, label: j.title }))}
                 />
                 <Button type="primary" loading={matchLoading} onClick={handleGenerateScore} disabled={!matchJdId}>
-                  生成评分
+                  {matchScore ? '重新生成评分' : '生成评分'}
                 </Button>
               </Space>
               {matchScore ? (
-                <Space>
+                <Space wrap align="center">
                   <ScoreRingInline score={matchScore.overall_score} />
                   <Text type="secondary">
                     综合分 · {matchScore.is_stale ? '简历已更新（旧分）' : '最新'}
                   </Text>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => { setDrawerData(matchScore); setDrawerOpen(true); }}
+                  >
+                    查看匹配详情
+                  </Button>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<ReloadOutlined />}
+                    loading={matchLoading}
+                    onClick={handleGenerateScore}
+                  >
+                    重新生成
+                  </Button>
                 </Space>
               ) : (
                 <Text type="secondary">尚未生成匹配评分，点击「生成评分」基于所选 JD 计算</Text>

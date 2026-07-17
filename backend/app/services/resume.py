@@ -6,7 +6,8 @@ from io import BytesIO
 from typing import BinaryIO
 
 from minio import Minio
-from sqlalchemy import desc, select
+from sqlalchemy import cast, desc, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.skill_registry import get_skill_registry
@@ -252,6 +253,7 @@ class ResumeService:
         candidate_status: str | None = None,
         tag: str | None = None,
         source: str | None = None,
+        skill: str | None = None,
         dedup_status: str | None = None,
         date_from: str | None = None,
         date_to: str | None = None,
@@ -279,6 +281,12 @@ class ResumeService:
             # JSONB 数组包含查询：tags @> '["tag"]'
             query = query.where(Resume.tags.contains([tag]))
             count_query = count_query.where(Resume.tags.contains([tag]))
+
+        if skill:
+            # parsed_content(JSON) 转为 jsonb 后对 skills 数组做包含查询
+            skill_cond = cast(Resume.parsed_content, JSONB)["skills"].contains([skill])
+            query = query.where(skill_cond)
+            count_query = count_query.where(skill_cond)
 
         if date_from:
             try:

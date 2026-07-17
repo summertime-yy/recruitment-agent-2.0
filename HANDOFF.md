@@ -3,7 +3,7 @@
 > 更新时间：2026-07-17
 > 当前进度：**Stage 4（人岗匹配评分）已完成**（后端 PR-1～PR-5 + 前端 PR-6～PR-8 全链路闭环）
 > 下一阶段：Stage 5（Agent 对话核心）
-> 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `fb75251`/`6dd41b7`/`bc9545c`（接入真实分 + 匹配面板，三段式提交：feat/test/docs）
+> 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `fb75251`/`6dd41b7`/`bc9545c`（接入真实分 + 匹配面板）；**本追加提交（PR-8 收尾）**：候选人管理页 UI/筛选/关联JD 重构 + ResumeDetail 匹配体验优化（详见 §3.2 / §6.1）
 > 面向读者：下一位系统架构师 / 开发者
 
 ---
@@ -84,9 +84,12 @@
 
 #### (2) 标签 tags
 - `resumes.tags`（JSONB 数组），支持编辑、列表 JSONB 包含查询筛选
+- ⚠️ **前端列表筛选已于 PR-8 收尾移除「标签」下拉**（此前 `tags/meta` 聚合出的标签基本为空、无实际筛选项）
 
 #### (3) 来源渠道 source
 - `resumes.source`（BOSS/拉勾/内推/猎头/邮件等），支持编辑与筛选
+- ⚠️ **前端列表筛选已于 PR-8 收尾移除「来源」下拉**：实测库内 `source` 全为空（`tags/meta` 返回 `sources=0`），属无意义筛选项。后端 `source` 字段与 `?source=` 筛选参数仍保留（供后续有数据时使用）
+- ✅ **新增「核心技能标签」筛选（替代标签/来源）**：基于简历解析结果 `parsed_content.skills` 聚合，由 `tags/meta` 的 `skills` 字段提供下拉项；列表端新增 `?skill=` 参数，走 `parsed_content::jsonb->'skills'` 的 JSONB 包含查询（见 §3.2 API 表）
 
 #### (4) 去重 dedup（硬匹配 + 人工处理）
 - `resumes.dedup_status`：`NONE / SUSPECTED / CONFIRMED_DUP / IGNORED`
@@ -107,9 +110,9 @@
 | `/api/v1/candidates/{resume_id}/status/history` | GET | 状态流转历史（倒序） |
 | `/api/v1/candidates/{resume_id}/notes` | GET/POST | 备注列表 / 新增 |
 | `/api/v1/candidates/{resume_id}/notes/{note_id}` | PUT/DELETE | 更新 / 删除备注 |
-| `/api/v1/resumes/tags/meta` | GET | 聚合所有标签与来源（筛选下拉） |
+| `/api/v1/resumes/tags/meta` | GET | 聚合所有标签、来源与**核心技能**（`skills`，来自 `parsed_content.skills`）（筛选下拉） |
 | `/api/v1/resumes/{resume_id}/dedup` | POST | 去重处理（CONFIRM_DUP/IGNORE/RECHECK） |
-| `/api/v1/resumes?tag=&source=&dedup_status=&candidate_status=` | GET | 多维筛选 |
+| `/api/v1/resumes?tag=&source=&skill=&dedup_status=&candidate_status=` | GET | 多维筛选（新增 `skill`：核心技能 JSONB 包含查询） |
 
 #### Stage 3 关键文件
 **后端**：
@@ -208,6 +211,11 @@ DATABASE_URL=postgresql+asyncpg://...
 - **后端 API**：`POST /match-scores`、`POST /match-scores/batch`、`GET /match-scores/batch/{task_id}`、`GET /match-scores/{score_id}`、`GET /jds/{id}/ranking`、`GET /resumes/{id}/matches`（均已实现 + pytest 集成测试，51 测试全绿）
 - **前端页面**：`ScoringReport.tsx`（JD 选择器 + 批量匹配轮询 + 排名表 + 详情 Drawer）已落地
 - **前端联动**：`Resumes.tsx` 已移除 `Math.random()` 随机数，改为按所选 JD 拉取真实匹配分（「匹配分」列 + 右侧面板重新匹配）；`ResumeDetail.tsx` 已替换占位为「JD 匹配评分」卡片（生成评分 + 详情 Drawer）
+- **PR-8 收尾 · 候选人管理页体验重构**（本追加提交）：
+  - **整页滚动**：列表卡片改为按内容自适应高度，移除内部固定高度与滚动条，由 `MainLayout` 的 `Content`（`overflow:auto`）承载整页滚动；顶部 `Header` 为 `position:sticky` 固定不动；分页器保留
+  - **右侧「关联 JD」面板重构**：从"展示候选人列表"改为**展示该候选人已关联的多条 JD 及各自匹配评分**（调用 `GET /resumes/{id}/matches`），每张卡片含 JD 标题/部门、评分环、是否"简历已更新"、失败标记，支持「查看详情」（`MatchDetailDrawer`）与「重新匹配」，底部支持关联新 JD
+  - **筛选区精简**：移除无数据的「标签」「来源」下拉，仅保留「核心技能标签」（`tags/meta.skills` + `?skill=`）
+  - **ResumeDetail 匹配体验优化**：JD 列表加载不再依赖简历解析状态（任意简历详情均可选 JD 匹配），补齐加载/错误态、`showSearch` 搜索、按钮文案随是否已评分切换（生成/重新生成）、新增「查看匹配详情」「重新生成」入口
 
 **注意**：`match_scores` 同时引用 jds 和 resumes，必须在两表都存在后建（已满足）。
 
