@@ -42,7 +42,7 @@ async def call_llm(
     ]
 
     kwargs: dict[str, Any] = {}
-    if response_format and response_format.get("type") == "json_object":
+    if settings.LLM_JSON_MODE and response_format and response_format.get("type") == "json_object":
         kwargs["response_format"] = {"type": "json_object"}
 
     response = await llm.ainvoke(messages, **kwargs)

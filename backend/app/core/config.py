@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     LLM_TEMPERATURE: float = 0.3
     LLM_MAX_TOKENS: int = 4096
     LLM_TIMEOUT: int = 60
+    LLM_JSON_MODE: bool = False  # 是否强制 response_format=json_object；deepseek-v4-flash(Plan) 不支持，置 False
 
     @property
     def database_url(self) -> str:
