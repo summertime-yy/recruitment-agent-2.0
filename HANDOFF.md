@@ -1,9 +1,9 @@
 # 招聘 Agent 2.0 阶段性总结与交接文档
 
-> 更新时间：2026-07-16
+> 更新时间：2026-07-17
 > 当前进度：**Stage 4（人岗匹配评分）已完成**（后端 PR-1～PR-5 + 前端 PR-6～PR-8 全链路闭环）
 > 下一阶段：Stage 5（Agent 对话核心）
-> 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `待提交`（接入真实分 + 匹配面板）
+> 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `fb75251`/`6dd41b7`/`bc9545c`（接入真实分 + 匹配面板，三段式提交：feat/test/docs）
 > 面向读者：下一位系统架构师 / 开发者
 
 ---
@@ -157,6 +157,7 @@ npm run dev   # Vite :5173，代理 /api → :8000
 
 **关键配置（backend/.env，不入库，从 .env.example 复制）**：
 ```
+LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/plan/v3   # ✅ 火山方舟 Agent Plan 网关（OpenAI 兼容）；原 /api/v3 已无额度
 LLM_MODEL=deepseek-v4-flash-260425   # ⚠️ 必须用 DeepSeek-V4-flash，不能用推理模型
 LLM_MAX_TOKENS=4096                   # ⚠️ 当前验证可用值
 LLM_TIMEOUT=180
@@ -176,6 +177,8 @@ DATABASE_URL=postgresql+asyncpg://...
 - **❌ 不要设置 `reasoning_effort` 参数**：DeepSeek 模型不兼容，会 API 报错
 - **❌ 不要多层重试**：Skill 层与 LangChain ChatOpenAI 层都设 max_retries 会导致超时叠加。**两处都必须 `max_retries=0`**
 - **✅ 所有 LLM 调用统一走** `app/agent/llm_adapter.py`
+- **❌ `deepseek-v4-flash-260425`（含 Plan 网关）不支持 `response_format=json_object`**：会返回 400 `InvalidParameter`。已加 `LLM_JSON_MODE` 开关（默认 `False`）关闭强制 JSON 模式，改由 Skill prompt 约束输出 + `call_llm_json` 的 regex 兜底解析。切勿对该模型开启 `LLM_JSON_MODE`
+- **✅ 2026-07-17 起 LLM 切到火山方舟 Agent Plan 网关**：`LLM_BASE_URL=…/api/plan/v3` + Plan 专属 API Key（原 `…/api/v3` 的 `ark-…-54561` 已无额度，报 429）。换模型只需改 `LLM_MODEL`，无需动代码；`.env` 不入库，新 key 仅本地
 
 ### 5.2 前端相关
 - **✅ 打开新窗口用** `window.open(url, '_blank', 'noopener,noreferrer')`，在 onClick 同步上下文调用；不要用动态创建 `<a>.click()`（可能被安全策略拦截）
@@ -185,6 +188,7 @@ DATABASE_URL=postgresql+asyncpg://...
 ### 5.3 后端相关
 - **FastAPI 路由顺序**：具体路径（如 `/{resume_id}/preview`、`/tags/meta`）必须定义在 `/{resume_id}` 之前，否则被路径参数覆盖
 - **迁移命名**：`<rev>_<snake_case_desc>.py`；改 DB 前先更新 `docs/data-model.md`
+- **⚠️ 本地启动后端必须直接 `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`**（让 IDE harness 托管为常驻服务）；用 `Start-Process`/`cmd /c` 后台拉起会被进程组回收，端口随即释放。改 `.env` 后需重启进程才会重读（--reload 只监听 `.py`）
 
 ---
 
@@ -253,7 +257,7 @@ DATABASE_URL=postgresql+asyncpg://...
 
 1. **简历解析成功率**：需批量上传不同长度/格式（PDF/DOCX）简历验证 100% 成功；若截断，将 `LLM_MAX_TOKENS` 提升至 8192
 2. **传给 LLM 的 raw_text 截断长度**：确认 `services/resume.py` 中实际截断值是否合理
-3. **测试缺失**：`backend/tests/` 目前无实际用例（pytest 收集 0 项）；前端无测试框架。建议下一阶段补齐关键路径测试
+3. **测试已建立（原"测试缺失"已解决）**：后端 `pytest` 收集 **51 passed**（PR-1~PR-5 引入 model/skill/service/api/ranking）；前端 Vitest 收集 **16 passed**（PR-6 基建 + PR-8 集成测试）。建议持续补充边界与异常路径用例
 4. **去重升级**：当前为 phone/email 硬匹配，路线图规划有 `candidate-merge` Skill（智能合并）——尚未实现，可评估是否纳入 Stage 4/后续
 5. **候选人画像**：路线图 `candidate-profile` Skill（画像标签自动生成）尚未实现
 6. **工作区未纳管文件**：`.uploads/`、`frontend/tsconfig.tsbuildinfo` 建议加入 `.gitignore`；`scripts/`（一次性辅助脚本）与 `AGENTS.md` 待决定是否提交
@@ -302,4 +306,4 @@ DATABASE_URL=postgresql+asyncpg://...
 2. **Skill 优先**：Stage 4 的核心是 `jd-candidate-matching` Skill，务必遵循 Skill 唯一契约（skill.yaml + prompt.md + examples.yaml），勿在 Python 中硬编码 prompt
 3. **打通"随机分 → 真实分"**：✅ 已完成——`Resumes.tsx` 已移除 `Math.random()`，按所选 JD 拉取真实匹配分（「匹配分」列 + 右侧面板重新匹配），`ResumeDetail.tsx` 已替换占位为「JD 匹配评分」卡片
 4. **保持文档同步**：任何 DB/API 变更先改 `docs/`，与提交一起入库
-5. **补测试**：当前测试为空，建议在 Stage 4 引入关键路径的 pytest 用例，降低回归风险
+5. **测试已补齐**：后端 51 + 前端 16 关键路径用例已随 PR-1~PR-8 入库，提交前 `uv run pytest` + `npm run test` 可复验，降低回归风险
