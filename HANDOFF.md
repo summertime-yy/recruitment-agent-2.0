@@ -1,8 +1,9 @@
 # 招聘 Agent 2.0 阶段性总结与交接文档
 
 > 更新时间：2026-07-16
-> 当前进度：**Stage 3（候选人管理模块）已完成**，下一阶段为 Stage 4（人岗匹配评分）
-> 对应提交：`b3ca9d0`（feat: add candidate status flow UI）
+> 当前进度：**Stage 4（人岗匹配评分）已完成**（后端 PR-1～PR-5 + 前端 PR-6～PR-8 全链路闭环）
+> 下一阶段：Stage 5（Agent 对话核心）
+> 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `待提交`（接入真实分 + 匹配面板）
 > 面向读者：下一位系统架构师 / 开发者
 
 ---
@@ -41,12 +42,12 @@
 | Stage 1 | JD 管理模块 | ✅ 完成 | JD CRUD + AI 生成 + 前端页面（列表/生成/详情） |
 | Stage 2 | 简历解析模块 | ✅ 完成 | 上传/解析/预览/编辑/删除 + 前端工作台 |
 | Stage 3 | 候选人管理模块 | ✅ 完成 | 状态流转 + 标签 + 来源 + 去重 + 备注评价（后端全链路 + 前端组件） |
-| **Stage 4** | **人岗匹配评分** | ⏳ **未开始** | **下一阶段起点**，match_scores 表 + 匹配 Skill + 评分报告页 |
+| **Stage 4** | **人岗匹配评分** | ✅ **完成** | match_scores 表 + `jd-candidate-matching` Skill v1.0.0 + 6 类匹配 API + 前端评分报告/列表/详情/简历联动 |
 | Stage 5 | Agent 对话核心 | ⏳ 未开始 | tasks 表 + Task Orchestrator（R-P-R-A-R）+ SSE + 对话中心页 |
 | Stage 6 | 推送与反馈 | ⏳ 未开始 | communications/feedback 表 + 推送服务 + 推送管理页 |
 | Stage 7 | 看板与设置 | ⏳ 未开始 | analytics 表 + 数据看板 + Skill 管理 + 系统设置页 |
 
-**当前数据库迁移 head**：`113702a6d427`（tags/source/dedup）；状态流转迁移 `f8a2c4e91b03`
+**当前数据库迁移 head**：`e4c1a2b3d4f5`（add match_scores table，Stage 4）；前置迁移 `113702a6d427`（tags/source/dedup）、`f8a2c4e91b03`（candidate status flow）
 
 ---
 
@@ -191,18 +192,18 @@ DATABASE_URL=postgresql+asyncpg://...
 
 > 以下为规划蓝图，**下一位架构师应据此产出各 Stage 的详细设计与任务拆解**。开发严格串行依赖：Stage 4 → 5 → 6 → 7。
 
-### 6.1 Stage 4 — 人岗匹配评分模块（下一阶段，优先级最高）
+### 6.1 Stage 4 — 人岗匹配评分模块（✅ 已完成）
 
 **目标**：给定 JD 与候选人简历，AI 计算多维匹配分并生成匹配报告。
 
 **依赖**：Stage 1（jds 表）+ Stage 3（简历/候选人已就绪）——依赖已满足。
 
-**待交付物**：
+**交付物（已全部完成）**：
 - **数据表** `match_scores`（参见 `docs/data-model.md §3.3`）：同时引用 jds 与 resumes，存储各维度分数、综合推荐度、匹配报告内容
-- **Skill** `jd-candidate-matching v1.0.0`：输入 JD + 简历结构化数据，输出多维匹配分（技能/经验/学历/综合）——**当前完全不存在，需从零创建 skill.yaml + prompt.md + examples.yaml**
-- **后端 API**：触发匹配、查询匹配结果、匹配排行/候选人排序
-- **前端页面**：`ScoringReport.tsx`（当前为 **占位空壳**，需实现）——匹配报告页、候选人排名
-- **前端联动**：`Resumes.tsx` 中"置信度"列目前是**随机数**（ScoreRing 组件），需接入真实匹配分；ResumeDetail 的"匹配功能将在 Stage 4 开放"占位需替换
+- **Skill** `jd-candidate-matching v1.0.0`：输入 JD + 简历结构化数据，输出多维匹配分（技能/经验/学历/综合）——已创建 skill.yaml + prompt.md + examples.yaml
+- **后端 API**：`POST /match-scores`、`POST /match-scores/batch`、`GET /match-scores/batch/{task_id}`、`GET /match-scores/{score_id}`、`GET /jds/{id}/ranking`、`GET /resumes/{id}/matches`（均已实现 + pytest 集成测试，51 测试全绿）
+- **前端页面**：`ScoringReport.tsx`（JD 选择器 + 批量匹配轮询 + 排名表 + 详情 Drawer）已落地
+- **前端联动**：`Resumes.tsx` 已移除 `Math.random()` 随机数，改为按所选 JD 拉取真实匹配分（「匹配分」列 + 右侧面板重新匹配）；`ResumeDetail.tsx` 已替换占位为「JD 匹配评分」卡片（生成评分 + 详情 Drawer）
 
 **注意**：`match_scores` 同时引用 jds 和 resumes，必须在两表都存在后建（已满足）。
 
@@ -237,7 +238,7 @@ DATABASE_URL=postgresql+asyncpg://...
 
 | 页面 | 路由 | 归属 Stage |
 |------|------|-----------|
-| `ScoringReport.tsx` | `/scores` | Stage 4 |
+| `ScoringReport.tsx` | `/scores` | Stage 4 ✅ 已实现（评分报告/排名/详情） |
 | `ChatCenter.tsx` | `/chat` | Stage 5 |
 | `CandidateChat.tsx` | `/candidate-chat` | Stage 5 |
 | `PushFeedback.tsx` | `/push` | Stage 6 |
@@ -299,6 +300,6 @@ DATABASE_URL=postgresql+asyncpg://...
 
 1. **从 Stage 4 起步**：先更新 `docs/data-model.md` 定义 `match_scores` 表，再按"表 → 模型 → 迁移 → Schema → Skill → Service → API → 测试 → 前端"顺序推进（见 `development-roadmap.md §9.1`）
 2. **Skill 优先**：Stage 4 的核心是 `jd-candidate-matching` Skill，务必遵循 Skill 唯一契约（skill.yaml + prompt.md + examples.yaml），勿在 Python 中硬编码 prompt
-3. **打通"随机分 → 真实分"**：Stage 4 交付后同步替换 `Resumes.tsx` 中 ScoreRing 的随机置信度为真实匹配分
+3. **打通"随机分 → 真实分"**：✅ 已完成——`Resumes.tsx` 已移除 `Math.random()`，按所选 JD 拉取真实匹配分（「匹配分」列 + 右侧面板重新匹配），`ResumeDetail.tsx` 已替换占位为「JD 匹配评分」卡片
 4. **保持文档同步**：任何 DB/API 变更先改 `docs/`，与提交一起入库
 5. **补测试**：当前测试为空，建议在 Stage 4 引入关键路径的 pytest 用例，降低回归风险

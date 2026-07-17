@@ -99,7 +99,7 @@ graph TB
 | **Stage 1** | JD管理模块 | Stage 0 | jds/jd_templates表、JD CRUD+生成API、JD生成Skill v1、JD管理前端页面 |
 | **Stage 2** | 简历解析模块 | Stage 0 | resumes表、简历上传/解析API、简历解析Skill、简历上传前端 |
 | **Stage 3** | 候选人管理模块 | Stage 1+2 | candidates表、候选人CRUD API、候选人实体合并Skill、候选人列表前端 |
-| **Stage 4** | 人岗评分匹配 | Stage 3 | match_scores表、匹配评分API、评分计算Skill、匹配报告前端 |
+| **Stage 4** | 人岗评分匹配 | Stage 3 | match_scores表、匹配评分API、评分计算Skill、匹配报告前端 | ✅ 已完成 |
 | **Stage 5** | Agent对话核心 | Stage 1-4 | tasks表、Task Orchestrator（R-P-R-A-R）、SSE端点、统一API契约、对话任务中心前端 |
 | **Stage 6** | 推送与反馈 | Stage 5 | communications/feedback表、推送服务、推送/反馈Skill、推送管理前端 |
 | **Stage 7** | 看板与设置 | Stage 5+6 | analytics表、数据看板、Skill管理页面、系统设置 |
@@ -208,21 +208,22 @@ graph TB
 
 ---
 
-## 六、Stage 4：人岗评分匹配模块
+## 六、Stage 4：人岗评分匹配模块（✅ 已完成）
 
 ### 6.1 模块闭环定义
 
-| 类别 | 交付物 |
-|-----|-------|
-| 数据表 | match_scores（详见data-model.md §3.3） |
-| Skill | jd-candidate-matching v1.0.0（基于JD+简历计算多维匹配分） |
-| 后端API | 触发匹配、查询匹配结果、匹配排行 |
-| 前端页面 | 匹配报告页、候选人排名 |
-| 依赖 | Stage 1 + Stage 3（jds+candidates都必须存在） |
+| 类别 | 交付物 | 状态 |
+|-----|-------|------|
+| 数据表 | match_scores（详见data-model.md §3.3） | ✅ |
+| Skill | jd-candidate-matching v1.0.0（基于JD+简历计算多维匹配分） | ✅ |
+| 后端API | POST /match-scores、POST /match-scores/batch、GET /match-scores/batch/{task_id}、GET /match-scores/{score_id}、GET /jds/{id}/ranking、GET /resumes/{id}/matches | ✅ |
+| 前端页面 | 匹配报告页（ScoringReport）、候选人排名表、详情 Drawer、Resumes 真实匹配分、ResumeDetail 匹配面板 | ✅ |
+| 依赖 | Stage 1 + Stage 3（jds+candidates都必须存在） | ✅ 已满足 |
 
 ### 6.2 注意事项
 - **必须串行**：match_scores表同时引用jds和candidates，必须在Stage 3完成后开始
 - 评分维度：技能匹配、经验匹配、学历匹配、综合推荐度
+- 综合分加权公式：`overall = round(0.5*skill + 0.3*exp + 0.2*edu, 1)`（详见后端 MatchService）
 
 ---
 
