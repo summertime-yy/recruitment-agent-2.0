@@ -192,8 +192,11 @@ const ResumeDetailPage: React.FC = () => {
   const handleGenerateScore = async (jdId?: string) => {
     const targetJd = jdId ?? matchJdId;
     if (!id || !targetJd) return;
-    setMatchLoading(true);
-    setRematchJdId(targetJd);
+    const isTopButton = !jdId;
+    // 顶部「生成评分」与卡片「重新匹配」各自维护 loading 状态，互不干扰
+    if (isTopButton) setMatchLoading(true);
+    else setRematchJdId(targetJd);
+    message.loading({ content: '正在匹配中...', key: 'matchScore' });
     try {
       const score = await matchApi.matchOne({ jd_id: targetJd, resume_id: id, force: true });
       setMatchScores((prev) => {
@@ -207,13 +210,13 @@ const ResumeDetailPage: React.FC = () => {
       });
       setDrawerData(score);
       setDrawerOpen(true);
-      message.success('评分生成完成');
+      message.success({ content: '评分生成完成', key: 'matchScore' });
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      message.error(typeof detail === 'string' ? detail : '评分生成失败，请稍后重试');
+      message.error({ content: typeof detail === 'string' ? detail : '评分生成失败，请稍后重试', key: 'matchScore' });
     } finally {
-      setMatchLoading(false);
-      setRematchJdId(undefined);
+      if (isTopButton) setMatchLoading(false);
+      else setRematchJdId(undefined);
     }
   };
 
@@ -456,11 +459,15 @@ const ResumeDetailPage: React.FC = () => {
                 />
                 <Button
                   type="primary"
-                  loading={matchLoading && !rematchJdId}
+                  loading={matchLoading}
                   onClick={() => handleGenerateScore()}
-                  disabled={!matchJdId}
+                  disabled={!matchJdId || matchLoading}
                 >
-                  {matchJdId && matchScores.some((s) => s.jd_id === matchJdId) ? '重新生成评分' : '生成评分'}
+                  {matchLoading
+                    ? '正在匹配中...'
+                    : matchJdId && matchScores.some((s) => s.jd_id === matchJdId)
+                      ? '重新生成评分'
+                      : '生成评分'}
                 </Button>
               </Space>
 
@@ -503,6 +510,7 @@ const ResumeDetailPage: React.FC = () => {
                             size="small"
                             icon={<ReloadOutlined />}
                             loading={rematchJdId === m.jd_id}
+                            disabled={rematchJdId === m.jd_id}
                             onClick={() => handleGenerateScore(m.jd_id)}
                           >
                             重新匹配

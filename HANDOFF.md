@@ -217,6 +217,7 @@ DATABASE_URL=postgresql+asyncpg://...
   - **筛选区精简**：移除无数据的「标签」「来源」下拉，仅保留「核心技能标签」（`tags/meta.skills` + `?skill=`）
   - **ResumeDetail 匹配体验优化**：JD 列表加载不再依赖简历解析状态（任意简历详情均可选 JD 匹配），补齐加载/错误态、`showSearch` 搜索、按钮文案随是否已评分切换（生成/重新生成）、新增「查看匹配详情」「重新生成」入口
   - **ResumeDetail 多 JD 管理**：「JD 匹配评分」卡片由单条展示改为**多 JD 评分列表**，每个 JD 各自展示评分环 + 「查看详情」「重新匹配」，新增 JD 不再覆盖已有评分（与列表页关联 JD 侧边栏行为一致）
+  - **生成评分 交互反馈（PR-8 收尾）**：修复顶部「生成评分」按钮点击无响应问题——原 `loading={matchLoading && !rematchJdId}` 因 `rematchJdId` 总被赋值而恒为 `false`；现区分顶部按钮（`matchLoading`）与卡片「重新匹配」（`rematchJdId`）各自 loading；点击后立即弹出 `正在匹配中...` 全局提示、按钮显示加载态并禁用防重复点击，成功/失败自动关闭提示、失败给出错误文案
 
 **注意**：`match_scores` 同时引用 jds 和 resumes，必须在两表都存在后建（已满足）。
 
