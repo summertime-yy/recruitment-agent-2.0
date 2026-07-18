@@ -92,8 +92,9 @@ const ResumeDetailPage: React.FC = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [matchJds, setMatchJds] = useState<JD[]>([]);
   const [matchJdId, setMatchJdId] = useState<string | undefined>();
-  const [matchScore, setMatchScore] = useState<MatchScore | null>(null);
+  const [matchScores, setMatchScores] = useState<MatchScore[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
+  const [rematchJdId, setRematchJdId] = useState<string | undefined>(undefined);
   const [matchJdsLoading, setMatchJdsLoading] = useState(false);
   const [matchJdsError, setMatchJdsError] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -182,21 +183,28 @@ const ResumeDetailPage: React.FC = () => {
     matchApi.listByResume(resume.resume_id)
       .then((items) => {
         if (cancelled) return;
-        if (items.length > 0) {
-          setMatchScore(items[0]);
-          setDrawerData(items[0]);
-        }
+        setMatchScores(items);
       })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [resume?.resume_id]);
 
-  const handleGenerateScore = async () => {
-    if (!id || !matchJdId) return;
+  const handleGenerateScore = async (jdId?: string) => {
+    const targetJd = jdId ?? matchJdId;
+    if (!id || !targetJd) return;
     setMatchLoading(true);
+    setRematchJdId(targetJd);
     try {
-      const score = await matchApi.matchOne({ jd_id: matchJdId, resume_id: id, force: true });
-      setMatchScore(score);
+      const score = await matchApi.matchOne({ jd_id: targetJd, resume_id: id, force: true });
+      setMatchScores((prev) => {
+        const idx = prev.findIndex((s) => s.jd_id === targetJd);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = score;
+          return next;
+        }
+        return [score, ...prev];
+      });
       setDrawerData(score);
       setDrawerOpen(true);
       message.success('评分生成完成');
@@ -205,6 +213,7 @@ const ResumeDetailPage: React.FC = () => {
       message.error(typeof detail === 'string' ? detail : '评分生成失败，请稍后重试');
     } finally {
       setMatchLoading(false);
+      setRematchJdId(undefined);
     }
   };
 
@@ -445,36 +454,64 @@ const ResumeDetailPage: React.FC = () => {
                   }
                   options={matchJds.map((j) => ({ value: j.jd_id, label: j.title }))}
                 />
-                <Button type="primary" loading={matchLoading} onClick={handleGenerateScore} disabled={!matchJdId}>
-                  {matchScore ? '重新生成评分' : '生成评分'}
+                <Button
+                  type="primary"
+                  loading={matchLoading && !rematchJdId}
+                  onClick={() => handleGenerateScore()}
+                  disabled={!matchJdId}
+                >
+                  {matchJdId && matchScores.some((s) => s.jd_id === matchJdId) ? '重新生成评分' : '生成评分'}
                 </Button>
               </Space>
-              {matchScore ? (
-                <Space wrap align="center">
-                  <ScoreRingInline score={matchScore.overall_score} />
-                  <Text type="secondary">
-                    综合分 · {matchScore.is_stale ? '简历已更新（旧分）' : '最新'}
-                  </Text>
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<EyeOutlined />}
-                    onClick={() => { setDrawerData(matchScore); setDrawerOpen(true); }}
-                  >
-                    查看匹配详情
-                  </Button>
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<ReloadOutlined />}
-                    loading={matchLoading}
-                    onClick={handleGenerateScore}
-                  >
-                    重新生成
-                  </Button>
-                </Space>
-              ) : (
+
+              {matchScores.length === 0 ? (
                 <Text type="secondary">尚未生成匹配评分，点击「生成评分」基于所选 JD 计算</Text>
+              ) : (
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  {matchScores.map((m) => {
+                    const jd = matchJds.find((j) => j.jd_id === m.jd_id);
+                    const failed = m.status === 'FAILED' || !!m.error_message;
+                    return (
+                      <Card key={m.jd_id} size="small" styles={{ body: { padding: 12 } }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.3 }}>
+                              {jd?.title || m.jd_id}
+                            </div>
+                            <Text type="secondary" style={{ fontSize: '0.72rem' }}>
+                              {jd?.department || '—'}
+                            </Text>
+                          </div>
+                          <ScoreRingInline score={m.overall_score} />
+                        </div>
+                        <div style={{ marginTop: 8 }}>
+                          {m.is_stale && <Tag color="orange" style={{ marginRight: 4 }}>简历已更新</Tag>}
+                          {failed && <Tag color="red">匹配失败</Tag>}
+                          {m.error_message && (
+                            <div><Text type="danger" style={{ fontSize: '0.72rem' }}>{m.error_message}</Text></div>
+                          )}
+                        </div>
+                        <Space size={4} style={{ marginTop: 8 }}>
+                          <Button
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => { setDrawerData(m); setDrawerOpen(true); }}
+                          >
+                            查看详情
+                          </Button>
+                          <Button
+                            size="small"
+                            icon={<ReloadOutlined />}
+                            loading={rematchJdId === m.jd_id}
+                            onClick={() => handleGenerateScore(m.jd_id)}
+                          >
+                            重新匹配
+                          </Button>
+                        </Space>
+                      </Card>
+                    );
+                  })}
+                </Space>
               )}
             </Space>
           </Card>
