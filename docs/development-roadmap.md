@@ -56,10 +56,10 @@
 ```mermaid
 graph TB
     S0[Stage 0<br/>基础层<br/>✅ 已完成]
-    S1[Stage 1<br/>JD管理模块<br/>🔄 后端完成]
-    S2[Stage 2<br/>简历解析模块]
-    S3[Stage 3<br/>候选人管理模块]
-    S4[Stage 4<br/>人岗评分匹配模块]
+    S1[Stage 1<br/>JD管理模块<br/>✅ 已完成]
+    S2[Stage 2<br/>简历解析模块<br/>✅ 已完成]
+    S3[Stage 3<br/>候选人管理模块<br/>✅ 已完成]
+    S4[Stage 4<br/>人岗评分匹配模块<br/>✅ 已完成]
     S5[Stage 5<br/>Agent对话核心<br/>Orchestrator+SSE]
     S6[Stage 6<br/>推送与反馈]
     S7[Stage 7<br/>看板与设置]
@@ -76,10 +76,10 @@ graph TB
     S5 --> S6 --> S7
 
     style S0 fill:#4caf50
-    style S1 fill:#ff9800
-    style S2 fill:#2196f3
-    style S3 fill:#2196f3
-    style S4 fill:#9c27b0
+    style S1 fill:#4caf50
+    style S2 fill:#4caf50
+    style S3 fill:#4caf50
+    style S4 fill:#4caf50
     style S5 fill:#f44336
     style S6 fill:#00bcd4
     style S7 fill:#607d8b
@@ -141,7 +141,7 @@ graph TB
 
 ---
 
-## 三、Stage 1：JD管理模块 🔄 后端已完成，前端待开发
+## 三、Stage 1：JD管理模块 ✅ 已完成（前端页随 PR-6 落地）
 
 ### 3.1 模块闭环定义（Slice清单）
 
@@ -151,7 +151,7 @@ graph TB
 | Skill | jd-generation v1.0.0（skill.yaml+prompt+2组few-shot） | ✅ |
 | 后端API | POST /generate、GET /、GET /{id}、PUT /{id}、DELETE /{id} | ✅ |
 | 持久化 | JD生成时自动写skill_execution_logs | ✅ |
-| 前端页面 | JD列表页、JD生成表单、JD详情/编辑页 | ⏳ 待开发 |
+| 前端页面 | JD列表页、JD生成表单、JD详情/编辑页 | ✅ 已完成 |
 | 依赖基础件 | Stage 0（已全部就绪） | ✅ |
 
 ### 3.2 已验证能力

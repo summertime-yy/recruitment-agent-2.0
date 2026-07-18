@@ -267,6 +267,7 @@ DATABASE_URL=postgresql+asyncpg://...
 
 1. **简历解析成功率**：需批量上传不同长度/格式（PDF/DOCX）简历验证 100% 成功；若截断，将 `LLM_MAX_TOKENS` 提升至 8192
 2. **传给 LLM 的 raw_text 截断长度**：确认 `services/resume.py` 中实际截断值是否合理
+   - **PR-9.pre 记录（不改代码）**：当前 `raw_text[:3000]` 截断，待 Stage 5 前评估是否放宽至 `6000–8000`（长简历解析可能丢失尾部经历）
 3. **测试已建立（原"测试缺失"已解决）**：后端 `pytest` 收集 **51 passed**（PR-1~PR-5 引入 model/skill/service/api/ranking）；前端 Vitest 收集 **16 passed**（PR-6 基建 + PR-8 集成测试）。建议持续补充边界与异常路径用例
 4. **去重升级**：当前为 phone/email 硬匹配，路线图规划有 `candidate-merge` Skill（智能合并）——尚未实现，可评估是否纳入 Stage 4/后续
 5. **候选人画像**：路线图 `candidate-profile` Skill（画像标签自动生成）尚未实现
