@@ -353,18 +353,23 @@ interface TaskStatus {
 
 > **`CANCELLED` 语义（PR-9 写回，REVIEW D2）**：用户在 `WAITING_CONFIRMATION`（Plan 确认页）或 `PLANNING` 阶段显式取消任务后进入的终态。合法转移仅 `PLANNING → CANCELLED`、`WAITING_CONFIRMATION → CANCELLED`；`EXECUTING` 及各终态不可转 `CANCELLED`。
 
-### 4.5 取消任务
-
-> PR-9 写回（REVIEW D2）：Stage 5 **不新增独立 cancel 端点**，取消通过复用 §4.2 `execute-plan` 传空 `accepted_steps` 实现，语义更简、少一个端点。
+### 4.5 取消任务（Stage 5 引入，REVIEW D2）
 
 ```
-POST /api/v1/agent/execute-plan
+POST /api/v1/agent/tasks/{task_id}/cancel
 ```
 
-**取消调用约定：**
-- 请求体 `{ task_id, accepted_steps: [] }`（空数组）表示用户拒绝执行该计划。
-- 后端校验任务处于 `WAITING_CONFIRMATION`（或 `PLANNING`）时，将其置为 `CANCELLED` 终态并结束 SSE 流；否则返回 `409`。
-- 响应：`{ task_id: string; status: 'CANCELLED' }`。
+**语义**：用户在 `PLANNING` 或 `WAITING_CONFIRMATION` 阶段显式取消任务。
+
+**请求体**：无（或 `{}`）
+
+**响应（200）**：`{ task_id: string; status: 'CANCELLED' }`
+
+**错误码**：
+- `404`：`task_id` 不存在
+- `409`：任务当前状态非 `PLANNING/WAITING_CONFIRMATION`（EXECUTING / 各终态不可取消）
+
+**后端动作**：收到后将该任务置为 `CANCELLED` 终态、关闭对应 SSE 流，并写 `executions.status = 'CANCELLED'`。
 
 ---
 

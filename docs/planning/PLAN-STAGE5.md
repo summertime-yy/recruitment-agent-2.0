@@ -87,7 +87,7 @@ POST /agent/skip-to-score（jd_id + candidate_ids）
 | CANCELLED | — | — | — | — | — | — | — | — | — |
 
 > `*` 步骤失败但存在部分结果时，仍可转移至 `COMPLETED` 并携带 `result.artifacts`（见 Q9）。
-- **CANCELLED 触发语义（D2）**：用户在 `WAITING_CONFIRMATION` 或 `PLANNING` 显式取消（前端 PlanCard「取消」按钮 → 复用 `POST /agent/execute-plan` 传空 `accepted_steps`，或新增 `POST /agent/tasks/{task_id}/cancel`，合并版选后者更语义化，见 §4 §4.5）。取消**不**走 FAILED，避免 `error_code='USER_CANCELLED'` 污染失败语义。
+- **CANCELLED 触发语义（D2）**：用户在 `WAITING_CONFIRMATION` 或 `PLANNING` 显式取消，前端 PlanCard「取消」按钮 → 经 `POST /api/v1/agent/tasks/{task_id}/cancel`（见 §4 §4.5）。取消**不**走 FAILED，避免 `error_code='USER_CANCELLED'` 污染失败语义。
 - **非法转移处理**：任意非矩阵内转移 → 拒绝并保留原状态，同时通过 SSE 发 `error`（code=`ILLEGAL_TRANSITION`，recoverable=false）；REST `GET /agent/tasks/{id}` 仍返回当前状态，不抛 5xx。
 
 ### Q3 · Execution 记录粒度（采用执行体版 · D3 裁定）

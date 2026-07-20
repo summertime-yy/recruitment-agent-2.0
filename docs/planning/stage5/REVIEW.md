@@ -88,6 +88,8 @@
 - 新增 REST：`POST /agent/tasks/{task_id}/cancel`（可选，若前端仅从 `WAITING_CONFIRMATION` 触发，也可复用现有 `execute-plan` 传空 `accepted_steps`——建议后者，更简）
 - 测试：合并版 TEST-PLAN 加 `TC-S5-08-6` 覆盖取消转移（原 `TC-S5-08-6` 编号后移）
 
+> **结论备忘（用户 2026-07-20 复核裁定）**：最终采纳独立端点方案 `POST /api/v1/agent/tasks/{task_id}/cancel`，废弃 execute-plan 传空复用方案（最终版见 `api-contract.md §4.5`）。
+
 ---
 
 ### D3 · Execution 粒度 · ✅ **采用执行体版**
@@ -387,7 +389,7 @@ docs/planning/
 - **S5-06 交付**：同上，两个 Skill：`orchestrator_plan`、`orchestrator_reflect_plan`
 - **S5-07 交付**：`orchestrator_reflect_act` 是 Skill；Act 主循环仍为 `orchestrator/act.py` 纯模块（负责 for-loop 调 `ToolRouter.dispatch()`）
 - **S5-08 交付**：`TransitionGuard` 覆盖 CANCELLED 转移；`engine.py` 直接 `registry.get('orchestrator-reason').execute(...)` 调用各阶段 Skill
-- **S5-09 交付**：加 `POST /agent/tasks/{task_id}/cancel`（或说明"通过 execute-plan 传空实现取消"，选后者更简）
+- **S5-09 交付**：加 `POST /agent/tasks/{task_id}/cancel`（独立端点方案；**结论备忘（用户 2026-07-20 复核裁定）**：最终采纳独立端点，废弃 execute-plan 传空复用，见 `api-contract §4.5`）
 - **PR-9 单独一节**："PR-9 交付物 = PLAN/TASKS/TEST-PLAN 三份顶层文档 + ACCEPTANCE-PR9.md + `api-contract.md` 契约写回 + Skill 契约 `internal` 字段说明"，与 S5-* 编码任务分离
 
 ### 6.3 TEST-PLAN-STAGE5.md 合并版
