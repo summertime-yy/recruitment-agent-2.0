@@ -114,3 +114,19 @@ def test_tc_s5_02_4_internal_skill_excluded_from_dispatchable():
     assert all(not getattr(s, "internal", False) for s in dispatchable)
     dispatchable_ids = [getattr(s, "skill_id", None) for s in dispatchable]
     assert "orchestrator-reason" not in dispatchable_ids
+
+
+# --- TC-S5-02-5 ---------------------------------------------------------------
+def test_tc_s5_02_5_dispatchable_filter_by_task_type():
+    """list_dispatchable(task_type='match') 命中 jd-candidate-matching 且过滤非 match Skill（D-11.1 闭环）。"""
+    reg = SkillRegistry()
+
+    matched = reg.list_dispatchable(task_type="match")
+    matched_ids = [getattr(s, "skill_id", None) for s in matched]
+    assert "jd-candidate-matching" in matched_ids, "jd-candidate-matching 声明 task_type: match，应被命中"
+    # 其他未声明 task_type 的 skill 不应出现在过滤结果中
+    assert "jd-generation" not in matched_ids
+    assert "resume-parsing" not in matched_ids
+
+    # 不存在的 task_type → 空集
+    assert reg.list_dispatchable(task_type="__no_such_task_type__") == []
