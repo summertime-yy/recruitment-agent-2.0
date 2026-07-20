@@ -195,6 +195,7 @@ Connection: keep-alive
 
 ```typescript
 interface SSEEvent<T = any> {
+  id: string;               // 任务内单调递增序号（如 "1","2"...），供 Last-Event-ID 重放
   type: SSEEventType;
   task_id: string;
   step_id?: string;
@@ -230,6 +231,7 @@ interface PlanStep {
   params: Record<string, any>;
   expected_output: string;
   dependencies?: string[];
+  optional?: boolean;            // ← PR-9 写回（REVIEW D8）：true 表示可选步，失败仅 warning 不中止
   estimated_duration_seconds?: number;
 }
 
@@ -239,6 +241,29 @@ interface Plan {
   reasoning?: string;
 }
 ```
+
+### 3.5 SSE 连接、重放与心跳（Stage 5 固化）
+
+> 本小节为 PR-9 评审后写回的补齐条目，解决 §3.2 信封缺 `id`、`retry`、重放与心跳语义的问题。
+
+**事件序号与重放**：
+- 每条 SSE 事件必须带 `id`（§3.2），值为**该 task 内单调递增整数序号**。
+- 客户端断线后以 HTTP 请求头 `Last-Event-ID: <last_id>` 重新连接 `/stream` 端点。
+- 端点收到 `Last-Event-ID` 后，先从事件缓冲重放所有 `id > last_id` 的事件，再切回实时推送；无该头则全量重放缓冲（缓冲上限见下）。
+
+**重连间隔**：
+- SSE 流首行下发 `retry: 3000`（毫秒），浏览器据此决定自动重连间隔。
+
+**心跳**：
+- 连接空闲时每 **15s** 下发一条 `system` 类型心跳事件：`data: {"message":"heartbeat"}`，保持连接存活；`system` 事件兼作系统提示（连接成功/重连/心跳）。
+
+**事件缓冲**：
+- 服务端为每个 task 维护最近 **200** 条事件的环形缓冲（超出裁剪最旧）。
+- 缓冲仅在任务终态（COMPLETED/FAILED）后保留 **3600s** 即过期；进行中任务不过期。
+- 缓冲实现位置由后端决定（PR-9 选用 Redis，见 `docs/planning/stage5/executor/PLAN-STAGE5.md §2 Q6`）。
+
+**早期事件滚动提示**：
+- 若任务事件数超过 200，前端在重连补齐时若发现存在更早事件无法重放，应提示「早期事件已滚动，部分历史可能缺失」。
 
 ---
 
@@ -316,7 +341,7 @@ GET /api/v1/agent/tasks/{task_id}
 ```typescript
 interface TaskStatus {
   task_id: string;
-  status: 'PENDING' | 'PLANNING' | 'WAITING_CONFIRMATION' | 'EXECUTING' | 'COMPLETED' | 'FAILED';
+  status: 'PENDING' | 'PLANNING' | 'WAITING_CONFIRMATION' | 'EXECUTING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   current_step?: string;
   plan?: Plan;
   result?: any;
@@ -325,6 +350,21 @@ interface TaskStatus {
   updated_at: string;
 }
 ```
+
+> **`CANCELLED` 语义（PR-9 写回，REVIEW D2）**：用户在 `WAITING_CONFIRMATION`（Plan 确认页）或 `PLANNING` 阶段显式取消任务后进入的终态。合法转移仅 `PLANNING → CANCELLED`、`WAITING_CONFIRMATION → CANCELLED`；`EXECUTING` 及各终态不可转 `CANCELLED`。
+
+### 4.5 取消任务
+
+> PR-9 写回（REVIEW D2）：Stage 5 **不新增独立 cancel 端点**，取消通过复用 §4.2 `execute-plan` 传空 `accepted_steps` 实现，语义更简、少一个端点。
+
+```
+POST /api/v1/agent/execute-plan
+```
+
+**取消调用约定：**
+- 请求体 `{ task_id, accepted_steps: [] }`（空数组）表示用户拒绝执行该计划。
+- 后端校验任务处于 `WAITING_CONFIRMATION`（或 `PLANNING`）时，将其置为 `CANCELLED` 终态并结束 SSE 流；否则返回 `409`。
+- 响应：`{ task_id: string; status: 'CANCELLED' }`。
 
 ---
 

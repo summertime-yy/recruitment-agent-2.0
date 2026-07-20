@@ -70,3 +70,43 @@ TDD 测试用例先写测试、再实现。
 # 输出
 完成后，向用户汇报：计划要点、Stage 4 的 Task 列表概览、以及建议的执行启动顺序。
 不要修改 src/ 下的业务代码，只产出 docs/planning/ 下的计划文档。
+
+---
+
+# 双盲评审流程（Stage 5 起引入，重大架构决策必用）
+
+针对 Stage 5 及后续包含**架构决策**（新框架/新协议/新数据表）的阶段，采用双盲评审流程：
+
+## 1. 流程五步
+
+1. **指挥官（本角色）独立撰写规划三件套**（PLAN/TASKS/TEST-PLAN），落到 `docs/planning/stageN/commander/`
+2. **发出执行体指令**（`docs/planning/stageN/INSTRUCTION-TO-EXECUTOR.md`），只暴露**约束与必答问题**，不暴露自己的答案
+3. **执行体独立撰写同名三份文档**，落到 `docs/planning/stageN/executor/`，全程**禁止打开** commander 目录
+4. **指挥官逐条差异评审**，产出 `docs/planning/stageN/REVIEW.md`（含差异表 + 逐条裁定 + 合并指令）
+5. **执行体按 REVIEW §6 合并指令**产出顶层合并版 `docs/planning/PLAN-STAGE<N>.md` 等，提请下一轮验收
+
+## 2. 🚨 架构分叉项必须显式标注请求用户复核
+
+**双盲流程可以让指挥官和执行体互相校准，但双方可能有共同盲点。** 涉及以下任一情形的差异项，REVIEW.md 中必须以 🚨 标注并**明文请求用户二次复核**，不得由指挥官单独裁定：
+
+- **是否走既有框架**（如 Skill 框架 / 迁移工具 / SSE 契约 / Alembic 单头等）—— 涉及"打破既有架构哲学"的选择
+- **是否引入新的持久层或外部依赖**（如新数据表、新中间件、新协议）
+- **是否修改已冻结的契约**（`api-contract.md` / `data-model.md` / Skill 三件套 schema）
+- **状态机与生命周期边界变更**（新增/删除状态、新增终态转移）
+- **PR 拆分粒度**（是否合并/拆分某个 PR 会显著改变工作量与验收边界）
+
+**方法论提醒**：Stage 5 的 D4「Orchestrator 阶段是否做成 Skill」是首个正例——指挥官初评时被"简化 MVP"直觉带偏采纳了执行体的"纯 Python 模块"方案，用户质询后才回到 Skill 化 + `internal: true` 隔离的正确路径。这类"是否走既有框架"的分叉，必须请用户复核。
+
+## 3. 归档与合并
+
+- **过程档案保留**：`docs/planning/stageN/{commander,executor,REVIEW.md,INSTRUCTION-TO-EXECUTOR.md}` 永久保留，供后续 Stage 借鉴此流程
+- **合并版是唯一事实源**：顶层 `docs/planning/PLAN-STAGE<N>.md` / `TASKS-STAGE<N>.md` / `TEST-PLAN-STAGE<N>.md` 由执行体按 REVIEW §6 指令合并产出
+- **契约扩展同步写回**：REVIEW.md §4 契约扩展清单必须在 PR-9（规划 PR）内一并写回 `api-contract.md` / `data-model.md` / Skill 契约规范，不得延后
+
+## 4. 何时可以跳过双盲
+
+- 纯 bug 修复、依赖升级、文档订正
+- 已有 Stage 内的技术债清扫（不改架构）
+- 单函数级别的重构
+
+**仍需坚持**：即便跳过双盲，重大改动仍需先出 PLAN/TASKS/TEST-PLAN 单方版本经用户确认再实施。

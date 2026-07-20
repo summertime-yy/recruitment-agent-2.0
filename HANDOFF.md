@@ -25,6 +25,7 @@
 - **直接调用路径**（Stage 1-4）：`REST API → Service 层 → Skill → LLM`，用于 CRUD/表单驱动
 - **Orchestrator 路径**（Stage 5 规划）：`SSE 对话 → Task Orchestrator（R-P-R-A-R）→ Skill → LLM`，用于对话驱动
 - **Skill 契约唯一**：`skill.yaml` 是 Skill 的唯一契约定义，Python `BaseSkill` 仅为运行时加载/校验/执行引擎
+- **Skill 契约扩展 · `internal` 字段（PR-9 写回，REVIEW D4 v2）**：`skill.yaml` 新增可选字段 `internal: bool`（默认 `false`，向后兼容）。`internal: true` 的 Skill（如 Stage 5 的 5 个 `orchestrator_*` 阶段 Skill）**走完整 BaseSkill 管道**（Prompt semver / Schema 校验 / 日志落 `skill_execution_logs` / compliance check），但**不对 Tool Router 暴露**。配套 `SkillRegistry` 语义：`get(skill_id)` 全量查询（供 Orchestrator engine 内部调用）；`list_dispatchable(task_type=None)` 过滤 `internal=true`（供 Tool Router）；`list_by_task_type()` 隐式走 `list_dispatchable`。Tool Router `dispatch(step)` 若命中 `internal=true` 的 Skill 抛 `SkillNotDispatchableError`
 
 **权威文档（唯一事实来源，改动须先更新文档再改代码）**：
 - `docs/data-model.md` — 数据库 Schema 唯一事实来源
