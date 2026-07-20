@@ -1,0 +1,9 @@
+skill_id: orchestrator-plan
+skill_name: 编排-计划生成
+version: "1.0.0"
+description: R-P-R-A-R 的 Plan 段，产出待确认工具调用计划（S5-06）
+internal: true
+max_retries: 0
+
+input_schema: {}
+output_schema: {}

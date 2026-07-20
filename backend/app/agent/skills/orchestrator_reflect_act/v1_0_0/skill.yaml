@@ -1,0 +1,9 @@
+skill_id: orchestrator-reflect-act
+skill_name: 编排-执行反思
+version: "1.0.0"
+description: R-P-R-A-R 的 Reflect-Act 段，校验 Act 产物有效性（S5-07）
+internal: true
+max_retries: 0
+
+input_schema: {}
+output_schema: {}

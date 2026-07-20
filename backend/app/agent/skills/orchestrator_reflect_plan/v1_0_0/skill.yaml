@@ -1,0 +1,9 @@
+skill_id: orchestrator-reflect-plan
+skill_name: 编排-计划反思
+version: "1.0.0"
+description: R-P-R-A-R 的 Reflect-Plan 段，校验计划合理性（S5-06）
+internal: true
+max_retries: 0
+
+input_schema: {}
+output_schema: {}

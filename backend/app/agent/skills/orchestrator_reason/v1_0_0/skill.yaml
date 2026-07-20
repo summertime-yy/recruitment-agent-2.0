@@ -1,0 +1,9 @@
+skill_id: orchestrator-reason
+skill_name: 编排-意图推理
+version: "1.0.0"
+description: R-P-R-A-R 的 Reason 段，解析用户意图与缺失实体（S5-05）
+internal: true
+max_retries: 0
+
+input_schema: {}
+output_schema: {}

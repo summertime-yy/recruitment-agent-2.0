@@ -1,0 +1,9 @@
+skill_id: orchestrator-reflect
+skill_name: 编排-可行性反思
+version: "1.0.0"
+description: R-P-R-A-R 的 Reflect 段，评估 Reason 输出可行性（S5-05）
+internal: true
+max_retries: 0
+
+input_schema: {}
+output_schema: {}
