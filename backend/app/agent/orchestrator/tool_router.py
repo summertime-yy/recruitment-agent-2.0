@@ -1,21 +1,28 @@
-"""S5-04 · Tool Router（PR-11 交付物，scaffold）。
+"""S5-04 · Tool Router（PR-11 交付物）。
 
-本文件为 **C3 scaffold**：仅定义模块结构、内置工具常量、错误类与 ``route_task_type``
-纯函数。``ToolRouter.dispatch()`` 与内置工具执行逻辑在 **C4** 落地。
+职责：
+- ``dispatch(tool_name, tool_input, db)``：统一入口，将 ``PlanStep.tool_name`` 路由到
+  - 内置工具（``BUILTIN_TOOLS``：``search_resumes`` / ``read_jd``），或
+  - 可分发 Skill（``SkillRegistry`` 内、非 internal 的 skill）
+- ``route_task_type(reason_output)``：从 ReasonOutput 提取 ``task_type``
+  （缺失或未知值 → ``"unknown"``），与 skill.yaml 内 ``task_type`` 字段 1:1 对齐。
 
-设计（最终态，C4 实现）：
-- ``dispatch(tool_name, tool_input, db)``：将 ``PlanStep.tool_name`` 路由到
-  内置工具（``BUILTIN_TOOLS``）或可分发 Skill（Registry 内、非 internal）。
-- ``route_task_type(reason_output)``：从 ReasonOutput 提取 ``task_type``（缺失/未知 → ``"unknown"``）。
-
-错误类：``UnknownToolError`` / ``SkillNotDispatchableError`` / ``ToolParamError``。
+错误类：
+- ``UnknownToolError``：``tool_name`` 既非内置工具也非已注册 Skill。
+- ``SkillNotDispatchableError``：``tool_name`` 命中 internal Skill，Tool Router 拒绝直接分发。
+- ``ToolParamError``：工具入参缺失/非法（jsonschema 校验失败或业务必填缺失）。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from jsonschema import ValidationError, validate
+
+from app.agent.base_skill import SkillResult
 from app.agent.skill_registry import SkillRegistry, get_skill_registry
+from app.services.jd import JDService
+from app.services.resume import ResumeService
 
 
 class UnknownToolError(Exception):
@@ -42,7 +49,8 @@ class ToolParamError(Exception):
         super().__init__(message)
 
 
-# 内置工具定义（input_schema 用于入参校验；实现见 C4 ToolRouter._execute_builtin）。
+# 内置工具定义：input_schema 用于入参校验；实现见 ToolRouter._execute_builtin。
+# 注意：ResumeSummary 不新建 pydantic 模型，直接返回字典（PR-14 REST 层再规范化）。
 BUILTIN_TOOLS: dict[str, dict[str, Any]] = {
     "search_resumes": {
         "description": "从简历库中按关键词/技能/标签/状态检索候选人摘要",
@@ -82,8 +90,37 @@ BUILTIN_TOOLS: dict[str, dict[str, Any]] = {
 }
 
 
+def _validate_tool_input(tool_name: str, tool_input: dict[str, Any]) -> None:
+    """按 BUILTIN_TOOLS 的 input_schema 校验；失败抛 ToolParamError。"""
+    schema = BUILTIN_TOOLS[tool_name]["input_schema"]
+    try:
+        validate(instance=tool_input or {}, schema=schema)
+    except ValidationError as e:
+        raise ToolParamError(f"Invalid input for {tool_name}: {e.message}")
+
+
+def _build_resume_summary(resume: Any) -> dict[str, Any]:
+    """从 Resume ORM 对象提取轻量摘要（不含 raw_text，避免 payload 膨胀）。"""
+    skills: list[str] = []
+    if getattr(resume, "parsed_content", None):
+        skills = resume.parsed_content.get("skills", []) or []
+    created_at = getattr(resume, "created_at", None)
+    return {
+        "resume_id": resume.resume_id,
+        "candidate_name": getattr(resume, "candidate_name", None),
+        "skills": skills,
+        "candidate_status": getattr(resume, "candidate_status", None),
+        "created_at": created_at.isoformat() if created_at is not None else None,
+    }
+
+
+def _build_jd_output(jd: Any) -> dict[str, Any]:
+    """将 JD ORM 对象转为纯 dict（剔除 SQLAlchemy 内部状态）。"""
+    return {k: v for k, v in jd.__dict__.items() if not k.startswith("_")}
+
+
 class ToolRouter:
-    """将 PlanStep.tool_name 路由到内置工具或可分发 Skill（C4 落地核心逻辑）。"""
+    """将 PlanStep.tool_name 路由到内置工具或可分发 Skill。"""
 
     def __init__(self, registry: SkillRegistry | None = None):
         self.registry = registry or get_skill_registry()
@@ -91,7 +128,69 @@ class ToolRouter:
     def list_builtin_tools(self) -> list[str]:
         return list(BUILTIN_TOOLS.keys())
 
+    async def dispatch(
+        self,
+        tool_name: str,
+        tool_input: dict[str, Any] | None = None,
+        db: Any = None,
+    ) -> SkillResult:
+        tool_input = tool_input or {}
+
+        # 1. 内置工具
+        if tool_name in BUILTIN_TOOLS:
+            return await self._execute_builtin(tool_name, tool_input, db)
+
+        # 2. 分发 Skill
+        skill = self.registry.get_skill(tool_name)
+        if skill is None:
+            raise UnknownToolError(tool_name)
+        if getattr(skill, "internal", False):
+            raise SkillNotDispatchableError(tool_name)
+
+        return await skill.execute(tool_input)
+
+    async def _execute_builtin(
+        self, tool_name: str, tool_input: dict[str, Any], db: Any
+    ) -> SkillResult:
+        _validate_tool_input(tool_name, tool_input)
+
+        if db is None:
+            raise ToolParamError(f"Builtin tool '{tool_name}' requires a db session")
+
+        if tool_name == "search_resumes":
+            service = ResumeService(db)
+            items, total = await service.list_resumes(
+                keyword=tool_input.get("keyword"),
+                skill=tool_input.get("skill"),
+                tag=tool_input.get("tag"),
+                candidate_status=tool_input.get("candidate_status"),
+                page=tool_input.get("page", 1),
+                page_size=tool_input.get("page_size", 10),
+            )
+            summaries = [_build_resume_summary(r) for r in items]
+            return SkillResult(
+                success=True,
+                output={
+                    "items": summaries,
+                    "total": total,
+                    "page": tool_input.get("page", 1),
+                    "page_size": tool_input.get("page_size", 10),
+                },
+            )
+
+        if tool_name == "read_jd":
+            service = JDService(db)
+            jd = await service.get_jd(tool_input["jd_id"])
+            if jd is None:
+                raise ToolParamError(f"jd not found: {tool_input['jd_id']}")
+            return SkillResult(success=True, output=_build_jd_output(jd))
+
+        raise UnknownToolError(tool_name)
+
 
 def route_task_type(reason_output: dict[str, Any]) -> str:
-    """从 ReasonOutput 提取 task_type；缺失或未知返回 'unknown'（与 skill.yaml task_type 1:1 对齐）。"""
+    """从 ReasonOutput 提取 task_type；缺失或未知返回 'unknown'。
+
+    与 skill.yaml 内 ``task_type`` 字段 1:1 对齐（如 ``match`` → jd-candidate-matching）。
+    """
     return reason_output.get("task_type") or "unknown"
