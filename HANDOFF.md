@@ -172,6 +172,18 @@ DATABASE_URL=postgresql+asyncpg://...
 **提交前检查**：`uv run pytest` + `npm run lint && npm run build`
 **提交规范**：Conventional Commits（`feat:`/`fix:`/`docs:`/`refactor:`/`chore:`），subject ≤ 72 字符
 
+### 4.1 PR 分支策略（Stage 5 PR-10 起沿用）
+
+> 背景：PR-9 是纯文档 + 契约 PR，允许直推 master；PR-10 起进入 Stage 5 代码实现阶段，含红测试与 DDL/迁移，必须回归标准 feat 分支模式，保 master 常绿。
+
+- **纯文档 / 契约 PR**（不改 `backend/app/**`、`frontend/src/**`）：可直接 commit 后 `git push origin master`，无需 feat 分支
+- **含生产代码或红测试的 PR**（改 `backend/app/**`、`frontend/src/**`、`backend/tests/**`、`frontend/src/**/*.test.*`、`alembic/versions/**`）：**必须**走 `feat/pr-NN-<slug>` 分支
+  - 命名：`feat/pr-<PR编号>-<S<Stage>-<Task>-<Task>...>-<短描述>`，例：`feat/pr-10-s5-01-02-data-layer`
+  - TDD 红态 commit 落在 feat 分支上，禁止直推 master
+  - push 分支后经指挥官核验 → 平台开 PR → fast-forward merge to master
+- **迁移文件（`alembic/versions/**`）** 必须独立 commit，方便回退（不与 Model/Schema 合并）
+- **红态 → 绿态**：先 `test: add S5-XX red tests`（红），再依次 `feat(stage5): ...` 使其转绿；同一 feat 分支上多个 commit 完整还原 TDD 节奏
+
 ---
 
 ## 五、踩坑记录（重要，务必先读）
