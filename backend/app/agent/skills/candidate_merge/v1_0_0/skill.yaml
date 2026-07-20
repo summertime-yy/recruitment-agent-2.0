@@ -1,0 +1,77 @@
+skill_id: candidate-merge
+skill_name: 候选人智能合并
+version: "1.0.0"
+description: 输入多份候选人简历结构化数据，判定合并/建议/保持分离
+task_type: merge_candidates
+author: recruitment-agent
+tags:
+  - candidate
+  - merge
+  - dedup
+max_retries: 0
+
+input_schema:
+  type: object
+  properties:
+    resumes:
+      type: array
+      minItems: 2
+      items:
+        type: object
+        properties:
+          resume_id:
+            type: string
+          candidate_name:
+            type: string
+          parsed_content:
+            type: object
+          tags:
+            type: array
+            items:
+              type: string
+          duplicate_of_resume_id:
+            type:
+              - string
+              - "null"
+        required:
+          - resume_id
+  required:
+    - resumes
+
+output_schema:
+  type: object
+  properties:
+    action:
+      type: string
+      enum:
+        - MERGE
+        - SUGGEST
+        - KEEP_SEPARATE
+    master_resume_id:
+      type:
+        - string
+        - "null"
+      description: MERGE 时指向合并后的主 resume_id；KEEP_SEPARATE 时为 null
+    merged_fields:
+      type: object
+      description: MERGE 时合并后的关键字段（name/phone/email/skills 等）
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    conflicts:
+      type: array
+      items:
+        type: object
+        properties:
+          field:
+            type: string
+          values:
+            type: array
+    recommendation:
+      type: string
+      description: 人类可读的合并建议描述
+  required:
+    - action
+    - confidence
+    - recommendation
