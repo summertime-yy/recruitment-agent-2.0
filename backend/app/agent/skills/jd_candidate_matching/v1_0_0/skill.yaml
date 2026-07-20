@@ -2,6 +2,7 @@ skill_id: jd-candidate-matching
 skill_name: JD候选人匹配
 version: "1.0.0"
 description: 输入JD与候选人简历结构化数据，输出技能/经验/学历多维匹配评分与理由
+task_type: match
 author: recruitment-agent
 tags:
   - matching
