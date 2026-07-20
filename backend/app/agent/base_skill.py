@@ -64,6 +64,7 @@ class BaseSkill:
     input_schema: dict[str, Any] = {}
     output_schema: dict[str, Any] = {}
     max_retries: int = 2
+    internal: bool = False
 
     def __init__(self, skill_dir: Path | None = None):
         self.skill_dir = skill_dir
@@ -90,6 +91,7 @@ class BaseSkill:
             self.input_schema = skill_def.get("input_schema", {})
             self.output_schema = skill_def.get("output_schema", {})
             self.max_retries = skill_def.get("max_retries", 2)
+            self.internal = skill_def.get("internal", False)
             self.metadata = SkillMetadata(
                 skill_id=self.skill_id,
                 skill_name=self.skill_name,

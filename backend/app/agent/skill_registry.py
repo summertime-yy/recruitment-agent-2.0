@@ -51,6 +51,20 @@ class SkillRegistry:
     def get_skill(self, skill_id: str) -> BaseSkill | None:
         return self._skills.get(skill_id)
 
+    def get(self, skill_id: str) -> BaseSkill | None:
+        """全量查询（含 internal Skill），供 Orchestrator engine 内部调用。"""
+        return self._skills.get(skill_id)
+
+    def list_dispatchable(self, task_type: str | None = None) -> list[BaseSkill]:
+        """可分发 Skill 列表（排除 internal=True），供 Tool Router 调用。
+
+        task_type 可选：提供时进一步按任务类型过滤（skill 未声明 task_type 则跳过该维度）。
+        """
+        result = [s for s in self._skills.values() if not getattr(s, "internal", False)]
+        if task_type is not None:
+            result = [s for s in result if getattr(s, "task_type", None) == task_type]
+        return result
+
     def list_skills(self) -> list[dict[str, Any]]:
         return [
             {
