@@ -1,0 +1,86 @@
+examples:
+  - input:
+      resumes:
+        - resume_id: res_a
+          candidate_name: 张三
+          parsed_content:
+            phone: "13800000000"
+            email: "zhang@x.com"
+            skills: ["Python"]
+          tags: ["dup-candidate"]
+          duplicate_of_resume_id: null
+        - resume_id: res_b
+          candidate_name: 张三
+          parsed_content:
+            phone: "13800000000"
+            email: "zhang@x.com"
+            skills: ["Python", "Go"]
+          tags: ["dup-candidate"]
+          duplicate_of_resume_id: res_a
+    output:
+      action: MERGE
+      master_resume_id: res_a
+      merged_fields:
+        name: 张三
+        phone: "13800000000"
+        email: "zhang@x.com"
+        skills: ["Python", "Go"]
+      confidence: 0.95
+      conflicts: []
+      recommendation: 两份简历电话与邮箱一致，判定为同一人，合并技能列表。
+
+  - input:
+      resumes:
+        - resume_id: res_c
+          candidate_name: 李雷
+          parsed_content:
+            phone: "13900000000"
+            email: "lilei@x.com"
+            skills: ["Java"]
+          tags: []
+          duplicate_of_resume_id: null
+        - resume_id: res_d
+          candidate_name: 韩梅梅
+          parsed_content:
+            phone: "13900000001"
+            email: "hanmei@x.com"
+            skills: ["Java"]
+          tags: []
+          duplicate_of_resume_id: null
+    output:
+      action: SUGGEST
+      master_resume_id: null
+      merged_fields: {}
+      confidence: 0.4
+      conflicts: []
+      recommendation: 同技能但姓名与联系方式均不同，证据不足，建议人工复核是否同一人。
+
+  - input:
+      resumes:
+        - resume_id: res_e
+          candidate_name: 王芳
+          parsed_content:
+            phone: "13700000000"
+            email: "wang@x.com"
+            skills: ["C++"]
+          tags: []
+          duplicate_of_resume_id: null
+        - resume_id: res_f
+          candidate_name: 王芳
+          parsed_content:
+            phone: "13600000000"
+            email: "fang@y.com"
+            skills: ["C++"]
+          tags: []
+          duplicate_of_resume_id: null
+    output:
+      action: KEEP_SEPARATE
+      master_resume_id: null
+      merged_fields: {}
+      confidence: 0.1
+      conflicts:
+        - field: phone
+          values: ["13700000000", "13600000000"]
+        - field: email
+          values: ["wang@x.com", "fang@y.com"]
+      recommendation: 同姓名同技能但电话与邮箱均不同，判定为不同人。
