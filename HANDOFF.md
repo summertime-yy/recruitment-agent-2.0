@@ -206,6 +206,7 @@ DATABASE_URL=postgresql+asyncpg://...
 - **迁移命名**：`<rev>_<snake_case_desc>.py`；改 DB 前先更新 `docs/data-model.md`
 - **⚠️ 本地启动后端必须直接 `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`**（让 IDE harness 托管为常驻服务）；用 `Start-Process`/`cmd /c` 后台拉起会被进程组回收，端口随即释放。改 `.env` 后需重启进程才会重读（--reload 只监听 `.py`）
 - **⚠️ alembic 迁移不要在 `async` fixture 里跑**：`alembic.command.upgrade` 内部走 `asyncio.run(run_async_migrations())`，若外层已在 pytest-asyncio 事件循环里会抛 `asyncio.run() cannot be called from a running event loop`。必须用**同步** `@pytest.fixture(scope="module") def`，且 teardown 用**相对回退**（记录进入前 head → `command.downgrade(cfg, pre_head or "base")`），不要硬编码 revision，否则后续新迁移落地后会误删。范式见 `backend/tests/test_stage5_s5_01_data_layer.py::_migrated_schema`
+- **⚠️ 共享 dev 库测试数据可能跨 PR 累积泄漏**：`conftest.db_session` 是 PR-9 前后新加的 rollback 护栏，其之前的 Stage 2-4 历史测试真 `commit()` 了脏数据。跑全量 `uv run pytest` 若失败原因是 `UniqueViolationError`（如 `skills.jd-candidate-matching` 重复主键）或 `logs[0]`/`ranking[0]` 不符预期，先查 `skills` / `skill_execution_logs` / `match_scores` 表是否有陈旧行；**确认非业务数据后可精确 `DELETE`**（不要 `TRUNCATE`）。**长期方案**：Stage 7 前引入独立测试 DB（`recruitment_test` schema 或每次 pytest 运行起 fresh docker container）
 
 ---
 
