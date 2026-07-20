@@ -17,10 +17,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import inspect
-from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
+from alembic.runtime.migration import MigrationContext
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
@@ -31,50 +33,82 @@ from app.models.task import Task  # noqa: F401
 from app.models.execution import Execution  # noqa: F401
 
 ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
-VERSIONS_DIR = Path(__file__).resolve().parents[1] / "alembic" / "versions"
-STAGE4_HEAD = "e4c1a2b3d4f5"  # Stage 4 head，新迁移的 down_revision
 
 
-def _find_tasks_migration() -> tuple[Path | None, str | None]:
-    """按 down_revision 定位本迁移脚本（rev 哈希 PR-10 生成，无法预知，故按锚点扫描）。"""
-    for f in sorted(VERSIONS_DIR.glob("*.py")):
-        if f.name == "__init__.py":
-            continue
-        src = f.read_text(encoding="utf-8")
-        if 'down_revision = "e4c1a2b3d4f5"' in src or "down_revision='e4c1a2b3d4f5'" in src:
-            return f, src
-    return None, None
-
-
-@pytest.fixture
-async def migrated_conn() -> AsyncConnection:
-    """升级到 head 注入 tasks/executions，teardown 仅回退本迁移（回到 Stage4 head），不污染共享库。"""
+def _make_alembic_cfg() -> Config:
     settings = get_settings()
     cfg = Config(str(ALEMBIC_INI))
     cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    return cfg
+
+
+def _current_head(sync_url: str) -> str | None:
+    """读取共享 dev 库当前所处 alembic head（同步引擎，避免 event loop 冲突）。"""
+    with create_engine(sync_url).connect() as conn:
+        ctx = MigrationContext.configure(conn)
+        return ctx.get_current_revision()
+
+
+@pytest.fixture(scope="module")
+def _migrated_schema() -> None:
+    """模块级同步 fixture：进入前记录 head，upgrade 到 head 后 yield，teardown 恢复至进入前 head。
+
+    - **同步** def（非 async）→ 规避 `alembic.command.upgrade` 内部 `asyncio.run` 与运行中事件循环冲突。
+    - **相对进入前 head 回退**：不硬编码 Stage4 revision，避免未来 Stage 5 后续迁移落地后误伤。
+    - **模块级 scope**：4 个用例共用同一次 upgrade/downgrade，减少 DDL 开销。
+    """
+    cfg = _make_alembic_cfg()
+    settings = get_settings()
+    sync_url = settings.database_url.replace("+asyncpg", "+psycopg2")
+
+    pre_head = _current_head(sync_url)
     command.upgrade(cfg, "head")
+    try:
+        yield
+    finally:
+        # 若共享库进入前已在 head（如后续 PR merge 后），downgrade 至同一 head 是 no-op；
+        # 否则恢复到 pre_head，绝不误删本测试未创建的迁移。
+        command.downgrade(cfg, pre_head or "base")
+
+
+@pytest_asyncio.fixture
+async def migrated_session(_migrated_schema) -> AsyncSession:
+    """基于模块 fixture 已建好的 schema，开一个独立 async session（不复用 conftest.db_session）。
+
+    独立 engine + NullPool + 事务 rollback → 每个用例数据隔离，schema 由 _migrated_schema 统一管理。
+    """
+    settings = get_settings()
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
     conn = await engine.connect()
+    trans = await conn.begin()
+    session = AsyncSession(bind=conn, expire_on_commit=False)
     try:
-        yield conn
+        yield session
     finally:
+        await session.close()
+        await trans.rollback()
         await conn.close()
         await engine.dispose()
-        command.downgrade(cfg, STAGE4_HEAD)
 
 
 # --- TC-S5-01-1 ---------------------------------------------------------------
-def test_tc_s5_01_1_migration_creates_tasks_executions(migrated_conn: AsyncConnection):
+def test_tc_s5_01_1_migration_creates_tasks_executions(_migrated_schema):
     """升级 head 后 tasks / executions 两表存在，且复合索引已建。"""
-    inspector = inspect(migrated_conn)
-    tables = set(inspector.get_table_names())
-    assert "tasks" in tables, "迁移后 tasks 表缺失"
-    assert "executions" in tables, "迁移后 executions 表缺失"
+    settings = get_settings()
+    sync_url = settings.database_url.replace("+asyncpg", "+psycopg2")
+    engine = create_engine(sync_url)
+    try:
+        inspector = inspect(engine)
+        tables = set(inspector.get_table_names())
+        assert "tasks" in tables, "迁移后 tasks 表缺失"
+        assert "executions" in tables, "迁移后 executions 表缺失"
 
-    task_indexes = {ix["name"] for ix in inspector.get_indexes("tasks")}
-    exec_indexes = {ix["name"] for ix in inspector.get_indexes("executions")}
-    assert "idx_tasks_status_created" in task_indexes
-    assert "idx_executions_task_created" in exec_indexes
+        task_indexes = {ix["name"] for ix in inspector.get_indexes("tasks")}
+        exec_indexes = {ix["name"] for ix in inspector.get_indexes("executions")}
+        assert "idx_tasks_status_created" in task_indexes
+        assert "idx_executions_task_created" in exec_indexes
+    finally:
+        engine.dispose()
 
 
 # --- TC-S5-01-2 ---------------------------------------------------------------
@@ -85,23 +119,23 @@ def test_tc_s5_01_2_model_id_prefix():
 
 
 # --- TC-S5-01-3 ---------------------------------------------------------------
-async def test_tc_s5_01_3_cascade_delete_tasks(db_session):
+async def test_tc_s5_01_3_cascade_delete_tasks(migrated_session: AsyncSession):
     """删除 Task → 关联 executions 一并删除（FK ON DELETE CASCADE）。"""
     from sqlalchemy import select
 
     task = Task(user_message="首条消息")
-    db_session.add(task)
-    await db_session.flush()
+    migrated_session.add(task)
+    await migrated_session.flush()
 
     execution = Execution(task_id=task.task_id, phase="REASON")
-    db_session.add(execution)
-    await db_session.flush()
+    migrated_session.add(execution)
+    await migrated_session.flush()
 
-    await db_session.delete(task)
-    await db_session.flush()
+    await migrated_session.delete(task)
+    await migrated_session.flush()
 
     remaining = (
-        await db_session.execute(select(Execution).where(Execution.task_id == task.task_id))
+        await migrated_session.execute(select(Execution).where(Execution.task_id == task.task_id))
     ).scalars().all()
     assert len(remaining) == 0, "删除 Task 后 executions 未级联删除"
 
