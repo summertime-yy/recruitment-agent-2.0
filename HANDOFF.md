@@ -205,6 +205,7 @@ DATABASE_URL=postgresql+asyncpg://...
 - **FastAPI 路由顺序**：具体路径（如 `/{resume_id}/preview`、`/tags/meta`）必须定义在 `/{resume_id}` 之前，否则被路径参数覆盖
 - **迁移命名**：`<rev>_<snake_case_desc>.py`；改 DB 前先更新 `docs/data-model.md`
 - **⚠️ 本地启动后端必须直接 `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`**（让 IDE harness 托管为常驻服务）；用 `Start-Process`/`cmd /c` 后台拉起会被进程组回收，端口随即释放。改 `.env` 后需重启进程才会重读（--reload 只监听 `.py`）
+- **⚠️ alembic 迁移不要在 `async` fixture 里跑**：`alembic.command.upgrade` 内部走 `asyncio.run(run_async_migrations())`，若外层已在 pytest-asyncio 事件循环里会抛 `asyncio.run() cannot be called from a running event loop`。必须用**同步** `@pytest.fixture(scope="module") def`，且 teardown 用**相对回退**（记录进入前 head → `command.downgrade(cfg, pre_head or "base")`），不要硬编码 revision，否则后续新迁移落地后会误删。范式见 `backend/tests/test_stage5_s5_01_data_layer.py::_migrated_schema`
 
 ---
 
