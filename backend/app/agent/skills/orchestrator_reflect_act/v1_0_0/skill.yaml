@@ -1,9 +1,35 @@
 skill_id: orchestrator-reflect-act
-skill_name: 编排-执行反思
+skill_name: 执行反思
 version: "1.0.0"
-description: R-P-R-A-R 的 Reflect-Act 段，校验 Act 产物有效性（S5-07）
+description: 判定 Act 结果是否有效，并汇总最终结果
+task_type: reflect_act
+author: recruitment-agent
+tags:
+  - orchestrator
+  - reflect-act
 internal: true
 max_retries: 0
-
-input_schema: {}
-output_schema: {}
+input_schema:
+  type: object
+  properties:
+    step_results:
+      type: array
+      description: run_act 返回的 StepResult 列表
+  required:
+    - step_results
+output_schema:
+  type: object
+  properties:
+    is_result_valid:
+      type: boolean
+    final_result:
+      type: object
+      description: 综合各 step 产物的最终结果，供前端 ResultCard 渲染
+    issues:
+      type: array
+      items:
+        type: string
+  required:
+    - is_result_valid
+    - final_result
+    - issues

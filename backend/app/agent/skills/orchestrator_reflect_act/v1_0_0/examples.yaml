@@ -1,0 +1,32 @@
+examples:
+  - input:
+      step_results:
+        - step_id: step_1
+          tool_name: search_resumes
+          success: true
+          output:
+            items: []
+        - step_id: step_2
+          tool_name: read_jd
+          success: true
+          output:
+            title: Python 后端
+    output:
+      is_result_valid: true
+      final_result:
+        candidates: []
+        jd_title: Python 后端
+      issues: []
+  - input:
+      step_results:
+        - step_id: step_1
+          tool_name: search_resumes
+          success: false
+          error_message: 检索失败
+    output:
+      is_result_valid: false
+      final_result:
+        candidates: []
+        error: 检索失败
+      issues:
+        - step_1 检索失败
