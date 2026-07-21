@@ -1,9 +1,59 @@
 skill_id: orchestrator-reason
-skill_name: 编排-意图推理
+skill_name: 意图推理
 version: "1.0.0"
-description: R-P-R-A-R 的 Reason 段，解析用户意图与缺失实体（S5-05）
+description: 解析用户消息，判定任务类型、意图摘要、结构化实体与缺失实体
+task_type: reason
+author: recruitment-agent
+tags:
+  - orchestrator
+  - reason
 internal: true
 max_retries: 0
-
-input_schema: {}
-output_schema: {}
+input_schema:
+  type: object
+  properties:
+    user_input:
+      type: string
+      description: 用户原始消息
+    context:
+      type: object
+      description: 可选上下文（JD/候选人 ID 等）
+  required:
+    - user_input
+output_schema:
+  type: object
+  properties:
+    task_type:
+      type: string
+      description: 与下游 dispatchable Skill 的 task_type 对齐（如 match / merge_candidates / unknown）
+    intent_summary:
+      type: string
+      description: 一句话概括用户意图，用于 Plan 阶段 prompt 引用
+    parsed_entities:
+      type: object
+      description: 从用户消息解析的结构化实体
+      properties:
+        jd_id:
+          type: [string, "null"]
+        candidate_ids:
+          type: array
+          items:
+            type: string
+        keyword:
+          type: [string, "null"]
+      additionalProperties: true
+    missing_entities:
+      type: array
+      items:
+        type: string
+      description: Reason 判定缺失的实体名（如 ["jd_id"]）
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+  required:
+    - task_type
+    - intent_summary
+    - parsed_entities
+    - missing_entities
+    - confidence

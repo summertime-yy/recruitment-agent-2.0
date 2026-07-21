@@ -1,0 +1,23 @@
+examples:
+  - input:
+      user_input: "帮 jd_1 找 3 名 Python 后端候选人"
+    output:
+      task_type: match
+      intent_summary: 为 jd_1 检索 Python 后端候选人
+      parsed_entities:
+        jd_id: jd_1
+        candidate_ids: []
+        keyword: Python
+      missing_entities: []
+      confidence: 0.9
+  - input:
+      user_input: "帮我匹配合适的人"
+    output:
+      task_type: unknown
+      intent_summary: 意图不明确，缺少 JD 信息
+      parsed_entities:
+        jd_id: null
+        candidate_ids: []
+        keyword: null
+      missing_entities: ["jd_id"]
+      confidence: 0.3

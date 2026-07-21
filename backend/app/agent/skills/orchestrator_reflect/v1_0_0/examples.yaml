@@ -1,0 +1,19 @@
+examples:
+  - input:
+      reason_output:
+        task_type: match
+        missing_entities: []
+        confidence: 0.9
+    output:
+      is_feasible: true
+      blocking_reason: null
+      suggestion: null
+  - input:
+      reason_output:
+        task_type: unknown
+        missing_entities: ["jd_id"]
+        confidence: 0.3
+    output:
+      is_feasible: false
+      blocking_reason: 缺少 jd_id，无法确定匹配目标
+      suggestion: 请提供 jd_id 或上传 JD

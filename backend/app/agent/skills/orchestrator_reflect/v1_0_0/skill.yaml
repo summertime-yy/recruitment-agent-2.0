@@ -1,9 +1,33 @@
 skill_id: orchestrator-reflect
-skill_name: 编排-可行性反思
+skill_name: 可行性反思
 version: "1.0.0"
-description: R-P-R-A-R 的 Reflect 段，评估 Reason 输出可行性（S5-05）
+description: 判定 Reason 结果是否足以进入 Plan 阶段
+task_type: reflect
+author: recruitment-agent
+tags:
+  - orchestrator
+  - reflect
 internal: true
 max_retries: 0
-
-input_schema: {}
-output_schema: {}
+input_schema:
+  type: object
+  properties:
+    reason_output:
+      type: object
+      description: ReasonOutput
+  required:
+    - reason_output
+output_schema:
+  type: object
+  properties:
+    is_feasible:
+      type: boolean
+      description: Reason 结果是否足以进入 Plan 阶段
+    blocking_reason:
+      type: [string, "null"]
+      description: is_feasible=false 时的阻塞原因（用户可见）
+    suggestion:
+      type: [string, "null"]
+      description: is_feasible=false 时给用户的下一步建议
+  required:
+    - is_feasible
