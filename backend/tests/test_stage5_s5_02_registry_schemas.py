@@ -16,6 +16,9 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+# 待 PR-10 扩展的 Registry（get / list_dispatchable 当前不存在）
+from app.agent.skill_registry import SkillRegistry  # noqa: F401
+
 # 待 PR-10 实现的 Schema（当前导入即红）
 from app.schemas.agent import (  # noqa: F401
     AgentChatRequest,
@@ -26,9 +29,6 @@ from app.schemas.agent import (  # noqa: F401
     SSEEventType,
     TaskStatus,
 )
-
-# 待 PR-10 扩展的 Registry（get / list_dispatchable 当前不存在）
-from app.agent.skill_registry import SkillRegistry  # noqa: F401
 
 
 # --- TC-S5-02-1 ---------------------------------------------------------------

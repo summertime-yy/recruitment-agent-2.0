@@ -107,12 +107,14 @@ async def _inspect_schema(async_url: str):
     engine = create_async_engine(async_url, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
+
             def _run(sync_conn):
                 insp = inspect(sync_conn)
                 tables = set(insp.get_table_names())
                 task_indexes = {ix["name"] for ix in insp.get_indexes("tasks")}
                 exec_indexes = {ix["name"] for ix in insp.get_indexes("executions")}
                 return tables, task_indexes, exec_indexes
+
             return await conn.run_sync(_run)
     finally:
         await engine.dispose()
@@ -152,8 +154,8 @@ async def test_tc_s5_01_3_cascade_delete_tasks(migrated_session: AsyncSession):
     await migrated_session.flush()
 
     remaining = (
-        await migrated_session.execute(select(Execution).where(Execution.task_id == task.task_id))
-    ).scalars().all()
+        (await migrated_session.execute(select(Execution).where(Execution.task_id == task.task_id))).scalars().all()
+    )
     assert len(remaining) == 0, "删除 Task 后 executions 未级联删除"
 
 

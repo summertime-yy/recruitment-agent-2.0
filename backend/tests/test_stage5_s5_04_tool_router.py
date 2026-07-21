@@ -136,9 +136,7 @@ async def test_tc_s5_04_3_search_resumes_missing_keyword_and_success():
     orig = tr_module.ResumeService
     tr_module.ResumeService = _FakeResumeService
     try:
-        result = await router.dispatch(
-            "search_resumes", {"keyword": "Python", "page": 1, "page_size": 10}, db=object()
-        )
+        result = await router.dispatch("search_resumes", {"keyword": "Python", "page": 1, "page_size": 10}, db=object())
     finally:
         tr_module.ResumeService = orig
 

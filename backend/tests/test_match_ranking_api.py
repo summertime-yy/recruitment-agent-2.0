@@ -1,4 +1,5 @@
 """S4-07/S4-08 排名与简历匹配列表 API 集成测试（TEST-PLAN §6）。"""
+
 from factories import build_jd, build_resume
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,9 +22,7 @@ async def test_jd_ranking_orders_desc(client_db: AsyncClient, db_session: AsyncS
     db_session.add_all([jd, r1, r2, r3])
     await db_session.flush()
     for r, sc in [(r1, 60.0), (r2, 95.0), (r3, 80.0)]:
-        db_session.add(
-            MatchScore(jd_id=jd.jd_id, resume_id=r.resume_id, overall_score=sc, dimension_scores=_DIM)
-        )
+        db_session.add(MatchScore(jd_id=jd.jd_id, resume_id=r.resume_id, overall_score=sc, dimension_scores=_DIM))
     await db_session.flush()
 
     resp = await client_db.get(f"/api/v1/jds/{jd.jd_id}/ranking")
@@ -40,9 +39,7 @@ async def test_jd_ranking_pagination(client_db: AsyncClient, db_session: AsyncSe
     db_session.add_all([jd, r1, r2, r3])
     await db_session.flush()
     for r, sc in [(r1, 60.0), (r2, 95.0), (r3, 80.0)]:
-        db_session.add(
-            MatchScore(jd_id=jd.jd_id, resume_id=r.resume_id, overall_score=sc, dimension_scores=_DIM)
-        )
+        db_session.add(MatchScore(jd_id=jd.jd_id, resume_id=r.resume_id, overall_score=sc, dimension_scores=_DIM))
     await db_session.flush()
 
     resp = await client_db.get(f"/api/v1/jds/{jd.jd_id}/ranking?limit=1&offset=1")
@@ -50,19 +47,13 @@ async def test_jd_ranking_pagination(client_db: AsyncClient, db_session: AsyncSe
     assert [i["overall_score"] for i in resp.json()["items"]] == [80.0]
 
 
-async def test_resume_matches_returns_multi_jds(
-    client_db: AsyncClient, db_session: AsyncSession
-) -> None:
+async def test_resume_matches_returns_multi_jds(client_db: AsyncClient, db_session: AsyncSession) -> None:
     jd1, jd2 = build_jd(), build_jd()
     resume = build_resume()
     db_session.add_all([jd1, jd2, resume])
     await db_session.flush()
-    db_session.add(
-        MatchScore(jd_id=jd1.jd_id, resume_id=resume.resume_id, overall_score=70.0, dimension_scores=_DIM)
-    )
-    db_session.add(
-        MatchScore(jd_id=jd2.jd_id, resume_id=resume.resume_id, overall_score=88.0, dimension_scores=_DIM)
-    )
+    db_session.add(MatchScore(jd_id=jd1.jd_id, resume_id=resume.resume_id, overall_score=70.0, dimension_scores=_DIM))
+    db_session.add(MatchScore(jd_id=jd2.jd_id, resume_id=resume.resume_id, overall_score=88.0, dimension_scores=_DIM))
     await db_session.flush()
 
     resp = await client_db.get(f"/api/v1/resumes/{resume.resume_id}/matches")

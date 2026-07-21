@@ -1,4 +1,5 @@
 """S4-02 模型层测试（TEST-PLAN §2）。"""
+
 import pytest
 from factories import build_jd, build_resume
 from sqlalchemy import select
@@ -39,13 +40,9 @@ async def test_match_score_unique_pair_constraint(db_session: AsyncSession) -> N
     resume = build_resume()
     db_session.add_all([jd, resume])
     await db_session.flush()
-    db_session.add(
-        MatchScore(jd_id=jd.jd_id, resume_id=resume.resume_id, overall_score=80.0, dimension_scores=_DIM)
-    )
+    db_session.add(MatchScore(jd_id=jd.jd_id, resume_id=resume.resume_id, overall_score=80.0, dimension_scores=_DIM))
     await db_session.flush()
-    db_session.add(
-        MatchScore(jd_id=jd.jd_id, resume_id=resume.resume_id, overall_score=70.0, dimension_scores=_DIM)
-    )
+    db_session.add(MatchScore(jd_id=jd.jd_id, resume_id=resume.resume_id, overall_score=70.0, dimension_scores=_DIM))
     with pytest.raises(IntegrityError):
         await db_session.flush()
 

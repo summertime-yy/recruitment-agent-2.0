@@ -3,6 +3,7 @@
 通过 monkeypatch 打桩 app.agent.llm_adapter.call_llm_json（execute 内部局部 import，
 故对模块属性打桩即可生效），断言输入渲染、输出校验、合规校验路径。
 """
+
 from app.agent.skill_registry import get_skill_registry
 
 VALID_OUTPUT = {

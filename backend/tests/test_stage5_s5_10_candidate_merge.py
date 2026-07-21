@@ -20,14 +20,7 @@ import pytest
 
 from app.agent.base_skill import BaseSkill
 
-SKILL_DIR = (
-    Path(__file__).resolve().parents[1]
-    / "app"
-    / "agent"
-    / "skills"
-    / "candidate_merge"
-    / "v1_0_0"
-)
+SKILL_DIR = Path(__file__).resolve().parents[1] / "app" / "agent" / "skills" / "candidate_merge" / "v1_0_0"
 
 # 两份高度相似简历（电话一致），用于 1/2/3 的正向场景与 4 的降级场景输入
 _TWO_RESUMES: dict[str, Any] = {

@@ -73,6 +73,7 @@ async def client_db(client: AsyncClient, db_session: AsyncSession) -> AsyncGener
 @pytest_asyncio.fixture
 async def mock_llm(monkeypatch):
     """打桩 app.agent.llm_adapter.call_llm_json，返回固定 JSON（不触发真实 LLM）。"""
+
     async def _fake_llm_json(system_prompt: str, user_prompt: str) -> dict:
         return {
             "mocked": True,
@@ -82,3 +83,20 @@ async def mock_llm(monkeypatch):
 
     monkeypatch.setattr("app.agent.llm_adapter.call_llm_json", _fake_llm_json)
     yield _fake_llm_json
+
+
+@pytest_asyncio.fixture
+async def fake_redis():
+    """function scope 独立 fakeredis 实例，避免测试间污染（PR-13）。"""
+    import fakeredis.aioredis as fakeasync
+
+    client = fakeasync.FakeRedis(decode_responses=True)
+    yield client
+    await client.aclose()
+
+
+@pytest_asyncio.fixture
+async def event_buffer(fake_redis):
+    from app.agent.orchestrator.event_buffer import EventBuffer
+
+    return EventBuffer(fake_redis)

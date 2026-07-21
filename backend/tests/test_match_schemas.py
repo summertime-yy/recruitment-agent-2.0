@@ -1,4 +1,5 @@
 """S4-03 Schema 层测试（TEST-PLAN §2）。"""
+
 import pytest
 from pydantic import ValidationError
 

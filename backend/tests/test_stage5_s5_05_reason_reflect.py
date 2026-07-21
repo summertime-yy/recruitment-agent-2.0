@@ -54,7 +54,9 @@ class _ReasonInvalidStub(BaseSkill):
         self.task_type = None
 
     async def execute(self, input_params: dict[str, Any]) -> SkillResult:  # type: ignore[override]
-        return SkillResult(success=False, output={"not_a_valid_reason_output": True}, error_message="invalid reason output")
+        return SkillResult(
+            success=False, output={"not_a_valid_reason_output": True}, error_message="invalid reason output"
+        )
 
 
 class _ReflectInfeasibleStub(BaseSkill):

@@ -62,9 +62,7 @@ async def test_tc_s5_08_3_global_concurrency_429():
 async def test_tc_s5_08_4_skill_timeout_degrade():
     """单 Skill 超时阈值极小 → 该步 FAILED（error 事件）。"""
     engine = OrchestratorEngine(skill_timeout_sec=0.01)
-    result = await engine.run_step_with_timeout(
-        {"tool_name": "search_resumes", "args": {}}, tool_router=_SlowRouter()
-    )
+    result = await engine.run_step_with_timeout({"tool_name": "search_resumes", "args": {}}, tool_router=_SlowRouter())
     assert result["status"] == "FAILED"
     assert any(e.get("type") == "error" for e in result.get("events", []))
 

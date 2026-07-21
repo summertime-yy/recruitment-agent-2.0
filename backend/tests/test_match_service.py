@@ -2,7 +2,8 @@
 
 使用 db_session（PostgreSQL 事务回滚）+ monkeypatch 打桩 call_llm_json。
 """
-from datetime import datetime, timedelta
+
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from factories import build_jd, build_resume
@@ -165,7 +166,7 @@ async def test_is_stale_when_resume_updated_after_score(db_session: AsyncSession
     svc = MatchService(db_session)
     score = await svc.match_one(jd.jd_id, resume.resume_id)
 
-    later = datetime.utcnow() + timedelta(days=1)
+    later = datetime.now(UTC) + timedelta(days=1)
     assert svc.is_stale(score, jd_updated_at=jd.updated_at, resume_updated_at=later) is True
     assert (
         svc.is_stale(
@@ -229,9 +230,7 @@ async def test_rank_by_jd_orders_desc(db_session: AsyncSession) -> None:
     db_session.add_all([jd, r1, r2, r3])
     await db_session.flush()
     for r, sc in [(r1, 60.0), (r2, 90.0), (r3, 75.0)]:
-        db_session.add(
-            MatchScore(jd_id=jd.jd_id, resume_id=r.resume_id, overall_score=sc, dimension_scores=_DIM)
-        )
+        db_session.add(MatchScore(jd_id=jd.jd_id, resume_id=r.resume_id, overall_score=sc, dimension_scores=_DIM))
     await db_session.flush()
 
     svc = MatchService(db_session)
@@ -245,12 +244,8 @@ async def test_list_by_resume_returns_all_jds(db_session: AsyncSession) -> None:
     resume = build_resume()
     db_session.add_all([jd1, jd2, resume])
     await db_session.flush()
-    db_session.add(
-        MatchScore(jd_id=jd1.jd_id, resume_id=resume.resume_id, overall_score=70.0, dimension_scores=_DIM)
-    )
-    db_session.add(
-        MatchScore(jd_id=jd2.jd_id, resume_id=resume.resume_id, overall_score=85.0, dimension_scores=_DIM)
-    )
+    db_session.add(MatchScore(jd_id=jd1.jd_id, resume_id=resume.resume_id, overall_score=70.0, dimension_scores=_DIM))
+    db_session.add(MatchScore(jd_id=jd2.jd_id, resume_id=resume.resume_id, overall_score=85.0, dimension_scores=_DIM))
     await db_session.flush()
 
     svc = MatchService(db_session)

@@ -30,7 +30,12 @@ class _PlanStub(BaseSkill):
             success=True,
             output={
                 "steps": [
-                    {"step_id": "step_1", "tool_name": "search_resumes", "tool_input": {"keyword": "Python"}, "description": "检索候选人"}
+                    {
+                        "step_id": "step_1",
+                        "tool_name": "search_resumes",
+                        "tool_input": {"keyword": "Python"},
+                        "description": "检索候选人",
+                    }
                 ],
                 "summary": "检索 Python 候选人",
             },
@@ -49,9 +54,7 @@ class _PlanBadToolStub(BaseSkill):
         return SkillResult(
             success=True,
             output={
-                "steps": [
-                    {"step_id": "step_1", "tool_name": "not_a_real_tool", "tool_input": {}, "description": "x"}
-                ],
+                "steps": [{"step_id": "step_1", "tool_name": "not_a_real_tool", "tool_input": {}, "description": "x"}],
                 "summary": "bad",
             },
         )
@@ -115,7 +118,11 @@ async def test_tc_s5_06_3_reflect_plan_detect_bad_tool():
     engine = OrchestratorEngine(registry=reg)
 
     reflect = await engine.run_reflect_plan(
-        {"plan": {"steps": [{"step_id": "step_1", "tool_name": "not_a_real_tool", "tool_input": {}, "description": "x"}]}}
+        {
+            "plan": {
+                "steps": [{"step_id": "step_1", "tool_name": "not_a_real_tool", "tool_input": {}, "description": "x"}]
+            }
+        }
     )
     assert reflect["is_plan_sound"] is False
     assert reflect["issues"]
