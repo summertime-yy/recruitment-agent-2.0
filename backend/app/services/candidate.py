@@ -1,12 +1,13 @@
-﻿"""候选人状态流转 + 备注评价服务（Stage 3）。"""
+"""候选人状态流转 + 备注评价服务（Stage 3）。"""
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow_naive
 from app.models.candidate import (
     ALLOWED_TRANSITIONS,
     CandidateNote,
@@ -73,17 +74,21 @@ class CandidateService:
             to_status=to_status,
             reason=req.reason,
             operator=req.operator,
-            occurred_at=datetime.utcnow(),
+            occurred_at=utcnow_naive(),
         )
         self.db.add(history)
 
         resume.candidate_status = to_status
-        resume.updated_at = datetime.utcnow()
+        resume.updated_at = utcnow_naive()
         await self.db.commit()
         await self.db.refresh(resume)
         logger.info(
             "Candidate status changed: resume=%s %s -> %s by=%s reason=%s",
-            resume.resume_id, from_status, to_status, req.operator, req.reason,
+            resume.resume_id,
+            from_status,
+            to_status,
+            req.operator,
+            req.reason,
         )
         return resume, None
 
@@ -110,9 +115,7 @@ class CandidateService:
     async def list_notes(self, resume_id: str) -> CandidateNoteListResponse:
         """按时间倒序返回候选人的备注/评价列表。"""
         result = await self.db.execute(
-            select(CandidateNote)
-            .where(CandidateNote.resume_id == resume_id)
-            .order_by(desc(CandidateNote.created_at))
+            select(CandidateNote).where(CandidateNote.resume_id == resume_id).order_by(desc(CandidateNote.created_at))
         )
         items = result.scalars().all()
         return CandidateNoteListResponse(
@@ -120,9 +123,7 @@ class CandidateService:
             total=len(items),
         )
 
-    async def create_note(
-        self, resume_id: str, req: CandidateNoteCreateRequest
-    ) -> CandidateNoteItem | None:
+    async def create_note(self, resume_id: str, req: CandidateNoteCreateRequest) -> CandidateNoteItem | None:
         """新建备注/评价。"""
         resume = await self._get_resume(resume_id)
         if not resume:
@@ -164,7 +165,7 @@ class CandidateService:
             note.content = req.content
         if req.rating is not None:
             note.rating = req.rating
-        note.updated_at = datetime.utcnow()
+        note.updated_at = utcnow_naive()
         await self.db.commit()
         await self.db.refresh(note)
         return CandidateNoteItem.model_validate(note)
@@ -185,7 +186,5 @@ class CandidateService:
         return True
 
     async def _get_resume(self, resume_id: str) -> Resume | None:
-        result = await self.db.execute(
-            select(Resume).where(Resume.resume_id == resume_id)
-        )
+        result = await self.db.execute(select(Resume).where(Resume.resume_id == resume_id))
         return result.scalar_one_or_none()

@@ -1,6 +1,6 @@
 """测试工厂函数：构造最小可用的模型实例（不自动插入，由测试负责 add/flush）。"""
-from datetime import datetime
 
+from app.core.time import utcnow_naive
 from app.models import JD, Resume, Skill, SkillExecutionLog
 
 
@@ -39,7 +39,7 @@ def build_skill_execution_log(**kwargs) -> SkillExecutionLog:
         "skill_id": "jd-candidate-matching",
         "version": "1.0.0",
         "execution_status": "SUCCESS",
-        "executed_at": datetime.utcnow(),
+        "executed_at": utcnow_naive(),
         "validation_score": 0.9,
     }
     data.update(kwargs)

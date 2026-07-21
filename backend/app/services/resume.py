@@ -1,4 +1,4 @@
-﻿import hashlib
+import hashlib
 import logging
 import uuid
 from datetime import datetime
@@ -14,6 +14,7 @@ from app.agent.skill_registry import get_skill_registry
 from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.minio import get_minio
+from app.core.time import utcnow_aware, utcnow_naive
 from app.models import Resume, SkillExecutionLog
 from app.schemas.resume import ResumeUpdateRequest
 from app.utils.document_parser import extract_text
@@ -46,12 +47,16 @@ class ResumeService:
         if resume.email:
             conditions.append(Resume.email == resume.email.lower())
         from sqlalchemy import or_
+
         result = await self.db.execute(
-            select(Resume.resume_id).where(
+            select(Resume.resume_id)
+            .where(
                 Resume.resume_id != resume.resume_id,
                 Resume.parse_status == "PARSED",
                 or_(*conditions),
-            ).order_by(Resume.created_at.asc()).limit(1)
+            )
+            .order_by(Resume.created_at.asc())
+            .limit(1)
         )
         dup_id = result.scalar_one_or_none()
         if dup_id:
@@ -74,11 +79,10 @@ class ResumeService:
             await self._detect_duplicate(resume)
         else:
             raise ValueError(f"unsupported dedup action: {action}")
-        resume.updated_at = datetime.utcnow()
+        resume.updated_at = utcnow_naive()
         await self.db.commit()
         await self.db.refresh(resume)
         return resume
-
 
     @staticmethod
     def _generate_id() -> str:
@@ -121,9 +125,7 @@ class ResumeService:
         file_ext = self._get_file_ext(filename)
         file_hash = self._compute_md5(file_bytes)
 
-        existing = await self.db.execute(
-            select(Resume).where(Resume.file_hash == file_hash)
-        )
+        existing = await self.db.execute(select(Resume).where(Resume.file_hash == file_hash))
         existing_resume = existing.scalar_one_or_none()
         if existing_resume:
             logger.info(f"Resume with same hash already exists: {existing_resume.resume_id}")
@@ -148,8 +150,8 @@ class ResumeService:
             raw_text=raw_text,
             parse_status="PENDING",
             created_by=created_by,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=utcnow_naive(),
+            updated_at=utcnow_naive(),
         )
         self.db.add(resume)
         await self.db.flush()
@@ -178,13 +180,13 @@ class ResumeService:
         await self._detect_duplicate(resume)
         await self.db.flush()
 
-        start_time = datetime.utcnow()
+        start_time = utcnow_aware()
         skill_input = {
             "raw_text": raw_text[:3000],
             "file_name": resume.file_name,
         }
         result = await skill.execute(skill_input)
-        elapsed_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        elapsed_ms = int((utcnow_aware() - start_time).total_seconds() * 1000)
 
         exec_log = SkillExecutionLog(
             skill_id=skill.skill_id,
@@ -354,9 +356,7 @@ class ResumeService:
             data = response.read()
             response.close()
             response.release_conn()
-            return io.BytesIO(data), resume.file_name, self._get_content_type(
-                self._get_file_ext(resume.file_name)
-            )
+            return io.BytesIO(data), resume.file_name, self._get_content_type(self._get_file_ext(resume.file_name))
         except S3Error as e:
             logger.error(f"Failed to get file from MinIO: {e}")
             return None, None, None
@@ -381,7 +381,7 @@ class ResumeService:
         if "source" in update_data:
             resume.source = update_data["source"]
 
-        resume.updated_at = datetime.utcnow()
+        resume.updated_at = utcnow_naive()
         await self.db.commit()
         await self.db.refresh(resume)
         return resume
@@ -414,7 +414,7 @@ class ResumeService:
                 resume.parse_error = None
                 await db.commit()
 
-                start_time = datetime.utcnow()
+                start_time = utcnow_aware()
                 skill_input = {
                     "raw_text": resume.raw_text[:3000],
                     "file_name": resume.file_name,
@@ -424,14 +424,14 @@ class ResumeService:
                     result = await skill.execute(skill_input)
                 except Exception as e:
                     logger.error(f"Background parse LLM error for {resume_id}: {e}")
-                    elapsed_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                    elapsed_ms = int((utcnow_aware() - start_time).total_seconds() * 1000)
                     resume.parse_status = "FAILED"
                     resume.parse_error = f"LLM调用失败: {str(e)[:200]}"
                     resume.parse_time_ms = elapsed_ms
                     await db.commit()
                     return
 
-                elapsed_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                elapsed_ms = int((utcnow_aware() - start_time).total_seconds() * 1000)
 
                 exec_log = SkillExecutionLog(
                     skill_id=skill.skill_id,

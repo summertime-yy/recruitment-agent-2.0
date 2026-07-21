@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.skill_registry import get_skill_registry
+from app.core.time import utcnow_naive
 from app.models import JD, SkillExecutionLog
 from app.schemas import JDGenerateRequest, JDUpdateRequest
 
@@ -53,7 +53,7 @@ class JDService:
             execution_time_ms=result.execution_time_ms,
             validation_score=result.validation_score,
             error_message=result.error_message,
-            executed_at=datetime.utcnow(),
+            executed_at=utcnow_naive(),
         )
         self.db.add(exec_log)
         await self.db.flush()
@@ -84,8 +84,8 @@ class JDService:
             template_id=None,
             created_by=request.created_by,
             status="DRAFT",
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=utcnow_naive(),
+            updated_at=utcnow_naive(),
         )
         self.db.add(jd)
         await self.db.flush()
@@ -136,7 +136,7 @@ class JDService:
         update_dict = update_data.model_dump(exclude_unset=True)
         for field, value in update_dict.items():
             setattr(jd, field, value)
-        jd.updated_at = datetime.utcnow()
+        jd.updated_at = utcnow_naive()
 
         await self.db.commit()
         await self.db.refresh(jd)

@@ -4,6 +4,7 @@
   `round(0.5*skill + 0.3*experience + 0.2*education, 1)`。
 - 批量匹配在内存维护任务状态字典，使用独立 session + Semaphore 限并发后台执行。
 """
+
 import asyncio
 import logging
 import uuid
@@ -17,6 +18,7 @@ from sqlalchemy.pool import NullPool
 
 from app.agent.skill_registry import get_skill_registry
 from app.core.config import get_settings
+from app.core.time import _to_naive_utc, utcnow_aware, utcnow_naive
 from app.models import JD, MatchScore, Resume, Skill, SkillExecutionLog
 
 logger = logging.getLogger(__name__)
@@ -75,15 +77,11 @@ class MatchService:
 
     async def get_score_by_pair(self, jd_id: str, resume_id: str) -> MatchScore | None:
         result = await self.db.execute(
-            select(MatchScore).where(
-                MatchScore.jd_id == jd_id, MatchScore.resume_id == resume_id
-            )
+            select(MatchScore).where(MatchScore.jd_id == jd_id, MatchScore.resume_id == resume_id)
         )
         return result.scalar_one_or_none()
 
-    async def rank_by_jd(
-        self, jd_id: str, *, limit: int = 20, offset: int = 0
-    ) -> tuple[list[MatchScore], int]:
+    async def rank_by_jd(self, jd_id: str, *, limit: int = 20, offset: int = 0) -> tuple[list[MatchScore], int]:
         total_result = await self.db.execute(
             select(func.count()).select_from(MatchScore).where(MatchScore.jd_id == jd_id)
         )
@@ -110,9 +108,7 @@ class MatchService:
         ids = [s.resume_id for s in scores]
         if ids:
             res = await self.db.execute(
-                select(Resume.resume_id, Resume.candidate_name, Resume.updated_at).where(
-                    Resume.resume_id.in_(ids)
-                )
+                select(Resume.resume_id, Resume.candidate_name, Resume.updated_at).where(Resume.resume_id.in_(ids))
             )
             for rid, name, upd in res.all():
                 name_map[rid] = name
@@ -125,9 +121,7 @@ class MatchService:
                 "candidate_name": name_map.get(s.resume_id),
                 "overall_score": s.overall_score,
                 "dimension_scores": s.dimension_scores,
-                "is_stale": self.is_stale(
-                    s, jd_updated_at=jd_updated, resume_updated_at=upd_map.get(s.resume_id)
-                ),
+                "is_stale": self.is_stale(s, jd_updated_at=jd_updated, resume_updated_at=upd_map.get(s.resume_id)),
                 "created_at": s.created_at,
             }
             for s in scores
@@ -153,11 +147,13 @@ class MatchService:
         jd_updated_at: datetime | None = None,
         resume_updated_at: datetime | None = None,
     ) -> bool:
-        snap_r = score.resume_updated_at_snapshot
-        snap_j = score.jd_updated_at_snapshot
-        if snap_r is not None and resume_updated_at is not None and resume_updated_at > snap_r:
+        snap_r = _to_naive_utc(score.resume_updated_at_snapshot)
+        snap_j = _to_naive_utc(score.jd_updated_at_snapshot)
+        r = _to_naive_utc(resume_updated_at)
+        j = _to_naive_utc(jd_updated_at)
+        if snap_r is not None and r is not None and r > snap_r:
             return True
-        if snap_j is not None and jd_updated_at is not None and jd_updated_at > snap_j:
+        if snap_j is not None and j is not None and j > snap_j:
             return True
         return False
 
@@ -195,9 +191,7 @@ class MatchService:
         if resume is None:
             raise MatchNotFoundError(f"Resume not found: {resume_id}")
         if resume.parse_status != "PARSED":
-            raise ResumeNotParsedError(
-                f"Resume not parsed yet: {resume_id} (status={resume.parse_status})"
-            )
+            raise ResumeNotParsedError(f"Resume not parsed yet: {resume_id} (status={resume.parse_status})")
 
         existing = await self.get_score_by_pair(jd_id, resume_id)
         if existing is not None and not force:
@@ -237,7 +231,7 @@ class MatchService:
             execution_time_ms=result.execution_time_ms,
             validation_score=result.validation_score,
             error_message=result.error_message,
-            executed_at=datetime.utcnow(),
+            executed_at=utcnow_naive(),
         )
         self.db.add(exec_log)
         await self.db.flush()
@@ -251,9 +245,7 @@ class MatchService:
         em = output["experience_match"]
         edm = output["education_match"]
         overall = round(
-            _W_SKILL * float(sm["score"])
-            + _W_EXPERIENCE * float(em["score"])
-            + _W_EDUCATION * float(edm["score"]),
+            _W_SKILL * float(sm["score"]) + _W_EXPERIENCE * float(em["score"]) + _W_EDUCATION * float(edm["score"]),
             1,
         )
         dimension = {
@@ -262,7 +254,7 @@ class MatchService:
             "education_match": edm,
             "overall_reasoning": output.get("overall_reasoning", ""),
         }
-        now = datetime.utcnow()
+        now = utcnow_naive()
 
         if existing is not None:
             existing.overall_score = overall
@@ -333,7 +325,7 @@ class MatchService:
                 targets = targets[:limit]
 
         task_id = f"batch_{uuid.uuid4().hex[:12]}"
-        now = datetime.utcnow()
+        now = utcnow_aware()
         _BATCH_TASKS[task_id] = {
             "task_id": task_id,
             "jd_id": jd_id,
@@ -355,9 +347,7 @@ class MatchService:
             _BATCH_TASKS[task_id]["status"] = "COMPLETED"
             _BATCH_TASKS[task_id]["finished_at"] = now
 
-        return BatchTaskHandle(
-            task_id=task_id, jd_id=jd_id, total_submitted=len(targets), submitted_at=now
-        )
+        return BatchTaskHandle(task_id=task_id, jd_id=jd_id, total_submitted=len(targets), submitted_at=now)
 
     async def _run_batch(self, task_id: str) -> None:
         state = _BATCH_TASKS.get(task_id)
@@ -375,9 +365,7 @@ class MatchService:
                 try:
                     async with factory() as session:
                         service = MatchService(session)
-                        await service.match_one(
-                            state["jd_id"], resume_id, force=state["force"]
-                        )
+                        await service.match_one(state["jd_id"], resume_id, force=state["force"])
                     state["completed"] += 1
                 except Exception as exc:  # noqa: BLE001 - 后台批量单条失败不影响整体
                     state["failed"] += 1
@@ -387,7 +375,7 @@ class MatchService:
             await asyncio.gather(*[_one(r) for r in state["resume_ids"]])
         finally:
             state["status"] = "COMPLETED"
-            state["finished_at"] = datetime.utcnow()
+            state["finished_at"] = utcnow_aware()
             await engine.dispose()
 
     def get_batch_status(self, task_id: str) -> dict[str, Any] | None:
