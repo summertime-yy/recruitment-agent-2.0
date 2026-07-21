@@ -27,12 +27,8 @@ def generate_match_score_id() -> str:
 class MatchScore(Base, TimestampMixin):
     __tablename__ = "match_scores"
 
-    score_id: Mapped[str] = mapped_column(
-        String(50), primary_key=True, default=generate_match_score_id
-    )
-    jd_id: Mapped[str] = mapped_column(
-        String(50), ForeignKey("jds.jd_id", ondelete="CASCADE"), nullable=False
-    )
+    score_id: Mapped[str] = mapped_column(String(50), primary_key=True, default=generate_match_score_id)
+    jd_id: Mapped[str] = mapped_column(String(50), ForeignKey("jds.jd_id", ondelete="CASCADE"), nullable=False)
     resume_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("resumes.resume_id", ondelete="CASCADE"), nullable=False
     )
@@ -48,11 +44,12 @@ class MatchScore(Base, TimestampMixin):
     resume_updated_at_snapshot: Mapped[datetime | None] = mapped_column(
         DateTime, comment="生成时简历updated_at快照，用于陈旧判断"
     )
-    jd_updated_at_snapshot: Mapped[datetime | None] = mapped_column(
-        DateTime, comment="生成时JD updated_at快照"
-    )
+    jd_updated_at_snapshot: Mapped[datetime | None] = mapped_column(DateTime, comment="生成时JD updated_at快照")
     status: Mapped[str] = mapped_column(
-        String(20), default="COMPLETED", server_default="COMPLETED", nullable=False,
+        String(20),
+        default="COMPLETED",
+        server_default="COMPLETED",
+        nullable=False,
         comment="COMPLETED/FAILED/STALE",
     )
     error_message: Mapped[str | None] = mapped_column(Text, comment="Skill失败原因")

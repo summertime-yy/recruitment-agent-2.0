@@ -1,4 +1,5 @@
-﻿"""候选人状态流转相关 Schema（Stage 3）。"""
+"""候选人状态流转相关 Schema（Stage 3）。"""
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -7,13 +8,16 @@ from app.models.candidate import STATUS_META, CandidateStatus
 
 
 class CandidateStatusUpdateRequest(BaseModel):
-    to_status: str = Field(..., description="目标状态：NEW/SCREENING_PASSED/SCREENING_REJECTED/INTERVIEWING/OFFERED/ARCHIVED")
+    to_status: str = Field(
+        ..., description="目标状态：NEW/SCREENING_PASSED/SCREENING_REJECTED/INTERVIEWING/OFFERED/ARCHIVED"
+    )
     reason: str | None = Field(None, max_length=500, description="变更原因/备注")
     operator: str | None = Field(None, max_length=50, description="操作人ID")
 
 
 class CandidateStatusInfo(BaseModel):
     """单个状态的可选目标与显示元数据。"""
+
     value: str
     label: str
     color: str
@@ -22,6 +26,7 @@ class CandidateStatusInfo(BaseModel):
 
 class CandidateStatusMetaResponse(BaseModel):
     """状态机元数据：所有状态 + 每个状态允许流转的目标集合。供前端渲染下拉与校验。"""
+
     current: str
     available_transitions: list[str] = Field(..., description="当前状态允许切换到的目标状态（含自身）")
     all_statuses: list[CandidateStatusInfo]
@@ -59,9 +64,7 @@ def build_status_meta(current_status: str) -> CandidateStatusMetaResponse:
         )
         for s in CandidateStatus.ALL
     ]
-    transitions_map = {
-        frm: sorted(tos) for frm, tos in ALLOWED_TRANSITIONS.items()
-    }
+    transitions_map = {frm: sorted(tos) for frm, tos in ALLOWED_TRANSITIONS.items()}
     available = sorted(ALLOWED_TRANSITIONS.get(current_status, set()))
     return CandidateStatusMetaResponse(
         current=current_status,
@@ -74,6 +77,7 @@ def build_status_meta(current_status: str) -> CandidateStatusMetaResponse:
 # ---------------------------------------------------------------------------
 # 候选人备注/评价（Stage 3）
 # ---------------------------------------------------------------------------
+
 
 class CandidateNoteCreateRequest(BaseModel):
     """新建备注/评价。"""

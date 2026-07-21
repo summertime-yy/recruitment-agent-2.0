@@ -1,7 +1,6 @@
-﻿from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
-from sqlalchemy import cast, select, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -42,6 +41,7 @@ async def upload_resume(
         raise HTTPException(status_code=400, detail=f"文件大小不能超过{MAX_FILE_SIZE // 1024 // 1024}MB")
 
     import io
+
     file_obj = io.BytesIO(content)
     file_obj.seek(0)
 
@@ -99,6 +99,7 @@ async def preview_resume(resume_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="文件不存在或无法读取")
 
     from urllib.parse import quote
+
     encoded_filename = quote(filename)
 
     return StreamingResponse(
@@ -156,9 +157,17 @@ async def list_resumes(
 ):
     service = ResumeService(db)
     items, total = await service.list_resumes(
-        page=page, page_size=page_size, parse_status=parse_status, keyword=keyword,
-        candidate_status=candidate_status, tag=tag, source=source, skill=skill,
-        dedup_status=dedup_status, date_from=date_from, date_to=date_to,
+        page=page,
+        page_size=page_size,
+        parse_status=parse_status,
+        keyword=keyword,
+        candidate_status=candidate_status,
+        tag=tag,
+        source=source,
+        skill=skill,
+        dedup_status=dedup_status,
+        date_from=date_from,
+        date_to=date_to,
     )
     return ResumeListResponse(
         items=[ResumeResponse.model_validate(item) for item in items],

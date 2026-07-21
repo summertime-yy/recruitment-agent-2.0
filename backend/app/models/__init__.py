@@ -1,4 +1,4 @@
-﻿from app.models.candidate import CandidateNote, CandidateStatusHistory
+from app.models.candidate import CandidateNote, CandidateStatusHistory
 from app.models.execution import Execution
 from app.models.jd import JD, JDTemplate
 from app.models.match_score import MatchScore

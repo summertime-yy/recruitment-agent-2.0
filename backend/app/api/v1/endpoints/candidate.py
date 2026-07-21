@@ -1,4 +1,5 @@
-﻿"""候选人状态流转 + 备注评价 API（Stage 3）。"""
+"""候选人状态流转 + 备注评价 API（Stage 3）。"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/candidates", tags=["候选人管理"])
 # ---------------------------------------------------------------------------
 # 状态流转
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/{resume_id}/status/meta",
@@ -67,6 +69,7 @@ async def get_status_history(resume_id: str, db: AsyncSession = Depends(get_db))
 # ---------------------------------------------------------------------------
 # 备注与评价
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/{resume_id}/notes",

@@ -1,9 +1,10 @@
-﻿"""候选人状态流转（Stage 3）。
+"""候选人状态流转（Stage 3）。
 
 candidate_status 与 parse_status 正交：
 - parse_status 管"简历文件解析"流程（PENDING/PARSING/PARSED/FAILED）
 - candidate_status 管"招聘流程"流转（NEW -> 初筛 -> 面试 -> 录用/淘汰）
 """
+
 from __future__ import annotations
 
 import uuid
@@ -22,12 +23,12 @@ from app.models.base import TimestampMixin
 class CandidateStatus:
     """候选人招聘状态。使用字符串常量而非 Enum，便于 Alembic/扩展，前端可直接对齐。"""
 
-    NEW = "NEW"                          # 新简历（默认）
-    SCREENING_PASSED = "SCREENING_PASSED"   # 初筛通过
+    NEW = "NEW"  # 新简历（默认）
+    SCREENING_PASSED = "SCREENING_PASSED"  # 初筛通过
     SCREENING_REJECTED = "SCREENING_REJECTED"  # 初筛淘汰
-    INTERVIEWING = "INTERVIEWING"        # 面试中
-    OFFERED = "OFFERED"                  # 录用
-    ARCHIVED = "ARCHIVED"                # 已归档（不合适/冻结）
+    INTERVIEWING = "INTERVIEWING"  # 面试中
+    OFFERED = "OFFERED"  # 录用
+    ARCHIVED = "ARCHIVED"  # 已归档（不合适/冻结）
 
     ALL: tuple[str, ...] = (
         NEW,
@@ -103,9 +104,7 @@ class CandidateStatusHistory(Base, TimestampMixin):
 
     __tablename__ = "candidate_status_history"
 
-    history_id: Mapped[str] = mapped_column(
-        String(50), primary_key=True, default=generate_history_id
-    )
+    history_id: Mapped[str] = mapped_column(String(50), primary_key=True, default=generate_history_id)
     resume_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("resumes.resume_id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -113,14 +112,13 @@ class CandidateStatusHistory(Base, TimestampMixin):
     to_status: Mapped[str] = mapped_column(String(30), nullable=False, comment="变更后状态")
     reason: Mapped[str | None] = mapped_column(String(500), comment="变更原因/备注")
     operator: Mapped[str | None] = mapped_column(String(50), comment="操作人ID")
-    occurred_at: Mapped[datetime] = mapped_column(
-        DateTime, default=func.now(), nullable=False, index=True
-    )
+    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False, index=True)
 
 
 # ---------------------------------------------------------------------------
 # 候选人备注与评价（Stage 3）
 # ---------------------------------------------------------------------------
+
 
 class CandidateNoteType:
     """备注类型。NOTE=普通备注，EVALUATION=带评分的评价。"""
@@ -149,18 +147,17 @@ class CandidateNote(Base, TimestampMixin):
 
     __tablename__ = "candidate_notes"
 
-    note_id: Mapped[str] = mapped_column(
-        String(50), primary_key=True, default=generate_note_id
-    )
+    note_id: Mapped[str] = mapped_column(String(50), primary_key=True, default=generate_note_id)
     resume_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("resumes.resume_id", ondelete="CASCADE"), nullable=False, index=True
     )
     note_type: Mapped[str] = mapped_column(
-        String(20), default=CandidateNoteType.NOTE, nullable=False, server_default="NOTE",
+        String(20),
+        default=CandidateNoteType.NOTE,
+        nullable=False,
+        server_default="NOTE",
         comment="类型：NOTE=备注，EVALUATION=评价",
     )
     content: Mapped[str] = mapped_column(String(2000), nullable=False, comment="备注/评价内容")
-    rating: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, comment="评分1-5（仅EVALUATION类型使用）"
-    )
+    rating: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="评分1-5（仅EVALUATION类型使用）")
     author: Mapped[str | None] = mapped_column(String(50), comment="作者/操作人ID")

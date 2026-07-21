@@ -8,6 +8,7 @@ Stage 3 - 候选人状态流转模块：
 - resumes 表新增 candidate_status 列（默认 NEW）
 - 新增 candidate_status_history 表，记录状态流转历史
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -33,9 +34,7 @@ def upgrade() -> None:
             comment="候选人招聘状态：NEW/SCREENING_PASSED/SCREENING_REJECTED/INTERVIEWING/OFFERED/ARCHIVED",
         ),
     )
-    op.create_index(
-        "ix_resumes_candidate_status", "resumes", ["candidate_status"]
-    )
+    op.create_index("ix_resumes_candidate_status", "resumes", ["candidate_status"])
 
     # 2) candidate_status_history 表
     op.create_table(

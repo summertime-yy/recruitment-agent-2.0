@@ -1,4 +1,4 @@
-﻿from app.schemas.candidate import (
+from app.schemas.candidate import (
     CandidateNoteCreateRequest,
     CandidateNoteItem,
     CandidateNoteListResponse,

@@ -25,9 +25,7 @@ class SkillVersion(Base):
     __tablename__ = "skill_versions"
 
     version_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    skill_id: Mapped[str] = mapped_column(
-        String(100), ForeignKey("skills.skill_id"), nullable=False
-    )
+    skill_id: Mapped[str] = mapped_column(String(100), ForeignKey("skills.skill_id"), nullable=False)
     version: Mapped[str] = mapped_column(String(20), nullable=False)
     content_path: Mapped[str] = mapped_column(String(500), nullable=False)
     input_schema: Mapped[dict[str, Any] | None] = mapped_column(JSON)
@@ -44,18 +42,14 @@ class SkillVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
     published_at: Mapped[datetime | None] = mapped_column(DateTime)
 
-    __table_args__ = (
-        UniqueConstraint("skill_id", "version", name="uq_skill_version"),
-    )
+    __table_args__ = (UniqueConstraint("skill_id", "version", name="uq_skill_version"),)
 
 
 class SkillExecutionLog(Base):
     __tablename__ = "skill_execution_logs"
 
     execution_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    skill_id: Mapped[str] = mapped_column(
-        String(100), ForeignKey("skills.skill_id"), nullable=False
-    )
+    skill_id: Mapped[str] = mapped_column(String(100), ForeignKey("skills.skill_id"), nullable=False)
     version: Mapped[str] = mapped_column(String(20), nullable=False)
     task_id: Mapped[str | None] = mapped_column(String(50))
     user_id: Mapped[str | None] = mapped_column(String(50))

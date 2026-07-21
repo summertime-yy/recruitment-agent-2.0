@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -11,14 +11,14 @@ from jsonschema import ValidationError, validate
 logger = logging.getLogger(__name__)
 
 
-class SkillStatus(str, Enum):
+class SkillStatus(StrEnum):
     DRAFT = "DRAFT"
     ACTIVE = "ACTIVE"
     DEPRECATED = "DEPRECATED"
     ARCHIVED = "ARCHIVED"
 
 
-class ExecutionStatus(str, Enum):
+class ExecutionStatus(StrEnum):
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
     FALLBACK = "FALLBACK"
@@ -128,8 +128,12 @@ class BaseSkill:
             examples_text = "\n\n## Few-shot Examples\n\n"
             for i, ex in enumerate(self._examples, 1):
                 examples_text += f"### Example {i}\n"
-                examples_text += f"Input:\n```json\n{json.dumps(ex.get('input', {}), ensure_ascii=False, indent=2)}\n```\n\n"
-                examples_text += f"Output:\n```json\n{json.dumps(ex.get('output', {}), ensure_ascii=False, indent=2)}\n```\n\n"
+                examples_text += (
+                    f"Input:\n```json\n{json.dumps(ex.get('input', {}), ensure_ascii=False, indent=2)}\n```\n\n"
+                )
+                examples_text += (
+                    f"Output:\n```json\n{json.dumps(ex.get('output', {}), ensure_ascii=False, indent=2)}\n```\n\n"
+                )
 
         required_fields = self.output_schema.get("required", []) if self.output_schema else []
         properties = self.output_schema.get("properties", {}) if self.output_schema else {}
@@ -174,16 +178,15 @@ class BaseSkill:
             return True, [], 1.0
         errors = []
         required_fields = self.output_schema.get("required", [])
-        properties = self.output_schema.get("properties", {})
 
-        for field in required_fields:
-            if field not in output or output[field] is None:
-                errors.append(f"Missing required field: {field}")
-            elif isinstance(output[field], str):
+        for req_field in required_fields:
+            if req_field not in output or output[req_field] is None:
+                errors.append(f"Missing required field: {req_field}")
+            elif isinstance(output[req_field], str):
                 pass
-            elif isinstance(output[field], list):
-                if field in ("responsibilities", "requirements", "required_skills") and len(output[field]) == 0:
-                    errors.append(f"Required list field is empty: {field}")
+            elif isinstance(output[req_field], list):
+                if req_field in ("responsibilities", "requirements", "required_skills") and len(output[req_field]) == 0:
+                    errors.append(f"Required list field is empty: {req_field}")
 
         try:
             validate(instance=output, schema=self.output_schema)
@@ -191,9 +194,7 @@ class BaseSkill:
             errors.append(e.message)
 
         total_required = len(required_fields)
-        filled = sum(
-            1 for f in required_fields if f in output and output[f] is not None
-        )
+        filled = sum(1 for f in required_fields if f in output and output[f] is not None)
         score = filled / total_required if total_required > 0 else 1.0
 
         return len(errors) == 0, errors, score
@@ -258,9 +259,7 @@ class BaseSkill:
                         status=ExecutionStatus.SUCCESS,
                     )
                 else:
-                    all_errors = validation_errors + [
-                        f"合规问题: {i['message']}" for i in compliance.get("issues", [])
-                    ]
+                    all_errors = validation_errors + [f"合规问题: {i['message']}" for i in compliance.get("issues", [])]
                     last_error = "; ".join(all_errors)
                     if attempt < self.max_retries:
                         logger.warning(f"Skill {self.skill_id} attempt {attempt + 1} failed: {last_error}, retrying...")

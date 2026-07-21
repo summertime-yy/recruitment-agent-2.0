@@ -15,9 +15,7 @@ settings = get_settings()
 @lru_cache
 def get_llm() -> ChatOpenAI:
     if not settings.LLM_API_KEY or not settings.LLM_BASE_URL:
-        raise ValueError(
-            "LLM is not configured. Please set LLM_API_KEY and LLM_BASE_URL in environment variables."
-        )
+        raise ValueError("LLM is not configured. Please set LLM_API_KEY and LLM_BASE_URL in environment variables.")
     return ChatOpenAI(
         model=settings.LLM_MODEL,
         api_key=settings.LLM_API_KEY,
@@ -61,7 +59,7 @@ async def call_llm_json(
     try:
         return json.loads(content)
     except json.JSONDecodeError:
-        json_match = re.search(r'\{[\s\S]*\}', content)
+        json_match = re.search(r"\{[\s\S]*\}", content)
         if json_match:
             try:
                 return json.loads(json_match.group(0))
