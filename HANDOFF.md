@@ -1,8 +1,9 @@
 # 招聘 Agent 2.0 阶段性总结与交接文档
 
-> 更新时间：2026-07-17
-> 当前进度：**Stage 4（人岗匹配评分）已完成**（后端 PR-1～PR-5 + 前端 PR-6～PR-8 全链路闭环）
-> 下一阶段：Stage 5（Agent 对话核心）
+> 更新时间：2026-07-21
+> 当前进度：**Stage 5 进行中**（PR-10/11/12/15 已合入 master，PR-13 待动工 —— 见 §九）
+> 上一阶段：Stage 4（人岗匹配评分）已完成
+> 下一阶段：Stage 5（Agent 对话核心）继续 PR-13 → PR-14 → PR-16/17/18
 > 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `fb75251`/`6dd41b7`/`bc9545c`（接入真实分 + 匹配面板）；**本追加提交（PR-8 收尾）**：候选人管理页 UI/筛选/关联JD 重构 + ResumeDetail 匹配体验优化（详见 §3.2 / §6.1）
 > 面向读者：下一位系统架构师 / 开发者
 
@@ -44,7 +45,7 @@
 | Stage 2 | 简历解析模块 | ✅ 完成 | 上传/解析/预览/编辑/删除 + 前端工作台 |
 | Stage 3 | 候选人管理模块 | ✅ 完成 | 状态流转 + 标签 + 来源 + 去重 + 备注评价（后端全链路 + 前端组件） |
 | **Stage 4** | **人岗匹配评分** | ✅ **完成** | match_scores 表 + `jd-candidate-matching` Skill v1.0.0 + 6 类匹配 API + 前端评分报告/列表/详情/简历联动 |
-| Stage 5 | Agent 对话核心 | ⏳ 未开始 | tasks 表 + Task Orchestrator（R-P-R-A-R）+ SSE + 对话中心页 |
+| **Stage 5** | **Agent 对话核心** | 🚧 **进行中** | **PR-10/11/12/15 已合**（tasks/executions 表 + Registry + Tool Router + Orchestrator R-P-R-A-R + candidate-merge Skill）；**PR-13 待动工**（EventBuffer + Redis 接线 + Act 真跑）；后续 PR-14/16/17/18 见 §九 |
 | Stage 6 | 推送与反馈 | ⏳ 未开始 | communications/feedback 表 + 推送服务 + 推送管理页 |
 | Stage 7 | 看板与设置 | ⏳ 未开始 | analytics 表 + 数据看板 + Skill 管理 + 系统设置页 |
 
@@ -333,3 +334,75 @@ DATABASE_URL=postgresql+asyncpg://...
 3. **打通"随机分 → 真实分"**：✅ 已完成——`Resumes.tsx` 已移除 `Math.random()`，按所选 JD 拉取真实匹配分（「匹配分」列 + 右侧面板重新匹配），`ResumeDetail.tsx` 已替换占位为「JD 匹配评分」卡片
 4. **保持文档同步**：任何 DB/API 变更先改 `docs/`，与提交一起入库
 5. **测试已补齐**：后端 51 + 前端 16 关键路径用例已随 PR-1~PR-8 入库，提交前 `uv run pytest` + `npm run test` 可复验，降低回归风险
+
+---
+
+## 九、Stage 5 进行中（2026-07-21 追加）
+
+> 权威规划文档三件套（顶层，双盲评审合并版）：`docs/planning/PLAN-STAGE5.md`、`docs/planning/TASKS-STAGE5.md`、`docs/planning/TEST-PLAN-STAGE5.md`
+> 各 PR 启动裁定归档：`docs/planning/stage5/PR{10..18}-KICKOFF-{QUESTIONS,DECISION}.md` + `PR{10..18}-STEP6-REPORT.md`
+> ⚠️ **不要读** `docs/planning/stage5/commander/` 和 `docs/planning/stage5/executor/` —— 那是双盲评审前的初稿，已被合并版覆盖
+
+### 9.1 PR 切分与状态
+
+| PR | 任务 | 内容 | 状态 | 合入 commit |
+|----|------|------|------|-------------|
+| PR-10 | S5-01 + S5-02 | tasks/executions 表 + SkillRegistry.internal + SSE/Agent Schema | ✅ | 见 git log |
+| PR-11 | S5-04 | Tool Router | ✅ | 6beb25e |
+| PR-12 | S5-05/06/07/08 | 5 个 Orchestrator internal Skill + Engine 主循环 + 状态机 | ✅ | 039171e |
+| **PR-13** | **S5-03 + S5-07 剩余** | **EventBuffer + 应用挂 Redis + Act→Redis 发射 + run_execute 真跑** | ⏳ **下一个** | — |
+| PR-14 | S5-09 | REST 四端点（chat/execute/skip/cancel）+ SSE 流端点 | ⏳ | — |
+| PR-15 | S5-10 | candidate-merge Skill | ✅ | 92a322e |
+| PR-16 | S5-11 | candidate-profile Skill | ⏳ | — |
+| PR-17 | S5-12 (+可能 S5-13) | 前端类型 + SSE Hook (+ ChatCenter/CandidateChat) | ⏳ | — |
+| PR-18 | S5-13（若拆分） | 前端 ChatCenter + CandidateChat | ⏳ | — |
+
+**当前 master HEAD**：`039171e`（PR-12 STEP6 report）·**当前测试基线**：92 passed。
+
+### 9.2 Stage 5 架构约束（PR-13 起）
+
+- **Redis 成为对话域硬依赖**：Stage 4 前 Redis 无调用点；PR-13 后 chat/stream/execute 端点依赖 Redis 存事件缓冲 + 全局并发计数。**Redis 挂 = 对话不可用**（但既有 CRUD 不受影响）。运维需 Redis 高可用。
+- **Redis 访问统一走 `Depends(get_redis)`**：`app/main.py` lifespan 挂 `app.state.redis`，`app/core/redis.py` 提供 `get_redis(request)` DI。**禁止** `from app.core.redis import redis_client`（PR-13 会删除该全局单例）。
+- **SSE 事件缓冲**（合并版 PLAN §Q6 权威）：Redis List `sse:buf:{task_id}`、`MAXLEN=200` 环形裁剪、终态后 TTL **3600s（60min）**、**MVP 不启 Pub/Sub**（SSE 端点用 `read_after` + 100ms 轮询做进程内实时推）。
+- **全局并发上限 = 10**：Redis 原子计数器 `task:active`（`INCR/DECR` + TTL 1h 兜底）；超限 429 `TASK_LIMIT_EXCEEDED`。
+- **超时分层**：单 Skill 120s / 单阶段 180s / 整个 Task 600s（10min，PLAN §Q8）。
+- **心跳**：SSE 端点层每 15s 发 `system` 心跳帧，**不入 EventBuffer**（重放时不重发）。
+- **五段 R-P-R-A-R Skill 都是 `internal: true`**：走完整 BaseSkill 管道（Schema 校验 / 日志 / compliance），但**不对 Tool Router 暴露**（LLM 生成的 Plan 意外引用 `orchestrator-reason` 等会抛 `SkillNotDispatchableError`）。
+
+### 9.3 已知妥协与 Stage 5.1 开放项
+
+以下是 MVP 明确妥协、后期需处理的技术债：
+
+1. **后台任务 fire-and-forget，无崩溃恢复** — `run_execute` 用 `asyncio.create_task` 后台跑 Act，进程重启后 in-flight 任务全丢失，`tasks` 表卡在 EXECUTING 永不更新。Stage 5.1 需接入真实任务队列（Celery / arq）+ worker daemon 拾回。
+2. **不启 Redis Pub/Sub，SSE 端点 100ms 轮询** — 多进程副本部署时无法水平扩展。Stage 5.1 开放项。
+3. **Result Artifact `type` 字段无自动化护栏** — 后端 `_ARTIFACT_TYPE_MAP` 与前端卡片渲染器手动同步，新增工具（如 PR-16 的 `candidate-profile`）时**必须同步改两边**，忘记会走 `generic` fallback。Stage 5.1 前建议改共享枚举或 codegen。
+4. **fakeredis 覆盖不到真 Redis 边界差异** — pipeline 语义、LTRIM 负索引等边界在 fakeredis 与真 Redis 上可能不一致。Stage 6/后期加 docker-redis 集成测试套件。
+5. **`app/core/redis.py` PR-13 前遗留全局单例** — 若 PR-13 删除后发现 PR-10/11/12 有隐式引用（当前 grep 无匹配），允许临时保留为 deprecated shim（打 FutureWarning），PR-14 前必须清理。
+
+### 9.4 PR-13 执行前需警惕的 3 个陷阱
+
+1. **`asyncio.create_task` 在 pytest 中泄漏 / hang** — 后台任务若在测试函数返回前未 await，event loop 无法退出，CI 卡住。测试 fixture 必须显式 `asyncio.gather` 所有 `orch-*` 命名 task。
+2. **`datetime.utcnow()` 顺手替换的时区连锁** — 若数据库列是 `TIMESTAMP`（tz-naive），替换为 `datetime.now(timezone.utc)`（tz-aware）后与列值比较会 `TypeError`。**替换前先确认列类型**。
+3. **PR-12 遗留 3 处 drift 需 PR-13 顺手修** — `run_execute` 注释误写"PR-14"、`run_reflect_act` 未实现、`act.py` emit 无 try/except。均已在 `PR13-KICKOFF-DECISION.md §一 前置状态` 明示。
+
+### 9.5 关键新增文件（PR-10~12 已合入）
+
+| 文件 | 用途 |
+|------|------|
+| `backend/app/agent/orchestrator/engine.py` | OrchestratorEngine：R-P-R-A-R 主循环编排 |
+| `backend/app/agent/orchestrator/state_machine.py` | TaskStatus 枚举 + 合法转移矩阵 + TransitionGuard |
+| `backend/app/agent/orchestrator/act.py` | run_act：按 Plan 顺序 dispatch + 发 SSE 事件 |
+| `backend/app/agent/orchestrator/active_counter.py` | 并发计数（InMemory；PR-13 加 Redis 实现） |
+| `backend/app/agent/orchestrator/tool_router.py` | ToolRouter：意图→工具分发，拒 internal Skill |
+| `backend/app/agent/orchestrator/errors.py` | IllegalTransitionError / TaskLimitExceededError / TaskTimeoutError |
+| `backend/app/agent/skills/orchestrator_{reason,reflect,plan,reflect_plan,reflect_act}/v1_0_0/` | 5 个 internal Skill（yaml + prompt + examples） |
+| `backend/app/schemas/agent.py` | SSEEvent / SSEEventType / Plan / PlanStep / Agent{Chat,Execute,Skip,Cancel}Request/Response |
+| `backend/app/models/{task,execution}.py` | tasks / executions 表模型（PR-10） |
+
+### 9.6 下一位接手 Stage 5 的建议
+
+1. **先读 `docs/planning/stage5/PR13-KICKOFF-DECISION.md`** —— 9 问全部裁定 + 5-7 commit 拆分 + 三道门 + 求助边界都写死了，执行体照做即可。
+2. **不要碰 `docs/planning/stage5/commander/` 和 `executor/` 子目录** —— 双盲评审前的初稿，已被合并版覆盖，若与顶层 `docs/planning/*-STAGE5.md` 冲突以顶层为准。
+3. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。
+4. **PR-13 完成后立刻做 PR-14**（REST 四端点 + SSE HTTP 端点） —— PR-13 的 `run_execute` 后台任务需要 PR-14 补 DB 状态持久化桥梁（`db_updater` 回调注入），拖越久 in-memory 状态漂移越难对齐。
+5. **PR-13 STEP6 报告写完后**：更新本节 9.1 表格中 PR-13 的状态与合入 commit；更新 9.4 陷阱表（如果新踩到坑）。

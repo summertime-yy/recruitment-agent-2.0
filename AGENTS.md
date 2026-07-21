@@ -51,3 +51,12 @@ docs/  ui/  docker-compose.yml  .env.example   # docs, HTML prototypes, infra (p
 - Do **not** pass `reasoning_effort` (the model rejects it); keep `LLM_MAX_TOKENS=4096`.
 - FastAPI route order matters: define specific paths (e.g. `/{resume_id}/preview`) **before** `/{resume_id}`.
 - Never commit `backend/.env` (gitignored). Copy `.env.example` and set `LLM_API_KEY`/`LLM_BASE_URL`.
+
+## Stage 5 Conventions (Orchestrator / SSE / Redis)
+
+- **Redis access**: from PR-13 onward, the Redis client is provided via FastAPI lifespan on `app.state.redis`. **Always** use `Depends(get_redis)` from `app.core.redis`; **never** import a global `redis_client` singleton (it will be removed).
+- **SSE event buffer**: Redis List `sse:buf:{task_id}`, `MAXLEN=200`, terminal-state TTL `3600s`. Pub/Sub is **not** enabled at MVP — SSE endpoints poll `read_after` with 100ms `asyncio.sleep`.
+- **Global concurrency**: 10 active tasks max, tracked by Redis atomic counter `task:active` (`INCR`/`DECR` + 1h TTL). Over-limit returns HTTP 429 with `code=TASK_LIMIT_EXCEEDED`.
+- **Orchestrator internal skills** (`orchestrator-{reason,reflect,plan,reflect-plan,reflect-act}`) have `internal: true` in `skill.yaml`. They run the full `BaseSkill` pipeline but are **excluded** from `SkillRegistry.list_dispatchable()` — `ToolRouter.dispatch()` on them raises `SkillNotDispatchableError`.
+- **`datetime.utcnow()` is deprecated**: use `datetime.now(timezone.utc)` in new code. Legacy call sites are being cleaned up gradually (PR-13 handles the `services/match.py` / `main.py` batch).
+- **Background tasks in orchestrator**: `run_execute` / `run_skip_to_score` dispatch Act via `asyncio.create_task` (fire-and-forget). Tests that touch these paths **must** `asyncio.gather` all `orch-*` named tasks in teardown, or the event loop hangs.
