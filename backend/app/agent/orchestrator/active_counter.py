@@ -1,11 +1,20 @@
-"""S5-08 · 全局活跃任务计数（抽象接口 + 内存实现；Redis 实现推迟 PR-13）。"""
+"""S5-08 · 全局活跃任务计数（抽象接口 + 内存实现；Redis 实现 PR-13 落地）。
+
+RedisActiveCounter 用 ``INCR + EXPIRE`` 单 pipeline 原子计数，超限 ``DECR`` 回滚并抛
+``TaskLimitExceededError``；1h TTL 兜底防进程 crash 未 decr 导致的泄漏。
+"""
 
 from __future__ import annotations
 
 import asyncio
 from typing import Protocol
 
+from redis import asyncio as aioredis
+
 from app.agent.orchestrator.errors import TaskLimitExceededError
+
+ACTIVE_KEY = "task:active"
+ACTIVE_TTL_SEC = 3600  # 1h 无活动兜底防泄漏（PLAN §Q7）
 
 
 class ActiveCounter(Protocol):
@@ -41,3 +50,33 @@ class InMemoryActiveCounter:
 
     async def current(self) -> int:
         return self._count
+
+
+class RedisActiveCounter:
+    """PR-13 · 基于 Redis 的全局活跃任务计数（跨进程）。"""
+
+    def __init__(self, redis: aioredis.Redis, limit: int = 10):
+        self.redis = redis
+        self.limit = limit
+
+    async def incr(self) -> int:
+        pipe = self.redis.pipeline()
+        pipe.incr(ACTIVE_KEY)
+        pipe.expire(ACTIVE_KEY, ACTIVE_TTL_SEC)
+        results = await pipe.execute()
+        current = results[0]
+        if current > self.limit:
+            await self.redis.decr(ACTIVE_KEY)  # 回滚
+            raise TaskLimitExceededError(current=current, limit=self.limit)
+        return current
+
+    async def decr(self) -> int:
+        new_val = await self.redis.decr(ACTIVE_KEY)
+        if new_val < 0:
+            await self.redis.set(ACTIVE_KEY, 0)
+            new_val = 0
+        return new_val
+
+    async def current(self) -> int:
+        val = await self.redis.get(ACTIVE_KEY)
+        return int(val) if val is not None else 0
