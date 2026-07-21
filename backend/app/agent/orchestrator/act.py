@@ -39,6 +39,14 @@ async def _noop_emit(ev: SSEEvent) -> None:  # pragma: no cover - 占位
     return None
 
 
+async def _safe_emit(emit: EmitFn, ev: SSEEvent) -> None:
+    """emit 失败只 log warning，不中断业务（对齐 docstring 约定）。"""
+    try:
+        await emit(ev)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("SSE emit failed for task=%s type=%s: %s", ev.task_id, ev.type, e)
+
+
 def _make_event(event_type: SSEEventType, task_id: str, data: dict[str, Any], step_id: str | None = None) -> SSEEvent:
     return SSEEvent(
         id="evt",  # Engine 层应注入单调递增 id；standalone 用占位
@@ -70,7 +78,7 @@ async def run_act(
 
     # Reason 阶段占位思考事件（兼容 TC-S5-07-5；正常 Act 流程不走此分支）
     if plan.get("phase") == "REASON":
-        await emit(_make_event(SSEEventType.THINKING, task_id, {"phase": "REASON"}))
+        await _safe_emit(emit, _make_event(SSEEventType.THINKING, task_id, {"phase": "REASON"}))
 
     if not steps:
         return []
@@ -82,7 +90,10 @@ async def run_act(
         tool_input = step.get("tool_input") or step.get("args") or {}
         optional = bool(step.get("optional", False))
 
-        await emit(_make_event(SSEEventType.TOOL_CALL, task_id, {"tool_name": tool_name, "tool_input": tool_input}, step_id))
+        await _safe_emit(
+            emit,
+            _make_event(SSEEventType.TOOL_CALL, task_id, {"tool_name": tool_name, "tool_input": tool_input}, step_id),
+        )
         try:
             sr = await router.dispatch(tool_name, tool_input)
         except Exception as e:  # noqa: BLE001 - emit 不应中断业务
@@ -92,7 +103,9 @@ async def run_act(
             err = None
 
         if sr is not None and sr.success:
-            await emit(_make_event(SSEEventType.PROGRESS, task_id, {"step_id": step_id, "percent": 100}, step_id))
+            await _safe_emit(
+                emit, _make_event(SSEEventType.PROGRESS, task_id, {"step_id": step_id, "percent": 100}, step_id)
+            )
             results.append(StepResult(step_id=step_id, tool_name=tool_name or "", success=True, output=sr.output))
             await emit(
                 _make_event(
@@ -105,11 +118,15 @@ async def run_act(
         else:
             msg = err or (sr.error_message if sr else "unknown error")
             if optional:
-                await emit(_make_event(SSEEventType.WARNING, task_id, {"step_id": step_id, "message": msg}, step_id))
+                await _safe_emit(
+                    emit, _make_event(SSEEventType.WARNING, task_id, {"step_id": step_id, "message": msg}, step_id)
+                )
                 results.append(StepResult(step_id=step_id, tool_name=tool_name or "", success=False, error_message=msg))
                 # 继续后续步
             else:
-                await emit(_make_event(SSEEventType.ERROR, task_id, {"step_id": step_id, "message": msg}, step_id))
+                await _safe_emit(
+                    emit, _make_event(SSEEventType.ERROR, task_id, {"step_id": step_id, "message": msg}, step_id)
+                )
                 results.append(StepResult(step_id=step_id, tool_name=tool_name or "", success=False, error_message=msg))
                 break  # 必需步失败：中止
 

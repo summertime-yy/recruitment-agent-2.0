@@ -149,9 +149,7 @@ class ToolRouter:
 
         return await skill.execute(tool_input)
 
-    async def _execute_builtin(
-        self, tool_name: str, tool_input: dict[str, Any], db: Any
-    ) -> SkillResult:
+    async def _execute_builtin(self, tool_name: str, tool_input: dict[str, Any], db: Any) -> SkillResult:
         _validate_tool_input(tool_name, tool_input)
 
         if db is None:
