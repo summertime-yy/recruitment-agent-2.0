@@ -1,0 +1,34 @@
+examples:
+  - input:
+      plan:
+        steps:
+          - step_id: step_1
+            tool_name: search_resumes
+            tool_input:
+              keyword: Python
+            description: 检索 Python 候选人
+        summary: 检索 Python 候选人
+    output:
+      is_plan_sound: true
+      issues: []
+  - input:
+      plan:
+        steps:
+          - step_id: step_1
+            tool_name: not_a_real_tool
+            tool_input: {}
+            description: 错误工具
+        summary: 错误计划
+    output:
+      is_plan_sound: false
+      issues:
+        - step_id: step_1
+          issue: tool_name 未注册
+      adjusted_plan:
+        steps:
+          - step_id: step_1
+            tool_name: search_resumes
+            tool_input:
+              keyword: Python
+            description: 检索 Python 候选人
+        summary: 修正后的计划

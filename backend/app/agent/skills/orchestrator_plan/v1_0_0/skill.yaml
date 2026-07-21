@@ -1,9 +1,55 @@
 skill_id: orchestrator-plan
-skill_name: 编排-计划生成
+skill_name: 计划生成
 version: "1.0.0"
-description: R-P-R-A-R 的 Plan 段，产出待确认工具调用计划（S5-06）
+description: 基于 Reason 输出生成可执行的步骤计划
+task_type: plan
+author: recruitment-agent
+tags:
+  - orchestrator
+  - plan
 internal: true
 max_retries: 0
-
-input_schema: {}
-output_schema: {}
+input_schema:
+  type: object
+  properties:
+    reason_output:
+      type: object
+      description: ReasonOutput
+  required:
+    - reason_output
+output_schema:
+  type: object
+  properties:
+    steps:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        properties:
+          step_id:
+            type: string
+            description: 步骤唯一标识（如 step_1）
+          tool_name:
+            type: string
+            description: 必须命中 dispatchable Skill ID 或内置工具白名单
+          tool_input:
+            type: object
+            description: 该 step 的入参，需与 tool 的 input_schema 匹配
+          optional:
+            type: boolean
+            default: false
+            description: 是否可选步（optional=true 时失败仅 warning 不中断）
+          description:
+            type: string
+            description: 步骤自然语言描述（供前端 PlanCard 展示）
+        required:
+          - step_id
+          - tool_name
+          - tool_input
+          - description
+    summary:
+      type: string
+      description: Plan 整体概述（供前端 PlanCard 顶部展示）
+  required:
+    - steps
+    - summary

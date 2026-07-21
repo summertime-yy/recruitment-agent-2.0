@@ -1,9 +1,41 @@
 skill_id: orchestrator-reflect-plan
-skill_name: 编排-计划反思
+skill_name: 计划反思
 version: "1.0.0"
-description: R-P-R-A-R 的 Reflect-Plan 段，校验计划合理性（S5-06）
+description: 判定 Plan 是否合理，不合理时给出替代 Plan
+task_type: reflect_plan
+author: recruitment-agent
+tags:
+  - orchestrator
+  - reflect-plan
 internal: true
 max_retries: 0
-
-input_schema: {}
-output_schema: {}
+input_schema:
+  type: object
+  properties:
+    plan:
+      type: object
+      description: PlanOutput
+  required:
+    - plan
+output_schema:
+  type: object
+  properties:
+    is_plan_sound:
+      type: boolean
+    adjusted_plan:
+      type: [object, "null"]
+      description: is_plan_sound=false 时提供替代 Plan（结构同 PlanOutput）；is_plan_sound=true 时为 null
+    issues:
+      type: array
+      items:
+        type: object
+        properties:
+          step_id:
+            type: string
+          issue:
+            type: string
+        required:
+          - issue
+  required:
+    - is_plan_sound
+    - issues

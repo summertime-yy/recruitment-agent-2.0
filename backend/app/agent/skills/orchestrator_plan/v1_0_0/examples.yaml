@@ -1,0 +1,20 @@
+examples:
+  - input:
+      reason_output:
+        task_type: match
+        parsed_entities:
+          jd_id: jd_1
+          keyword: Python
+    output:
+      steps:
+        - step_id: step_1
+          tool_name: search_resumes
+          tool_input:
+            keyword: Python
+          description: 检索 Python 候选人
+        - step_id: step_2
+          tool_name: read_jd
+          tool_input:
+            jd_id: jd_1
+          description: 读取目标 JD 详情
+      summary: 检索 Python 候选人并读取 jd_1
