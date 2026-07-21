@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     LLM_TIMEOUT: int = 60
     LLM_JSON_MODE: bool = False  # 是否强制 response_format=json_object；deepseek-v4-flash(Plan) 不支持，置 False
 
+    # Stage 5 · PR-12 Orchestrator 超时（秒）与全局活跃任务上限
+    skill_timeout_sec: float = 120.0
+    phase_timeout_sec: float = 180.0
+    task_timeout_sec: float = 600.0
+    task_active_limit: int = 10
+
     @property
     def database_url(self) -> str:
         return (
