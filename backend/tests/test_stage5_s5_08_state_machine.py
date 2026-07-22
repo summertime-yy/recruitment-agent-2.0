@@ -53,7 +53,7 @@ async def test_tc_s5_08_3_global_concurrency_429():
     """活跃任务达上限 → 新 chat 返 429 TASK_LIMIT_EXCEEDED。"""
     counter = InMemoryActiveCounter(start=10)
     engine = OrchestratorEngine(active_counter=counter)
-    resp = await engine.run_chat({"user_input": "..."})
+    resp = await engine.start_chat("some user message")
     assert resp["status_code"] == 429
     assert resp["error"] == "TASK_LIMIT_EXCEEDED"
 

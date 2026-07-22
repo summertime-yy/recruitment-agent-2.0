@@ -1,21 +1,24 @@
-"""S5-08 · OrchestratorEngine：R-P-R-A-R 主循环编排（PR-12 + PR-13）。
+"""S5-08 · OrchestratorEngine：R-P-R-A-R 主循环编排（PR-12 + PR-13 + PR-14）。
 
-方法分层（裁定 DECISION §四 Q3）：
-- run_chat        : R -> P -> R (Reason -> Plan -> Reflect-Plan) -> WAITING_CONFIRMATION
-- run_execute     : A -> R (Act -> Reflect-Act) -> COMPLETED / FAILED（PR-13 后台任务真跑）
-- run_skip_to_score: bypass R-P-R，直接 Act -> COMPLETED / FAILED（PR-13 后台任务真跑）
-- run_cancel      : PLANNING / WAITING_CONFIRMATION -> CANCELLED
+方法分层（裁定 DECISION §四 Q3 / §二 Q5 / §八 Q7）：
+- start_chat          : R -> P -> R 异步化，立即返 {task_id, PLANNING}，后台跑 _background_reason_plan
+- _background_reason_plan: R -> P -> Reflect-Plan -> WAITING_CONFIRMATION（PR-14 Q5 异步化）
+- run_execute         : A -> R (Act -> Reflect-Act) -> COMPLETED / FAILED（PR-13 后台任务真跑）
+- run_skip_to_score   : bypass R-P-R，直接 Act -> COMPLETED / FAILED（PR-13 后台任务真跑，PR-14 真 task_id）
+- run_cancel          : PLANNING / WAITING_CONFIRMATION -> CANCELLED
 
-构造依赖注入（DECISION §六 Q6 / §七）：
+构造依赖注入（DECISION §六 Q6 / §七 / §四 Q1）：
 - registry、tool_router 必需可注入
 - active_counter、event_buffer、settings、超时以合理默认值提供
 - event_buffer 提供时，active_counter 自动选用 RedisActiveCounter（共用同一个 Redis）
+- db_updater 可选：Engine 在头尾/终止态回调写 tasks 表（PR-14 Q1 方案 B；INSERT 由 REST 端点侧做）
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.agent.orchestrator import errors as _errors
@@ -30,6 +33,8 @@ from app.agent.orchestrator.state_machine import TaskStatus, check_transition
 from app.agent.orchestrator.tool_router import BUILTIN_TOOLS, ToolRouter
 from app.agent.skill_registry import SkillRegistry, get_skill_registry
 from app.core.config import get_settings
+from app.core.time import utcnow_naive
+from app.models.task import generate_task_id
 from app.schemas.agent import SSEEvent, SSEEventType
 
 logger = logging.getLogger(__name__)
@@ -38,6 +43,9 @@ logger = logging.getLogger(__name__)
 TransitionGuard = state_machine.TransitionGuard
 IllegalTransitionError = _errors.IllegalTransitionError
 TaskLimitExceededError = _errors.TaskLimitExceededError
+
+# db_updater 回调：把 task_id + 字段补丁写进 tasks 表。默认 None（旧测试/纯内存引擎不写库）。
+DbUpdater = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 # tool_name -> 任务级 result artifact.type 映射（PR-13 Q6）
 _ARTIFACT_TYPE_MAP: dict[str, str] = {
@@ -93,11 +101,13 @@ class OrchestratorEngine:
         skill_timeout_sec: float | None = None,
         phase_timeout_sec: float | None = None,
         task_timeout_sec: float | None = None,
+        db_updater: DbUpdater | None = None,
     ):
         self.settings = settings or get_settings()
         self.registry = registry or get_skill_registry()
         self.tool_router = tool_router or ToolRouter(self.registry)
         self.event_buffer = event_buffer
+        self.db_updater = db_updater
         self.skill_timeout_sec = skill_timeout_sec if skill_timeout_sec is not None else self.settings.skill_timeout_sec
         self.phase_timeout_sec = phase_timeout_sec if phase_timeout_sec is not None else self.settings.phase_timeout_sec
         self.task_timeout_sec = task_timeout_sec if task_timeout_sec is not None else self.settings.task_timeout_sec
@@ -204,33 +214,120 @@ class OrchestratorEngine:
         await run_act(plan, ctx=task_input.get("ctx", {}), emit=None, tool_router=tool_router)
         return {"status": "COMPLETED", "error": None}
 
-    # ---- 端点层（Q3 分层）----
-    async def run_chat(self, chat_input: dict[str, Any], db: Any = None, emit: Any = None) -> dict[str, Any]:
+    # ---- 端点层：异步 chat（Q5 (b1)）----
+    async def start_chat(
+        self,
+        user_message: str,
+        context: dict[str, Any] | None = None,
+        db_updater: DbUpdater | None = None,
+    ) -> dict[str, Any]:
+        """发起 R-P-R，立即返 {task_id, PLANNING}（DECISSION §二 (b1)）。
+
+        内部 fire-and-forget 后台跑 ``_background_reason_plan``；INSERT tasks 由
+        REST 端点侧提供的 ``db_updater`` 闭包完成（Engine 不碰 ORM）。
+        """
         try:
             await self.active_counter.incr()
         except TaskLimitExceededError:
             return {"status_code": 429, "error": "TASK_LIMIT_EXCEEDED"}
+        task_id = generate_task_id()
+        updater = db_updater or self.db_updater
+        if updater is not None:
+            await updater(
+                task_id,
+                {"status": "PLANNING", "user_message": user_message, "context": context or {}},
+            )
+        asyncio.create_task(
+            self._background_reason_plan(task_id, user_message, context or {}, updater),
+            name=f"orch-reason-plan-{task_id}",
+        )
+        return {"status_code": 200, "task_id": task_id, "status": "PLANNING"}
+
+    async def _background_reason_plan(
+        self,
+        task_id: str,
+        user_message: str,
+        context: dict[str, Any],
+        db_updater: DbUpdater | None = None,
+    ) -> None:
+        """后台 R-P-R：THINKING（一次性）+ PLAN（实时）+ 终态写 tasks（PR-14 Q5）。"""
+        emit = self._make_emit(task_id)
         try:
-            reason_input = {"user_input": chat_input.get("message", ""), "context": chat_input.get("context")}
-            reason_out = await self.run_reason(reason_input)
+            reason_out = await self.run_reason({"user_input": user_message, "context": context})
+            await emit(
+                SSEEvent(
+                    type=SSEEventType.THINKING,
+                    id="0",
+                    task_id=task_id,
+                    timestamp="",
+                    data={"content": reason_out.get("reasoning") or "reasoning completed"},
+                )
+            )
             reflect_out = await self.run_reflect(reason_out)
             if not reflect_out.get("is_feasible", True):
-                return {
-                    "status_code": 200,
-                    "status": "WAITING_CONFIRMATION",
-                    "plan": None,
-                    "blocking_reason": reflect_out.get("blocking_reason"),
-                }
+                await self._write_task(
+                    db_updater,
+                    task_id,
+                    {"status": "WAITING_CONFIRMATION", "error": {"blocking_reason": reflect_out.get("blocking_reason", "")}},
+                )
+                return
             plan_out = await self.run_plan({"reason_output": reason_out})
+            await emit(
+                SSEEvent(type=SSEEventType.PLAN, id="0", task_id=task_id, timestamp="", data=plan_out)
+            )
             reflect_plan_out = await self.run_reflect_plan({"plan": plan_out})
-            return {
-                "status_code": 200,
-                "status": "WAITING_CONFIRMATION",
-                "plan": plan_out,
-                "reflect_plan": reflect_plan_out,
-            }
+            final_steps = reflect_plan_out.get("steps", plan_out.get("steps", []))
+            if final_steps != plan_out.get("steps"):
+                await emit(
+                    SSEEvent(
+                        type=SSEEventType.PLAN,
+                        id="0",
+                        task_id=task_id,
+                        timestamp="",
+                        data={"steps": final_steps, "reasoning": plan_out.get("reasoning")},
+                    )
+                )
+            final_plan = {"steps": final_steps, "reasoning": plan_out.get("reasoning")}
+            await self._write_task(
+                db_updater,
+                task_id,
+                {"status": "WAITING_CONFIRMATION", "plan": final_plan},
+            )
+        except Exception as e:  # noqa: BLE001 - 后台任务禁止抛异常
+            logger.exception("background reason_plan failed for task=%s", task_id)
+            await self._write_task(
+                db_updater,
+                task_id,
+                {
+                    "status": "FAILED",
+                    "error": {"code": "REASON_PLAN_FAILED", "message": str(e)},
+                    "finished_at": utcnow_naive(),
+                },
+            )
+            try:
+                await emit(
+                    SSEEvent(
+                        type=SSEEventType.ERROR,
+                        id="0",
+                        task_id=task_id,
+                        timestamp="",
+                        data={"code": "REASON_PLAN_FAILED", "message": str(e)},
+                    )
+                )
+                if self.event_buffer is not None:
+                    await self.event_buffer.set_terminal_ttl(task_id)
+            except Exception:  # noqa: BLE001, S110
+                pass
         finally:
-            await self.active_counter.decr()
+            try:
+                await self.active_counter.decr()
+            except Exception:  # noqa: BLE001, S110
+                pass
+
+    @staticmethod
+    async def _write_task(db_updater: DbUpdater | None, task_id: str, patch: dict[str, Any]) -> None:
+        if db_updater is not None:
+            await db_updater(task_id, patch)
 
     # ---- emit 适配器（PR-13 Q3）----
     def _make_emit(self, task_id: str) -> Any:
@@ -261,6 +358,7 @@ class OrchestratorEngine:
         modifications: list[dict[str, Any]] | None = None,
         db: Any = None,
         event_buffer: EventBuffer | None = None,
+        db_updater: DbUpdater | None = None,
     ) -> dict[str, Any]:
         # 状态守卫：非 WAITING_CONFIRMATION -> 抛 IllegalTransitionError（PR-14 REST 层转 409）
         check_transition(TaskStatus.WAITING_CONFIRMATION, TaskStatus.EXECUTING)
@@ -290,7 +388,7 @@ class OrchestratorEngine:
             }
         # 后台跑（不阻塞 HTTP 响应）；收尾 decr 由 _background_execute 负责
         asyncio.create_task(
-            self._background_execute(task_id, plan, buffer),
+            self._background_execute(task_id, plan, buffer, db_updater or self.db_updater),
             name=f"orch-execute-{task_id}",
         )
         return {"status_code": 200, "status": "EXECUTING", "task_id": task_id}
@@ -299,17 +397,17 @@ class OrchestratorEngine:
         self,
         jd_id: str,
         candidate_ids: list[str],
+        task_id: str,
         db: Any = None,
         event_buffer: EventBuffer | None = None,
+        db_updater: DbUpdater | None = None,
     ) -> dict[str, Any]:
         try:
             await self.active_counter.incr()
         except TaskLimitExceededError:
             return {"status_code": 429, "error": "TASK_LIMIT_EXCEEDED"}
-        # bypass R-P-R：PENDING -> EXECUTING
-        check_transition(TaskStatus.PENDING, TaskStatus.EXECUTING)
+        # bypass R-P-R：跳过 PENDING/PLANNING 直接 EXECUTING（状态守卫移除，端点侧已 INSERT 为 EXECUTING）
         buffer = event_buffer or self.event_buffer
-        task_id = f"task_skip_{jd_id}"  # PR-14 REST 层会用真 task_id 覆盖
         plan = {
             "steps": [
                 {
@@ -322,18 +420,19 @@ class OrchestratorEngine:
         }
         # 后台跑；收尾 decr 由 _background_execute 负责
         asyncio.create_task(
-            self._background_execute(task_id, plan, buffer),
+            self._background_execute(task_id, plan, buffer, db_updater or self.db_updater),
             name=f"orch-skip-{task_id}",
         )
-        return {"status_code": 200, "status": "EXECUTING", "jd_id": jd_id, "candidate_ids": candidate_ids}
+        return {"status_code": 200, "status": "EXECUTING", "task_id": task_id, "jd_id": jd_id, "candidate_ids": candidate_ids}
 
     async def _background_execute(
         self,
         task_id: str,
         plan: dict[str, Any],
         buffer: EventBuffer | None,
+        db_updater: DbUpdater | None = None,
     ) -> None:
-        """后台任务：跑 Act + Reflect-Act，收尾发 result 事件 + 设 TTL。
+        """后台任务：跑 Act + Reflect-Act，收尾发 result 事件 + 设 TTL + 写 tasks 终态（PR-13 Q4 + PR-14 Q1）。
 
         try/finally 保证无论成功/失败/超时都 decr 活跃计数（PR-13 Q4）。
         """
@@ -341,6 +440,12 @@ class OrchestratorEngine:
 
         emit = self._make_emit(task_id) if buffer else None
         try:
+            # 起始：写 EXECUTING（Q1 方案 B 第 2 处）
+            await self._write_task(
+                db_updater,
+                task_id,
+                {"status": "EXECUTING", "started_at": utcnow_naive()},
+            )
             results = await asyncio.wait_for(
                 run_act(plan, ctx={"task_id": task_id}, emit=emit, tool_router=self.tool_router),
                 timeout=self.task_timeout_sec,
@@ -354,16 +459,16 @@ class OrchestratorEngine:
                 }
             )
             artifacts = _build_artifacts(results)
+            result_payload = {"content": reflect_act_out.get("final_result", ""), "artifacts": artifacts}
             if buffer is not None:
-                await buffer.append(
-                    task_id,
-                    SSEEventType.RESULT,
-                    {
-                        "content": reflect_act_out.get("final_result", ""),
-                        "artifacts": artifacts,
-                    },
-                )
+                await buffer.append(task_id, SSEEventType.RESULT, result_payload)
                 await buffer.set_terminal_ttl(task_id)
+            # 终态：写 COMPLETED（Q1 方案 B 第 3 处 - 成功）
+            await self._write_task(
+                db_updater,
+                task_id,
+                {"status": "COMPLETED", "finished_at": utcnow_naive(), "result": result_payload},
+            )
         except TimeoutError:
             if buffer is not None:
                 await buffer.append(
@@ -376,6 +481,16 @@ class OrchestratorEngine:
                     },
                 )
                 await buffer.set_terminal_ttl(task_id)
+            # 终态：写 FAILED (TASK_TIMEOUT)
+            await self._write_task(
+                db_updater,
+                task_id,
+                {
+                    "status": "FAILED",
+                    "finished_at": utcnow_naive(),
+                    "error": {"code": "TASK_TIMEOUT", "message": "task overall timeout", "recoverable": False},
+                },
+            )
         except Exception as e:  # noqa: BLE001 - 后台任务禁止抛异常
             logger.exception("background execute failed for task=%s", task_id)
             if buffer is not None:
@@ -392,6 +507,16 @@ class OrchestratorEngine:
                     await buffer.set_terminal_ttl(task_id)
                 except Exception:  # noqa: BLE001, S110
                     pass
+            # 终态：写 FAILED (INTERNAL_ERROR)
+            await self._write_task(
+                db_updater,
+                task_id,
+                {
+                    "status": "FAILED",
+                    "finished_at": utcnow_naive(),
+                    "error": {"code": "INTERNAL_ERROR", "message": str(e), "recoverable": False},
+                },
+            )
         finally:
             try:
                 await self.active_counter.decr()
