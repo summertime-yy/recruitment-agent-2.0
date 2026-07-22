@@ -3,7 +3,7 @@
 
 # 任务
 从用户消息中抽取并输出 JSON：
-- task_type：意图对应的任务类型（如 match / merge_candidates / unknown）
+- task_type：意图对应的任务类型（当前值域：match / merge_candidates / profile_candidate / unknown；无法判定时返 unknown）
 - intent_summary：一句话概括用户意图
 - parsed_entities：结构化实体（jd_id / candidate_ids / keyword 等），缺失则留 null 或空数组
 - missing_entities：要完成意图但当前上下文缺失的实体名列表

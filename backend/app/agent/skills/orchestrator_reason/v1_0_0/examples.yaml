@@ -21,3 +21,15 @@ examples:
         keyword: null
       missing_entities: ["jd_id"]
       confidence: 0.3
+  - input:
+      user_input: "请帮我给候选人 c_1 生成画像标签"
+    output:
+      task_type: profile_candidate
+      intent_summary: 为候选人 c_1 生成候选人画像
+      parsed_entities:
+        jd_id: null
+        candidate_ids:
+          - c_1
+        keyword: null
+      missing_entities: []
+      confidence: 0.9
