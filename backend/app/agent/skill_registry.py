@@ -36,10 +36,7 @@ class SkillRegistry:
             task_type = skill.task_type
             if task_type in self._task_type_to_tool_name:
                 existing = self._task_type_to_tool_name[task_type]
-                raise ValueError(
-                    f"task_type conflict: '{task_type}' claimed by "
-                    f"'{existing}' and '{skill.skill_id}'"
-                )
+                raise ValueError(f"task_type conflict: '{task_type}' claimed by '{existing}' and '{skill.skill_id}'")
             self._task_type_to_tool_name[task_type] = skill.skill_id
 
     def _load_skill(self, skill_dir: Path) -> None:
