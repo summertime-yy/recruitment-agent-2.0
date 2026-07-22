@@ -267,13 +267,14 @@ class OrchestratorEngine:
                 await self._write_task(
                     db_updater,
                     task_id,
-                    {"status": "WAITING_CONFIRMATION", "error": {"blocking_reason": reflect_out.get("blocking_reason", "")}},
+                    {
+                        "status": "WAITING_CONFIRMATION",
+                        "error": {"blocking_reason": reflect_out.get("blocking_reason", "")},
+                    },
                 )
                 return
             plan_out = await self.run_plan({"reason_output": reason_out})
-            await emit(
-                SSEEvent(type=SSEEventType.PLAN, id="0", task_id=task_id, timestamp="", data=plan_out)
-            )
+            await emit(SSEEvent(type=SSEEventType.PLAN, id="0", task_id=task_id, timestamp="", data=plan_out))
             reflect_plan_out = await self.run_reflect_plan({"plan": plan_out})
             final_steps = reflect_plan_out.get("steps", plan_out.get("steps", []))
             if final_steps != plan_out.get("steps"):
@@ -422,7 +423,13 @@ class OrchestratorEngine:
             self._background_execute(task_id, plan, buffer, db_updater or self.db_updater),
             name=f"orch-skip-{task_id}",
         )
-        return {"status_code": 200, "status": "EXECUTING", "task_id": task_id, "jd_id": jd_id, "candidate_ids": candidate_ids}
+        return {
+            "status_code": 200,
+            "status": "EXECUTING",
+            "task_id": task_id,
+            "jd_id": jd_id,
+            "candidate_ids": candidate_ids,
+        }
 
     async def _background_execute(
         self,
