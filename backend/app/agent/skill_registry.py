@@ -13,6 +13,7 @@ class SkillRegistry:
     def __init__(self, skills_dir: Path | None = None):
         self._skills: dict[str, BaseSkill] = {}
         self._skills_dir = skills_dir or _SKILLS_DIR
+        self._task_type_to_tool_name: dict[str, str] = {}
         self._load_all_skills()
 
     def _load_all_skills(self) -> None:
@@ -24,6 +25,22 @@ class SkillRegistry:
             if not skill_dir.is_dir() or skill_dir.name.startswith("_"):
                 continue
             self._load_skill(skill_dir)
+
+        # PR-17（追债项 10 Y 方向）：自动派生 task_type → tool_name 映射表。
+        # 权威源单一 = skill.yaml 的 task_type 字段；冲突时启动即 fail-fast raise，
+        # 避免运行时 silent 冲突（内部 skill 与无 task_type 的 skill 一律跳过）。
+        self._task_type_to_tool_name = {}
+        for skill in self._skills.values():
+            if getattr(skill, "internal", False) or not getattr(skill, "task_type", None):
+                continue
+            task_type = skill.task_type
+            if task_type in self._task_type_to_tool_name:
+                existing = self._task_type_to_tool_name[task_type]
+                raise ValueError(
+                    f"task_type conflict: '{task_type}' claimed by "
+                    f"'{existing}' and '{skill.skill_id}'"
+                )
+            self._task_type_to_tool_name[task_type] = skill.skill_id
 
     def _load_skill(self, skill_dir: Path) -> None:
         try:
@@ -79,6 +96,14 @@ class SkillRegistry:
     def register_skill(self, skill: BaseSkill) -> None:
         self._skills[skill.skill_id] = skill
         logger.info(f"Registered skill: {skill.skill_id} v{skill.version}")
+
+    def get_tool_name_for_task_type(self, task_type: str) -> str | None:
+        """PR-17（追债项 10 Y 方向）：task_type → tool_name 查询。
+
+        映射由 ``_load_all_skills`` 自动派生；本 PR 内部未消费（plan 侧走 Markdown
+        清单动态注入），仅暴露给后续 PR（如未来 reason 侧改动态注入方案 C）。
+        """
+        return self._task_type_to_tool_name.get(task_type)
 
 
 _registry_instance: SkillRegistry | None = None

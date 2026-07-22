@@ -236,7 +236,6 @@ def test_tc_s5_04_6_route_task_type_extract_and_default():
 # TC-PR17-5（PR-17 · 阶段 2 转绿）· registry task_type 冲突检测
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="PR-17 registry task_type→tool_name conflict detection not yet implemented", strict=False)
 async def test_registry_task_type_conflict_raises(tmp_path):
     """两个非 internal skill 声明相同 task_type → SkillRegistry 初始化 raise ValueError。"""
     conflict_dir = tmp_path / "conflict_skills"
