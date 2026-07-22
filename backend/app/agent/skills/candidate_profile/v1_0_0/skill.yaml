@@ -1,0 +1,52 @@
+skill_id: candidate-profile
+skill_name: 候选人画像生成
+version: "1.0.0"
+description: 基于候选人简历结构化解析内容与已有手工标签，生成人才画像标签、摘要、优势与风险
+task_type: profile_candidate
+author: recruitment-agent
+tags:
+  - candidate
+  - profile
+max_retries: 0
+
+input_schema:
+  type: object
+  properties:
+    parsed_content:
+      type: object
+      description: 候选人简历的结构化解析内容（skills / experience / highlights 等）；允许为空对象
+    existing_tags:
+      type: array
+      items:
+        type: string
+      description: 当前候选人已有的手工标签，用于与模型提取的标签合并去重
+  required:
+    - parsed_content
+    - existing_tags
+
+output_schema:
+  type: object
+  properties:
+    profile_tags:
+      type: array
+      items:
+        type: string
+      description: 与 existing_tags 合并并按大小写归一去重后的最终画像标签
+    summary:
+      type: string
+      description: 候选人一句话画像摘要
+    strengths:
+      type: array
+      items:
+        type: string
+      description: 候选人优势点
+    risks:
+      type: array
+      items:
+        type: string
+      description: 候选人需注意的风险点（如空窗期、频繁跳槽）
+  required:
+    - profile_tags
+    - summary
+    - strengths
+    - risks

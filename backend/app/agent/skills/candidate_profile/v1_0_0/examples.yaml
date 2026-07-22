@@ -1,0 +1,35 @@
+examples:
+  - input:
+      parsed_content:
+        name: 张三
+        skills: ["Python", "SQL"]
+        experience_years: 5
+        highlights: ["主导过千万级用户系统"]
+      existing_tags: []
+    output:
+      profile_tags: ["Python", "SQL", "Backend"]
+      summary: "5 年经验后端工程师，主导过千万级用户系统"
+      strengths: ["扎实的分布式经验", "主动 owner 意识"]
+      risks: ["近期存在空窗期"]
+
+  - input:
+      parsed_content:
+        name: 李四
+        skills: ["python", "Django", "React"]
+        experience_years: 3
+        highlights: ["独立交付 B 端中后台"]
+      existing_tags: ["Python", "全栈"]
+    output:
+      profile_tags: ["Python", "Django", "React", "全栈", "Backend"]
+      summary: "3 年经验全栈工程师，独立交付 B 端中后台"
+      strengths: ["前后端通吃", "独立交付能力强"]
+      risks: ["大型系统设计经验不足"]
+
+  - input:
+      parsed_content: {}
+      existing_tags: []
+    output:
+      profile_tags: []
+      summary: "简历内容为空"
+      strengths: []
+      risks: []
