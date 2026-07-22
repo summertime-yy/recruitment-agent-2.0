@@ -7,17 +7,18 @@
 
 ---
 
-## 一、交付概览（5 commit 链）
+## 一、交付概览（6 commit 链，rebase master@107ffa3 后 hash 已重新绑定）
 
 | # | commit | 内容 |
 |---|---|---|
-| 1 | `175f69c` | `test(stage5): PR-17 red-test skeleton (TC-PR17-1..4 + task_type conflict test)` — TDD 红：4 集成测试骨架 + 1 冲突测试骨架，全部 xfail |
-| 2 | `fd0e737` | `feat(stage5): auto-derive task_type→tool_name mapping in SkillRegistry + conflict detection` — Q2 方案 B 落地 |
-| 3a | `7e35105` | `feat(stage5): orchestrator-reason prompt+examples cover profile_candidate` — Q5 方案 B 落地 |
-| 3b | `dd34875` | `feat(stage5): dynamic dispatchable_tools injection in run_plan + orchestrator-plan skill update` — Q1γ + Q3 + Q4 落地 |
-| 4 | `2e76e06` | `test(stage5): TC-PR17-1..4 orchestrator routing end-to-end integration tests` — 4 集成测试转绿（hermetic，mock LLM） |
+| 1 | `bcf8f12` | `test(stage5): PR-17 red-test skeleton (TC-PR17-1..4 + task_type conflict test)` — TDD 红：4 集成测试骨架 + 1 冲突测试骨架，全部 xfail |
+| 2 | `0c85917` | `feat(stage5): auto-derive task_type→tool_name mapping in SkillRegistry + conflict detection` — Q2 方案 B 落地 |
+| 3a | `9947610` | `feat(stage5): orchestrator-reason prompt+examples cover profile_candidate` — Q5 方案 B 落地 |
+| 3b | `3965d3a` | `feat(stage5): dynamic dispatchable_tools injection in run_plan + orchestrator-plan skill update` — Q1γ + Q3 + Q4 落地 |
+| 4 | `bcc6c3b` | `test(stage5): TC-PR17-1..4 orchestrator routing end-to-end integration tests` — 4 集成测试转绿（hermetic，mock LLM） |
+| 5 | `8598712` | `style(stage5): ruff format skill_registry.py (gate 3 remediation)` — FF-merge 评审退回后补的格式修复（多行 `raise ValueError` 压单行） |
 
-外加本 STEP6 报告（docs commit，随本分支推送，AGENTS.md §4.1 docs-only 合规）。
+外加本 STEP6 报告（docs-only，随本分支推送，为分支 tip；AGENTS.md §4.1 docs-only 合规）。
 
 ---
 
@@ -27,10 +28,12 @@
 |---|---|---|
 | 1 · pytest | `cd backend && uv run pytest -q` | ✅ **120 passed**（基线 115 + 4 集成 TC-PR17-1..4 + 1 冲突 TC-PR17-5） |
 | 2 · ruff lint | `cd backend && uv run ruff check app` | ✅ `All checks passed!` |
-| 3 · ruff format | `cd backend && uv run ruff format --check app` | ✅ `51 files already formatted` |
+| 3 · ruff format | `cd backend && uv run ruff format --check app` | ✅ `51 files already formatted`（**rebase 后真实实测**，非初版误报；根因与修复见下方脚注） |
 
 门 1 阈值：基线 115（PR-16 交付后）→ +5 = 120，与 DECISION §十一/§十六 预期一致。
 门 2/3 严格限定 `app/`（与 PR-16 一致）；新增测试文件的 1 处格式问题（TC-PR17-4 装饰器间空行）已在 commit 4 前由 `ruff format` 规整并入。
+
+> **门 3 修订脚注（FF-merge 评审退回后补）**：初版报告声明"51 files already formatted"与评审实测不符——`skill_registry.py` 的 `raise ValueError(...)` 多行形式未压成单行（`line-length=120` 下应单行）。根因：执行体本机跑过 `ruff format` 但**未 commit 该变更**，CWD 残留 uncommitted `M` 与原始 commit 格式一致。已补 `style(stage5): ruff format skill_registry.py`（commit `8598712`）修复，rebase master（`107ffa3`，含 kickoff 三件套，与代码正交无冲突）后 commit hash 全部重新绑定。本次（rebase 后）末次实测门 3 = `51 files already formatted` 为**真实**结果（见下方 §八 新 hash）。
 
 ---
 
@@ -48,7 +51,7 @@
 
 | 文件 | 改动 | commit |
 |---|---|---|
-| `backend/app/agent/skill_registry.py` | 加 `_task_type_to_tool_name` 自动派生 + 冲突 raise + `get_tool_name_for_task_type()` | 2 |
+| `backend/app/agent/skill_registry.py` | 加 `_task_type_to_tool_name` 自动派生 + 冲突 raise + `get_tool_name_for_task_type()` | 2 + 5(style) |
 | `backend/app/agent/orchestrator/engine.py` | 加 `_format_dispatchable_tools()` + `run_plan` 注入 `dispatchable_tools` | 3b |
 | `backend/app/agent/skills/orchestrator_reason/v1_0_0/prompt.md` | 补全 task_type 值域 | 3a |
 | `backend/app/agent/skills/orchestrator_reason/v1_0_0/examples.yaml` | 追加 profile_candidate few-shot | 3a |
@@ -122,11 +125,11 @@ DECISION §十八 列 11 条求助边界，本次执行 **0 条触发**，无静
 
 ## 八、交付物与指挥官 FF-merge 后续（本执行体不代改）
 
-- **分支**：`feat/pr-17-orchestrator-routing-fix`（基于 `00a9c1b`，HEAD = `2e76e06`，已 `-u` 推送 origin）。
-- **三道门全绿**，§十三 11 条边界 0 触发，§五 四条声明 + observation 就位。
+- **分支**：`feat/pr-17-orchestrator-routing-fix`（基于 `00a9c1b` 起分支，已 `git rebase master@107ffa3`；功能交付 commit `bcc6c3b`，style 修复 `8598712`，本 STEP6 报告为分支 tip；待 `git push -f` 至 origin）。
+- **三道门全绿**（rebase 后末次实测：120 passed / ruff check All passed / ruff format 51 files already formatted），§十三 11 条边界 0 触发，§五 四条声明 + observation 就位。
 - **待指挥官在 FF-merge 时统一操作**（依据 DECISION §十四 阶段 6，本执行体不越界代改）：
-  1. `HANDOFF.md §9.1` 状态表：PR-17 = ✅（commit `2e76e06`）；基线 115 → 120。
-  2. `HANDOFF §9.3 追债项`：第 10 条 / 第 11 条改为 **✅ 已收敛（PR-17 `2e76e06`，Y 方向；X/Z 留 Stage 5.2）**；追债项 3 保持开放；追加**新债 12（可选）**：`create_match_score` dangling tool_name 待后续 PR 二选一收敛。
+  1. `HANDOFF.md §9.1` 状态表：PR-17 = ✅（commit `bcc6c3b`）；基线 115 → 120。
+  2. `HANDOFF §9.3 追债项`：第 10 条 / 第 11 条改为 **✅ 已收敛（PR-17 `bcc6c3b`，Y 方向；X/Z 留 Stage 5.2）**；追债项 3 保持开放；追加**新债 12（可选）**：`create_match_score` dangling tool_name 待后续 PR 二选一收敛。
   3. `HANDOFF §9.4 陷阱`：PR-17 起手警惕撤销；追加"PR-18 起手警惕：前端 SSE stream 消费时须知 dispatch 端点已支持自然语言触发 candidate-* skill"。
   4. `HANDOFF §9.6 起手路径`：改写为 PR-18（前端 SSE Hook + ChatCenter）起手指南。
   5. 记忆 `stage5-progress-and-known-limits.md`：PR-17 已合，基线 120，追债 10/11 已收敛 Y 方向。
