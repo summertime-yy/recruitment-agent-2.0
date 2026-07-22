@@ -18,11 +18,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from app.agent.base_skill import BaseSkill
+from app.agent.orchestrator.engine import _build_artifacts
 
 SKILL_DIR = Path(__file__).resolve().parents[1] / "app" / "agent" / "skills" / "candidate_profile" / "v1_0_0"
 
@@ -122,3 +124,40 @@ async def test_tc_s5_11_4_empty_parsed_content(monkeypatch):
 
     assert result.success is True
     assert result.output["profile_tags"] == []
+
+
+def _fake_step(
+    tool_name: str, output: dict[str, Any], *, success: bool = True, step_id: str = "step_1"
+) -> SimpleNamespace:
+    return SimpleNamespace(success=success, output=output, tool_name=tool_name, step_id=step_id)
+
+
+def test_build_artifacts_data_types_preserve_type():
+    """Q5 方案 C：数据型 artifact（candidate_profile / candidate_merge）保留 type 不降级、data 完整、无 ref_id。"""
+    results = [
+        _fake_step(
+            "candidate-profile",
+            {"profile_tags": ["Python"], "summary": "s", "strengths": [], "risks": []},
+        ),
+        _fake_step(
+            "candidate-merge",
+            {"action": "KEEP_SEPARATE", "confidence": 0.1, "recommendation": "x"},
+        ),
+    ]
+    arts = _build_artifacts(results)
+    by_type = {a["type"]: a for a in arts}
+
+    # candidate_profile：type 保持、data 完整、无 ref_id
+    assert by_type["candidate_profile"]["type"] == "candidate_profile"
+    assert by_type["candidate_profile"]["data"] == {
+        "profile_tags": ["Python"],
+        "summary": "s",
+        "strengths": [],
+        "risks": [],
+    }
+    assert "ref_id" not in by_type["candidate_profile"]
+
+    # candidate_merge（PR-15 交付物一并归零）：type 保持、data 完整、无 ref_id
+    assert by_type["candidate_merge"]["type"] == "candidate_merge"
+    assert by_type["candidate_merge"]["data"]["action"] == "KEEP_SEPARATE"
+    assert "ref_id" not in by_type["candidate_merge"]

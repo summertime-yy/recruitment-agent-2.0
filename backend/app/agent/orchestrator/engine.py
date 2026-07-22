@@ -77,7 +77,10 @@ def _build_artifacts(results: list[Any]) -> list[dict[str, Any]]:
             "tool_name": tool_name,
             "type": artifact_type,
         }
-        if artifact_type == "generic":
+        if artifact_type in {"candidate_merge", "candidate_profile"}:
+            # 数据型 artifact：输出即结果、无 DB 引用，保留完整 output 且不降级 type
+            item["data"] = output
+        elif artifact_type == "generic":
             item["data"] = output
         elif ref_id is not None:
             item["ref_id"] = str(ref_id)
