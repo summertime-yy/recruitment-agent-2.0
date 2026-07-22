@@ -1,7 +1,7 @@
 # 招聘 Agent 2.0 阶段性总结与交接文档
 
-> 更新时间：2026-07-21
-> 当前进度：**Stage 5 进行中**（PR-10/11/12/13/15 已合入 master，PR-14 待动工 —— 见 §九）
+> 更新时间：2026-07-22
+> 当前进度：**Stage 5 进行中**（PR-10/11/12/13/14/15 已合入 master，PR-16 待动工 —— 见 §九）
 > 上一阶段：Stage 4（人岗匹配评分）已完成
 > 下一阶段：Stage 5（Agent 对话核心）继续 PR-14 → PR-16 → PR-17/18
 > 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `fb75251`/`6dd41b7`/`bc9545c`（接入真实分 + 匹配面板）；**本追加提交（PR-8 收尾）**：候选人管理页 UI/筛选/关联JD 重构 + ResumeDetail 匹配体验优化（详见 §3.2 / §6.1）
@@ -350,14 +350,14 @@ DATABASE_URL=postgresql+asyncpg://...
 | PR-10 | S5-01 + S5-02 | tasks/executions 表 + SkillRegistry.internal + SSE/Agent Schema | ✅ | 见 git log |
 | PR-11 | S5-04 | Tool Router | ✅ | 6beb25e |
 | PR-12 | S5-05/06/07/08 | 5 个 Orchestrator internal Skill + Engine 主循环 + 状态机 | ✅ | 039171e |
-| PR-13 | S5-03 + S5-07 剩余 | SSE EventBuffer + Redis lifespan DI + Act→Redis 发射 + run_execute 真跑 + run_reflect_act + datetime helpers（决策 B） | ✅ | （待 FF 后回填） |
-| **PR-14** | **S5-09** | **REST 四端点（chat/execute/skip/cancel）+ SSE 流端点** | ⏳ **下一个** | — |
+| PR-13 | S5-03 + S5-07 剩余 | SSE EventBuffer + Redis lifespan DI + Act→Redis 发射 + run_execute 真跑 + run_reflect_act + datetime helpers（决策 B） | ✅ | aa57270 |
+| PR-14 | S5-09 | REST 四端点（chat/execute/skip/cancel）+ SSE 流端点 + Engine 异步 chat + db_updater 回调 | ✅ | 2124953 |
 | PR-15 | S5-10 | candidate-merge Skill | ✅ | 92a322e |
-| PR-16 | S5-11 | candidate-profile Skill | ⏳ | — |
+| **PR-16** | **S5-11** | **candidate-profile Skill** | ⏳ **下一个** | — |
 | PR-17 | S5-12 (+可能 S5-13) | 前端类型 + SSE Hook (+ ChatCenter/CandidateChat) | ⏳ | — |
 | PR-18 | S5-13（若拆分） | 前端 ChatCenter + CandidateChat | ⏳ | — |
 
-**当前 master HEAD**：`4f753a9`（CLAUDE.md 会话导航），FF 合入 PR-13 后将推进 · **当前测试基线**（PR-13 分支上）：101 passed。
+**当前 master HEAD**：`2124953`（PR-14 STEP6 报告）· **当前测试基线**：**110 passed**（PR-13 → PR-14 新增 9：+3 engine 单测 + 6 端点测试）。
 
 ### 9.2 Stage 5 架构约束（PR-13 起生效）
 
@@ -380,18 +380,24 @@ DATABASE_URL=postgresql+asyncpg://...
 4. **fakeredis 覆盖不到真 Redis 边界差异** — pipeline 语义、LTRIM 负索引等边界在 fakeredis 与真 Redis 上可能不一致。Stage 6/后期加 docker-redis 集成测试套件。
 5. **`app/core/redis.py` 全局单例已删除（PR-13）** — 若后续发现历史代码有隐式引用（当前 grep 无匹配），走 `Depends(get_redis)` 补齐。
 6. **DB 列仍为 `TIMESTAMP WITHOUT TIME ZONE`（naive）** — PR-13 §十二 清扫 `datetime.utcnow()` 时发现，`skill_execution_logs.executed_at` 等列是 naive，直接改 tz-aware 会导致 asyncpg 写入失败。PR-13 裁定采用方案 B：新增 `app/core/time.py` 提供 `utcnow_naive()`（落库用）和 `utcnow_aware()`（SSE / 内存 / 日志用）双 helper。**Stage 5.1 需专项 PR 用 Alembic 迁移相关列到 `TIMESTAMPTZ`，然后收敛为单一 `utcnow_aware()`**。详见 `docs/planning/stage5/PR13-HELP-REQUEST-datetime-tz.md`。
+7. **`executions` 表全生命周期未落库**（PR-14 §19.1 引入）— `api-contract.md §4.5`（cancel 写 `executions.status='CANCELLED'`）与 `PLAN-STAGE5.md §5.5`（Act 逐步 executions 记录）**违契**。PR-14 的 cancel/execute 端点仅操作 `tasks` 表；`models/execution.py` 已存在但闲置。**Stage 5.1 专门 PR**：db_updater 回调扩至两张表 + `run_act` 加 per-step callback + cancel 端点同事务内 UPDATE `executions`。详见 `docs/planning/stage5/PR14-KICKOFF-DECISION.md §19.1` + `PR14-STEP6-REPORT.md §五 19.1`。
+8. **`tasks.current_step` 中途不写 DB**（PR-14 §19.2 引入）— db_updater 只在 INSERT/终态触碰；`_background_execute` 中途不 UPDATE。前端进行中步骤高亮**只能从 SSE `tool_call`/`progress` 事件推导**；SSE 断连且 TTL 过期后前端拿不到"进行到哪一步"（属降级路径，可接受）。**与追债项 7 同 PR 补齐**：给 `run_act` 加 `on_step_start` / `on_step_end` callback，db_updater 逐步 UPDATE `current_step`。
+9. **`THINKING` 事件非 token 流**（PR-14 §19.3 引入）— Reason 完成后**一次性**发一条 `THINKING`（summary），Reflect / Reflect-Plan 不 emit thinking。**不在 Stage 5.1 范围**，属 Stage 6+ 独立 PR：Reason skill 接入流式 LLM adapter（`langchain-openai` 的 `astream`），`run_reason` 改为 async generator 逐 token yield，`_background_reason_plan` 逐帧 `emit(THINKING, {"delta": token})`。
 
-### 9.4 已知陷阱（PR-14 起须警惕）
+### 9.4 已知陷阱（PR-16 起须警惕）
 
 1. **`asyncio.create_task` 在 pytest 中泄漏 / hang** — 后台任务若在测试函数返回前未 await，event loop 无法退出，CI 卡住。测试 fixture 必须显式 `asyncio.gather` 所有 `orch-*` 命名 task（PR-13 conftest 已加）。
 2. **`datetime.utcnow()` 已归零，新代码请用 `app.core.time` 的 helpers** — 落库赋值点 → `utcnow_naive()`；其他（SSE / 日志 / 内存） → `utcnow_aware()`；跨 aware/naive 比较 → `_to_naive_utc()` 归一化。
-3. **PR-13 已完成的收尾**（记录以供 PR-14 参考）：`run_execute` 真跑（`asyncio.create_task` fire-and-forget）、`run_reflect_act` 已补齐、`act.py` 加 `_safe_emit` try/except、`RedisActiveCounter` 替代 InMemory（测试仍保留 InMemory）、Result Artifact schema `{step_id, tool_name, type, ref_id?, data?}` 已固化（6 类型）。
+3. **PR-13 已完成的收尾**（记录以供后续 PR 参考）：`run_execute` 真跑（`asyncio.create_task` fire-and-forget）、`run_reflect_act` 已补齐、`act.py` 加 `_safe_emit` try/except、`RedisActiveCounter` 替代 InMemory（测试仍保留 InMemory）、Result Artifact schema `{step_id, tool_name, type, ref_id?, data?}` 已固化（6 类型）。
+4. **`POST /agent/chat` 是异步端点**（PR-14 §19 引入）— 立即返 `{task_id, status:"PLANNING"}`，R-P-R 在后台 `_background_reason_plan` 内跑；前端拿到 task_id 后必须**立即 `GET /agent/tasks/{task_id}/stream`** 才能接住 THINKING/PLAN 事件。**`AgentChatResponse.initial_plan` 字段本 PR 不填**（前端完全依赖 SSE `PLAN` 事件消费）；老代码若期望"chat 同步返 plan"必须适配。
+5. **SSE stream 端点的 `request.is_disconnected()` 在 pytest ASGITransport 下不生效**（PR-14 §五 补充 3）— httpx 测试客户端在 stream 期间不上报 disconnect。所有 SSE 测试改为"让流自然终止"策略（终态 task 走 3b 合成，或在缓冲/心跳用例中后台延迟追加终态 RESULT 事件）。**生产 `_event_stream` 保留 `is_disconnected()` 检测**（真实 ASGI server 下有效），仅测试消费方式适配。
+6. **REST 端点内不显式 `async with db.begin()`**（PR-14 §五 补充 2）— conftest 的 `db_session` fixture 已开事务，嵌套 begin 会 raise "transaction already begun"。cancel 端点改为设值后显式 `await db.commit()`；`with_for_update()` 直接跑在既有事务上。**生产 `get_db` 每请求独立会话，语义不变**。
 
-### 9.5 关键新增文件（PR-10~13 已合入）
+### 9.5 关键新增文件（PR-10~14 已合入）
 
 | 文件 | 用途 |
 |------|------|
-| `backend/app/agent/orchestrator/engine.py` | OrchestratorEngine：R-P-R-A-R 主循环编排 |
+| `backend/app/agent/orchestrator/engine.py` | OrchestratorEngine：R-P-R-A-R 主循环编排（**PR-14** 重构：`run_chat` → `start_chat` + `_background_reason_plan` 异步；`__init__` 增 `db_updater` 回调；`run_skip_to_score` 加 `task_id` 参数） |
 | `backend/app/agent/orchestrator/state_machine.py` | TaskStatus 枚举 + 合法转移矩阵 + TransitionGuard |
 | `backend/app/agent/orchestrator/act.py` | run_act：按 Plan 顺序 dispatch + 发 SSE 事件 |
 | `backend/app/agent/orchestrator/active_counter.py` | 并发计数：InMemory（测试用）+ **RedisActiveCounter**（PR-13，生产用，`task:active` INCR/DECR + 1h TTL） |
@@ -400,14 +406,17 @@ DATABASE_URL=postgresql+asyncpg://...
 | `backend/app/agent/orchestrator/event_buffer.py` | **PR-13 新增**：SSE 事件缓冲（Redis List `sse:buf:{task_id}`、MAXLEN=200、终态 TTL 3600s、`append/read_after/set_terminal_ttl`） |
 | `backend/app/agent/skills/orchestrator_{reason,reflect,plan,reflect_plan,reflect_act}/v1_0_0/` | 5 个 internal Skill（yaml + prompt + examples） |
 | `backend/app/schemas/agent.py` | SSEEvent / SSEEventType / Plan / PlanStep / Agent{Chat,Execute,Skip,Cancel}Request/Response |
-| `backend/app/models/{task,execution}.py` | tasks / executions 表模型（PR-10） |
+| `backend/app/models/{task,execution}.py` | tasks / executions 表模型（PR-10）；executions 表 PR-14 起仍闲置（§9.3 追债 7） |
 | `backend/app/core/redis.py` | **PR-13 重写**：Redis lifespan + `Depends(get_redis)` DI，全局单例已删 |
 | `backend/app/core/time.py` | **PR-13 新增**：`utcnow_aware()` / `utcnow_naive()` / `_to_naive_utc()`（决策 B，双出口 helpers） |
+| `backend/app/api/v1/agent.py` | **PR-14 新增**：Agent REST 端点（chat/execute-plan/skip-to-score/tasks GET/cancel/stream 6 端点）+ `_make_db_updater` 工厂 + `_event_stream` / `_synthesize_from_task` SSE helpers |
+| `backend/tests/api/sse_helpers.py` | **PR-14 新增**：`parse_sse` 帧解析（httpx.stream 消费，不引入 sse-starlette） |
+| `backend/tests/api/test_agent_endpoints.py` | **PR-14 新增**：TC-S5-09-1..6（路由顺序 / 状态码 / Last-Event-ID 重放 / 15s 心跳 / retry:3000 / engine raise → 500） |
 
 ### 9.6 下一位接手 Stage 5 的建议
 
-1. **PR-14 起手**：先读 `docs/planning/stage5/PR13-STEP6-REPORT.md` §五 决策记录 + `PR13-HELP-REQUEST-datetime-tz.md` 拿到 datetime helper 语义；再读 `TASKS-STAGE5.md` §S5-09 找出 4 个 REST 端点 + SSE HTTP 端点契约；最后写 `PR14-KICKOFF-QUESTIONS.md`（走双盲评审前的 pre-kickoff 惯例）。
-2. **不要碰 `docs/planning/stage5/commander/` 和 `executor/` 子目录** —— 双盲评审前的初稿，已被顶层合并版覆盖。
-3. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。
-4. **PR-14 的关键桥梁**：PR-13 的 `run_execute` 用 `asyncio.create_task` fire-and-forget 跑 Act，**没有 DB 状态持久化**。PR-14 需注入 `db_updater` 回调把 in-memory Task 状态回写 `tasks` 表；否则 in-memory 状态漂移会累积。
+1. **PR-16 起手**（S5-11 candidate-profile Skill）：先读 `docs/planning/PLAN-STAGE5.md §S5-11` + `TASKS-STAGE5.md §S5-11` + `TEST-PLAN-STAGE5.md §S5-11`，参考 PR-15 的 `candidate-merge` 结构（`backend/app/agent/skills/candidate_merge/v1_0_0/`）作为模板；然后写 `PR16-KICKOFF-QUESTIONS.md` 走 kickoff 惯例。**注意 §9.3 追债项 3**：新增 tool_name 必须同步更新 `_ARTIFACT_TYPE_MAP`（engine.py:43-49）与前端卡片渲染器，否则走 `generic` fallback。
+2. **PR-17 起手**（S5-12 前端 SSE Hook + ChatCenter）：**必须先读 PR-14 §9.4 陷阱 4**——`chat` 是异步端点，`initial_plan` 不再返；前端必须 `chat → 拿 task_id → 立即 stream` 两步；PlanCard 从 SSE `PLAN` 事件消费，不从 HTTP body。api-contract §3.3/§4.1 已固化。
+3. **不要碰 `docs/planning/stage5/commander/` 和 `executor/` 子目录** —— 双盲评审前的初稿，已被顶层合并版覆盖。
+4. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。当前 master HEAD = `2124953`（PR-14 STEP6），基线 **110 passed**。
 5. **完成一个 PR 后**：更新本节 9.1 表格的状态与合入 commit；更新 9.4 陷阱表（如果新踩到坑）；`git push origin --delete feat/pr-NN-...` 清远端 feat 分支。
