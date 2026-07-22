@@ -13,14 +13,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.orchestrator.engine import DbUpdater, OrchestratorEngine
 from app.agent.orchestrator.event_buffer import EventBuffer
+from app.core.config import get_settings
 from app.core.database import async_session_factory, get_db
 from app.core.redis import get_redis
 from app.core.time import utcnow_naive
@@ -30,6 +35,7 @@ from app.schemas.agent import (
     CancelTaskResponse,
     ExecutePlanRequest,
     SkipToScoreRequest,
+    SSEEvent,
     SSEEventType,
     TaskStatus,
 )
@@ -168,6 +174,111 @@ async def skip_to_score(
     if resp.get("status_code") == 429:
         _raise_429()
     return {"task_id": task_id, "status": "EXECUTING"}
+
+
+# ---- SSE 流（Q2/Q3/Q4/Q8）----
+def _format_sse(ev_type: SSEEventType, data: Any, ev_id: str | None = None) -> str:
+    """把单个事件格式化为 SSE 帧：id / event / data + 尾部空行（§3.2）。"""
+    lines = []
+    if ev_id is not None:
+        lines.append(f"id: {ev_id}")
+    lines.append(f"event: {ev_type.value}")
+    data_str = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
+    lines.append(f"data: {data_str}")
+    return "\n".join(lines) + "\n\n"
+
+
+def _is_terminal(ev: SSEEvent) -> bool:
+    """终态关流条件（Q3）：result / error 事件，或 system:cancelled。"""
+    if ev.type in (SSEEventType.RESULT, SSEEventType.ERROR):
+        return True
+    if ev.type == SSEEventType.SYSTEM and isinstance(ev.data, dict) and ev.data.get("message") == "cancelled":
+        return True
+    return False
+
+
+async def _event_stream(
+    task_id: str,
+    last_event_id: int,
+    buffer: EventBuffer,
+    heartbeat_sec: float,
+    request: Request,
+):
+    """SSE 主循环：先回放已有事件，再 100ms 轮询新事件 + wall-clock 心跳，终态关流（Q2/Q4）。
+
+    每轮检查客户端断线（§十三#4）：断连立即退出，避免生成器僵尸。
+    """
+    yield "retry: 3000\n\n"
+    last_seq = last_event_id
+    last_heartbeat = time.monotonic()
+    # 首帧回放（含 Last-Event-ID 重放）
+    events = await buffer.read_after(task_id, last_seq)
+    for ev in events:
+        yield _format_sse(ev.type, ev.data, ev.id)
+        last_seq = int(ev.id)
+        if _is_terminal(ev):
+            return
+    while True:
+        if await request.is_disconnected():
+            return
+        events = await buffer.read_after(task_id, last_seq)
+        for ev in events:
+            yield _format_sse(ev.type, ev.data, ev.id)
+            last_seq = int(ev.id)
+            if _is_terminal(ev):
+                return
+        now = time.monotonic()
+        if now - last_heartbeat >= heartbeat_sec:
+            # 心跳不入 EventBuffer（PLAN §Q5）：瞬时下发，无 id 行
+            yield _format_sse(SSEEventType.SYSTEM, {"message": "heartbeat"})
+            last_heartbeat = now
+        await asyncio.sleep(0.1)
+
+
+async def _synthesize_from_task(task: Task):
+    """Q8-3b：终态且缓冲已过期（空）→ 从 tasks.result/error 合成事件帧。"""
+    yield "retry: 3000\n\n"
+    if task.status == "COMPLETED" and task.result:
+        yield _format_sse(SSEEventType.RESULT, task.result, "1")
+    elif task.status == "FAILED" and task.error:
+        yield _format_sse(SSEEventType.ERROR, task.error, "1")
+    elif task.status == "CANCELLED":
+        yield _format_sse(SSEEventType.SYSTEM, {"message": "cancelled"}, "1")
+
+
+@router.get("/tasks/{task_id}/stream")
+async def stream_task(
+    task_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    engine: OrchestratorEngine = Depends(get_engine),
+    settings: Any = Depends(get_settings),
+):
+    """SSE 事件流（Q2 100ms 轮询 / Q3 关流 / Q4 心跳 / Q8 合成）。
+
+    路由声明先于 ``/tasks/{task_id}``（PLAN §Q11），确保 /stream 子路径不被 {task_id} 吞掉。
+    """
+    # 场景 1：不存在 → 404
+    result = await db.execute(select(Task).where(Task.task_id == task_id))
+    task = result.scalar_one_or_none()
+    if task is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "TASK_NOT_FOUND", "message": f"task_id={task_id} not found"},
+        )
+    buffer = engine.event_buffer
+    last_event_id = int(request.headers.get("Last-Event-ID", 0) or 0)
+    # 场景 3：终态 + 缓冲空 → 从 DB 合成事件
+    buffered = await buffer.read_after(task_id, last_event_id) if buffer is not None else []
+    if not buffered and task.status in {"COMPLETED", "FAILED", "CANCELLED"}:
+        return StreamingResponse(_synthesize_from_task(task), media_type="text/event-stream")
+    # 场景 2：正常 stream（buffer 必存在；否则退化为心跳循环）
+    if buffer is None:
+        buffer = EventBuffer(get_redis(request))
+    return StreamingResponse(
+        _event_stream(task_id, last_event_id, buffer, settings.sse_heartbeat_interval_sec, request),
+        media_type="text/event-stream",
+    )
 
 
 @router.get("/tasks/{task_id}")

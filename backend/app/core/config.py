@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     task_timeout_sec: float = 600.0
     task_active_limit: int = 10
 
+    # Stage 5 · PR-14 SSE 心跳间隔（秒，Q4 方案 B）
+    sse_heartbeat_interval_sec: float = 15.0
+
     @property
     def database_url(self) -> str:
         return (
