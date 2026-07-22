@@ -1,9 +1,9 @@
 # 招聘 Agent 2.0 阶段性总结与交接文档
 
 > 更新时间：2026-07-22
-> 当前进度：**Stage 5 进行中**（PR-10/11/12/13/14/15 已合入 master，PR-16 待动工 —— 见 §九）
+> 当前进度：**Stage 5 进行中**（PR-10/11/12/13/14/15/16 已合入 master，PR-17 待动工 —— 见 §九）
 > 上一阶段：Stage 4（人岗匹配评分）已完成
-> 下一阶段：Stage 5（Agent 对话核心）继续 PR-14 → PR-16 → PR-17/18
+> 下一阶段：Stage 5（Agent 对话核心）继续 PR-17（**追债项 10+11 收敛：Orchestrator 端到端路由修复**）→ PR-18/19（前端 SSE Hook + ChatCenter/CandidateChat）
 > 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `fb75251`/`6dd41b7`/`bc9545c`（接入真实分 + 匹配面板）；**本追加提交（PR-8 收尾）**：候选人管理页 UI/筛选/关联JD 重构 + ResumeDetail 匹配体验优化（详见 §3.2 / §6.1）
 > 面向读者：下一位系统架构师 / 开发者
 
@@ -353,11 +353,12 @@ DATABASE_URL=postgresql+asyncpg://...
 | PR-13 | S5-03 + S5-07 剩余 | SSE EventBuffer + Redis lifespan DI + Act→Redis 发射 + run_execute 真跑 + run_reflect_act + datetime helpers（决策 B） | ✅ | aa57270 |
 | PR-14 | S5-09 | REST 四端点（chat/execute/skip/cancel）+ SSE 流端点 + Engine 异步 chat + db_updater 回调 | ✅ | 2124953 |
 | PR-15 | S5-10 | candidate-merge Skill | ✅ | 92a322e |
-| **PR-16** | **S5-11** | **candidate-profile Skill** | ⏳ **下一个** | — |
-| PR-17 | S5-12 (+可能 S5-13) | 前端类型 + SSE Hook (+ ChatCenter/CandidateChat) | ⏳ | — |
-| PR-18 | S5-13（若拆分） | 前端 ChatCenter + CandidateChat | ⏳ | — |
+| PR-16 | S5-11 | candidate-profile Skill + engine 数据型 artifact 出口补齐 | ✅ | ab99b43 |
+| **PR-17** | **追债项 10+11 收敛** | **Orchestrator 端到端路由修复（reason/plan skill 补 dispatchable 清单 + task_type→tool_name 映射表）** | ⏳ **下一个** | — |
+| PR-18 | S5-12 | 前端类型 + SSE Hook + ChatCenter | ⏳ | — |
+| PR-19 | S5-13（若拆分） | 前端 CandidateChat | ⏳ | — |
 
-**当前 master HEAD**：`2124953`（PR-14 STEP6 报告）· **当前测试基线**：**110 passed**（PR-13 → PR-14 新增 9：+3 engine 单测 + 6 端点测试）。
+**当前 master HEAD**：`66d242c`（PR-16 STEP6 报告）· **当前测试基线**：**115 passed**（PR-14 → PR-16 新增 5：+4 TC-S5-11-1..4 skill 单测 + 1 engine `_build_artifacts` 数据型 artifact 单测）。
 
 ### 9.2 Stage 5 架构约束（PR-13 起生效）
 
@@ -383,8 +384,10 @@ DATABASE_URL=postgresql+asyncpg://...
 7. **`executions` 表全生命周期未落库**（PR-14 §19.1 引入）— `api-contract.md §4.5`（cancel 写 `executions.status='CANCELLED'`）与 `PLAN-STAGE5.md §5.5`（Act 逐步 executions 记录）**违契**。PR-14 的 cancel/execute 端点仅操作 `tasks` 表；`models/execution.py` 已存在但闲置。**Stage 5.1 专门 PR**：db_updater 回调扩至两张表 + `run_act` 加 per-step callback + cancel 端点同事务内 UPDATE `executions`。详见 `docs/planning/stage5/PR14-KICKOFF-DECISION.md §19.1` + `PR14-STEP6-REPORT.md §五 19.1`。
 8. **`tasks.current_step` 中途不写 DB**（PR-14 §19.2 引入）— db_updater 只在 INSERT/终态触碰；`_background_execute` 中途不 UPDATE。前端进行中步骤高亮**只能从 SSE `tool_call`/`progress` 事件推导**；SSE 断连且 TTL 过期后前端拿不到"进行到哪一步"（属降级路径，可接受）。**与追债项 7 同 PR 补齐**：给 `run_act` 加 `on_step_start` / `on_step_end` callback，db_updater 逐步 UPDATE `current_step`。
 9. **`THINKING` 事件非 token 流**（PR-14 §19.3 引入）— Reason 完成后**一次性**发一条 `THINKING`（summary），Reflect / Reflect-Plan 不 emit thinking。**不在 Stage 5.1 范围**，属 Stage 6+ 独立 PR：Reason skill 接入流式 LLM adapter（`langchain-openai` 的 `astream`），`run_reason` 改为 async generator 逐 token yield，`_background_reason_plan` 逐帧 `emit(THINKING, {"delta": token})`。
+10. **`task_type` 三命名空间共存**（PR-16 §19.1 引入，canonical 表述见 `PR16-KICKOFF-DECISION.md §十九`）— `skill_id` / `tool_name`（连字符 lowercase，如 `candidate-profile`）≠ `skill.yaml.task_type`（下划线 lowercase，如 `profile_candidate`）≠ `tasks.task_type` DB 列（SCREAMING，如 `PROFILE_CANDIDATE`）三层同名不同义。**LLM 需自行完成"下划线→连字符"翻译，可靠性无保证**；前端消费两套 task_type 易迷惑。**Stage 5.1 收敛方向**（**必须与追债项 11 同 PR 收敛**）：拆字段名（skill 侧改 `dispatch_key`）or 引入 `task_type → tool_name` 映射表 or 对齐 DB 列。触发条件：多进程部署前 / 前端消费两套 task_type 迷惑时 / 追债项 11 修复启动时。**PR-17 起手即处理**（追债项 10+11 同 PR 收敛）。
+11. **orchestrator reason/plan 未登记 dispatchable Skill，自然语言路由不通**（PR-16 §19.2 引入，跨 PR-15/16 共同债务，canonical 表述见 `PR16-KICKOFF-DECISION.md §十九`）— `orchestrator_reason/prompt.md` 仅列 `match / merge_candidates / unknown`（缺 `profile_candidate`）；`orchestrator_plan/prompt.md` 未注入 dispatchable 清单；`orchestrator_plan/examples.yaml` 仅示范 `search_resumes / read_jd`；`engine.py:153 run_plan` 不动态注入 registry。**结论**：当前经"自然语言 → reason → plan"能 dispatch 的 tool_name 只有 `search_resumes / read_jd`；`candidate-merge / candidate-profile / jd-candidate-matching` 均无法通过用户自然语言触发（`create_match_score` 靠 `agent.py:149` REST 端点硬编码 plan 绕开）。**风险等级：中高**。**Stage 5.1 收敛方向**（**必须与追债项 10 同 PR 收敛**）：reason 补全值域 + plan 动态注入 dispatchable 清单 + 引入 task_type→tool_name 映射 + 端到端集成测试。**PR-17 起手即处理**。
 
-### 9.4 已知陷阱（PR-16 起须警惕）
+### 9.4 已知陷阱（PR-17 起须警惕）
 
 1. **`asyncio.create_task` 在 pytest 中泄漏 / hang** — 后台任务若在测试函数返回前未 await，event loop 无法退出，CI 卡住。测试 fixture 必须显式 `asyncio.gather` 所有 `orch-*` 命名 task（PR-13 conftest 已加）。
 2. **`datetime.utcnow()` 已归零，新代码请用 `app.core.time` 的 helpers** — 落库赋值点 → `utcnow_naive()`；其他（SSE / 日志 / 内存） → `utcnow_aware()`；跨 aware/naive 比较 → `_to_naive_utc()` 归一化。
@@ -392,6 +395,7 @@ DATABASE_URL=postgresql+asyncpg://...
 4. **`POST /agent/chat` 是异步端点**（PR-14 §19 引入）— 立即返 `{task_id, status:"PLANNING"}`，R-P-R 在后台 `_background_reason_plan` 内跑；前端拿到 task_id 后必须**立即 `GET /agent/tasks/{task_id}/stream`** 才能接住 THINKING/PLAN 事件。**`AgentChatResponse.initial_plan` 字段本 PR 不填**（前端完全依赖 SSE `PLAN` 事件消费）；老代码若期望"chat 同步返 plan"必须适配。
 5. **SSE stream 端点的 `request.is_disconnected()` 在 pytest ASGITransport 下不生效**（PR-14 §五 补充 3）— httpx 测试客户端在 stream 期间不上报 disconnect。所有 SSE 测试改为"让流自然终止"策略（终态 task 走 3b 合成，或在缓冲/心跳用例中后台延迟追加终态 RESULT 事件）。**生产 `_event_stream` 保留 `is_disconnected()` 检测**（真实 ASGI server 下有效），仅测试消费方式适配。
 6. **REST 端点内不显式 `async with db.begin()`**（PR-14 §五 补充 2）— conftest 的 `db_session` fixture 已开事务，嵌套 begin 会 raise "transaction already begun"。cancel 端点改为设值后显式 `await db.commit()`；`with_for_update()` 直接跑在既有事务上。**生产 `get_db` 每请求独立会话，语义不变**。
+7. **`candidate-* skill 均为"孤立 Skill"，自然语言路由不通**（PR-16 §19.2 追债项 11）— `candidate-merge` / `candidate-profile` / `jd-candidate-matching` 当前**只能通过 REST 硬编码 plan 或前端手工拼装 plan 触发**，无法通过 `POST /agent/chat` 自然语言用户消息触发。**前端 chat → SSE 流仅能拿到 THINKING + PLAN + RESULT 事件**，不能期待 candidate-* skill 通过自然语言被触发。**PR-17 起手即修路由，前端 PR-18/19 起手前需确认路由已合入**。
 
 ### 9.5 关键新增文件（PR-10~14 已合入）
 
@@ -412,11 +416,13 @@ DATABASE_URL=postgresql+asyncpg://...
 | `backend/app/api/v1/agent.py` | **PR-14 新增**：Agent REST 端点（chat/execute-plan/skip-to-score/tasks GET/cancel/stream 6 端点）+ `_make_db_updater` 工厂 + `_event_stream` / `_synthesize_from_task` SSE helpers |
 | `backend/tests/api/sse_helpers.py` | **PR-14 新增**：`parse_sse` 帧解析（httpx.stream 消费，不引入 sse-starlette） |
 | `backend/tests/api/test_agent_endpoints.py` | **PR-14 新增**：TC-S5-09-1..6（路由顺序 / 状态码 / Last-Event-ID 重放 / 15s 心跳 / retry:3000 / engine raise → 500） |
+| `backend/app/agent/skills/candidate_profile/v1_0_0/{skill.yaml,prompt.md,examples.yaml}` | **PR-16 新增**：candidate-profile Skill 三件套（`skill_id: candidate-profile` / `task_type: profile_candidate` / 合规约束 / 4 字段强约束 / 3 few-shot） |
+| `backend/tests/test_stage5_s5_11_candidate_profile.py` | **PR-16 新增**：TC-S5-11-1..4 + engine 数据型 artifact 单测（`test_build_artifacts_data_types_preserve_type`） |
 
 ### 9.6 下一位接手 Stage 5 的建议
 
-1. **PR-16 起手**（S5-11 candidate-profile Skill）：先读 `docs/planning/PLAN-STAGE5.md §S5-11` + `TASKS-STAGE5.md §S5-11` + `TEST-PLAN-STAGE5.md §S5-11`，参考 PR-15 的 `candidate-merge` 结构（`backend/app/agent/skills/candidate_merge/v1_0_0/`）作为模板；然后写 `PR16-KICKOFF-QUESTIONS.md` 走 kickoff 惯例。**注意 §9.3 追债项 3**：新增 tool_name 必须同步更新 `_ARTIFACT_TYPE_MAP`（engine.py:43-49）与前端卡片渲染器，否则走 `generic` fallback。
-2. **PR-17 起手**（S5-12 前端 SSE Hook + ChatCenter）：**必须先读 PR-14 §9.4 陷阱 4**——`chat` 是异步端点，`initial_plan` 不再返；前端必须 `chat → 拿 task_id → 立即 stream` 两步；PlanCard 从 SSE `PLAN` 事件消费，不从 HTTP body。api-contract §3.3/§4.1 已固化。
+1. **PR-17 起手**（追债项 10+11 收敛：Orchestrator 端到端路由修复）：**必读 `PR16-KICKOFF-DECISION.md §十九` 追债项 10/11 canonical 表述** + `PR17-KICKOFF-QUESTIONS.md`（PR-17 kickoff 已完成，等待指挥官裁定）。**特别注意**：`candidate-* skill 当前均为孤立 Skill，自然语言路由不通`（§9.4 陷阱 7），PR-17 目标就是修通。起手 master HEAD = `66d242c`，基线 115 passed。
+2. **PR-18 起手**（S5-12 前端 SSE Hook + ChatCenter）：**必须先读 PR-14 §9.4 陷阱 4**——`chat` 是异步端点，`initial_plan` 不再返；前端必须 `chat → 拿 task_id → 立即 stream` 两步；PlanCard 从 SSE `PLAN` 事件消费，不从 HTTP body。api-contract §3.3/§4.1 已固化。**起手前确认 PR-17 已合入 master**（路由修通后前端 chat 才能触发 candidate-* skill）。
 3. **不要碰 `docs/planning/stage5/commander/` 和 `executor/` 子目录** —— 双盲评审前的初稿，已被顶层合并版覆盖。
-4. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。当前 master HEAD = `2124953`（PR-14 STEP6），基线 **110 passed**。
+4. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。当前 master HEAD = `66d242c`（PR-16 STEP6），基线 **115 passed**。
 5. **完成一个 PR 后**：更新本节 9.1 表格的状态与合入 commit；更新 9.4 陷阱表（如果新踩到坑）；`git push origin --delete feat/pr-NN-...` 清远端 feat 分支。
