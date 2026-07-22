@@ -15,6 +15,9 @@ input_schema:
     reason_output:
       type: object
       description: ReasonOutput
+    dispatchable_tools:
+      type: string
+      description: 当前 registry 可派单的工具清单（Markdown 列表，运行时由 engine 注入）
   required:
     - reason_output
 output_schema:

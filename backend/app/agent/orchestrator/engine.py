@@ -126,6 +126,22 @@ class OrchestratorEngine:
         names += [s.skill_id for s in self.registry.list_dispatchable()]
         return names
 
+    # ---- dispatchable 清单格式化（PR-17 追债项 11）----
+    def _format_dispatchable_tools(self) -> str:
+        """把当前 registry 全量 dispatchable 工具格式化为 Markdown 列表（含内置工具）。
+
+        与 ``dispatchable_tool_names`` 口径一致（BUILTIN_TOOLS + list_dispatchable），
+        供 plan skill 的 USER_TEMPLATE ``{{ dispatchable_tools }}`` 占位注入。
+        """
+        lines = ["可用工具列表："]
+        for name in sorted(BUILTIN_TOOLS.keys()):
+            desc = BUILTIN_TOOLS[name].get("description", "")
+            lines.append(f"- `{name}`（内置工具）：{desc}")
+        for skill in self.registry.list_dispatchable():
+            tt_note = f"（task_type: {skill.task_type}）" if skill.task_type else ""
+            lines.append(f"- `{skill.skill_id}`{tt_note}：{skill.description}")
+        return "\n".join(lines)
+
     # ---- R: Reason ----
     async def run_reason(self, reason_input: dict[str, Any]) -> dict[str, Any]:
         skill = self.registry.get("orchestrator-reason")
@@ -157,6 +173,8 @@ class OrchestratorEngine:
         skill = self.registry.get("orchestrator-plan")
         if skill is None:
             return {"success": False, "steps": [], "summary": ""}
+        # PR-17（追债项 11）：动态注入 dispatchable 工具清单到 plan prompt（不入原 dict）
+        plan_input = {**plan_input, "dispatchable_tools": self._format_dispatchable_tools()}
         result = await skill.execute(plan_input)
         if not result.success:
             return {"success": False, "steps": [], "summary": "", "error": result.error_message}
