@@ -34,7 +34,6 @@ from app.agent.orchestrator.tool_router import BUILTIN_TOOLS, ToolRouter
 from app.agent.skill_registry import SkillRegistry, get_skill_registry
 from app.core.config import get_settings
 from app.core.time import utcnow_naive
-from app.models.task import generate_task_id
 from app.schemas.agent import SSEEvent, SSEEventType
 
 logger = logging.getLogger(__name__)
@@ -217,20 +216,20 @@ class OrchestratorEngine:
     # ---- 端点层：异步 chat（Q5 (b1)）----
     async def start_chat(
         self,
+        task_id: str,
         user_message: str,
         context: dict[str, Any] | None = None,
         db_updater: DbUpdater | None = None,
     ) -> dict[str, Any]:
         """发起 R-P-R，立即返 {task_id, PLANNING}（DECISSION §二 (b1)）。
 
-        内部 fire-and-forget 后台跑 ``_background_reason_plan``；INSERT tasks 由
-        REST 端点侧提供的 ``db_updater`` 闭包完成（Engine 不碰 ORM）。
+        ``task_id`` 由 REST 端点侧生成并完成 tasks 行 INSERT（Engine 不碰 ORM）；
+        本方法仅做活跃计数 + fire-and-forget 后台跑 ``_background_reason_plan``。
         """
         try:
             await self.active_counter.incr()
         except TaskLimitExceededError:
             return {"status_code": 429, "error": "TASK_LIMIT_EXCEEDED"}
-        task_id = generate_task_id()
         updater = db_updater or self.db_updater
         if updater is not None:
             await updater(

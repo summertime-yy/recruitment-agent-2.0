@@ -33,10 +33,10 @@ async def _make_engine(fake_redis, db_updater=None):
 async def test_engine_1_start_chat_returns_task_id_and_inserts_planning(fake_redis, mock_llm):
     db_updater = AsyncMock()
     eng, _ = await _make_engine(fake_redis, db_updater=db_updater)
-    resp = await eng.start_chat("hello", context={"jd_id": "jd_1"})
+    resp = await eng.start_chat("task_x1", "hello", context={"jd_id": "jd_1"})
     assert resp["status_code"] == 200
     assert resp["status"] == "PLANNING"
-    assert resp["task_id"].startswith("task_")
+    assert resp["task_id"] == "task_x1"
     # 立即 INSERT PLANNING（Q5 (b1) 异步化 + Q1 方案 B）
     db_updater.assert_awaited()
     first_call = db_updater.call_args_list[0]
