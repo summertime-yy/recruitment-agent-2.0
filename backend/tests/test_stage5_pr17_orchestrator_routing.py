@@ -72,7 +72,6 @@ def _assert_dispatchable_injected(plan_user_prompt: str) -> None:
 # TC-PR17-1 · candidate-profile 端到端（正向）
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="PR-17 not yet implemented: dispatchable_tools not injected into run_plan", strict=False)
 async def test_tc_pr17_1_candidate_profile_e2e(monkeypatch):
     """自然语言 → reason(profile_candidate) → plan(candidate-profile) → reflect_plan 通过。"""
     captured: dict[str, str] = {}
@@ -97,7 +96,6 @@ async def test_tc_pr17_1_candidate_profile_e2e(monkeypatch):
 # TC-PR17-2 · candidate-merge 端到端（正向）
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="PR-17 not yet implemented: dispatchable_tools not injected into run_plan", strict=False)
 async def test_tc_pr17_2_candidate_merge_e2e(monkeypatch):
     """PR-15 交付的孤立 skill candidate-merge 现可通过自然语言路由。"""
     captured: dict[str, str] = {}
@@ -121,7 +119,6 @@ async def test_tc_pr17_2_candidate_merge_e2e(monkeypatch):
 # TC-PR17-3 · jd-candidate-matching 端到端（正向）
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="PR-17 not yet implemented: dispatchable_tools not injected into run_plan", strict=False)
 async def test_tc_pr17_3_jd_candidate_matching_e2e(monkeypatch):
     """Stage 4 遗留 skill jd-candidate-matching 也接入自然语言路由。"""
     captured: dict[str, str] = {}
@@ -145,7 +142,7 @@ async def test_tc_pr17_3_jd_candidate_matching_e2e(monkeypatch):
 # TC-PR17-4 · plan 输出非法 tool_name → reflect_plan 挡下（反向 · Q7 校验）
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="PR-17 verifying reflect_plan existing guard; will pass (XPASS) pre-impl, green on commit 4", strict=False)
+
 async def test_tc_pr17_4_invalid_tool_blocked_by_reflect_plan(monkeypatch):
     """plan LLM 输出未注册 tool_name → run_reflect_plan 返 is_plan_sound=False + issues。"""
     async def _fake_llm_json(system_prompt: str, user_prompt: str) -> dict[str, Any]:
