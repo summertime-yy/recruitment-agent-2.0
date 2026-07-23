@@ -20,7 +20,6 @@ describe('agentApi (S5-12)', () => {
       caught = e;
     }
     expect(caught).not.toBeNull();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((caught as any).response.status).toBe(429);
+    expect((caught as { response?: { status: number } }).response?.status).toBe(429);
   });
 });

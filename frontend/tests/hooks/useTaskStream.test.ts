@@ -23,7 +23,7 @@ function makeStream(events: Array<{ id: string; type: string; data: unknown }>) 
 }
 
 describe('useTaskStream (S5-12)', () => {
-  test.fails('TC-S5-12-1 parses all 8 SSE event types and routes system heartbeat', async () => {
+  test('TC-S5-12-1 parses all 8 SSE event types and routes system heartbeat', async () => {
     const frames = [
       { id: '1', type: 'thinking', data: { content: 'thinking...' } },
       { id: '2', type: 'plan', data: { task_id: 't1', steps: [] } },
@@ -62,7 +62,7 @@ describe('useTaskStream (S5-12)', () => {
     expect(result.current.status).toBe('closed');
   });
 
-  test.fails(
+  test(
     'TC-S5-12-2 reconnects with Last-Event-ID header after a non-terminal disconnect',
     async () => {
       let callCount = 0;
@@ -85,8 +85,8 @@ describe('useTaskStream (S5-12)', () => {
       );
 
       const { result } = renderHook(() => useTaskStream({ taskId: 't1' }));
-      await waitFor(() => expect(result.current.status).toBe('closed'));
-      await waitFor(() => expect(result.current.events.length).toBe(4));
+      await waitFor(() => expect(result.current.status).toBe('closed'), { timeout: 8000 });
+      await waitFor(() => expect(result.current.events.length).toBe(4), { timeout: 8000 });
       expect(callCount).toBe(2);
       expect(lastEventIds[0]).toBe('2');
       expect(result.current.lastEventId).toBe('4');

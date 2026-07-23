@@ -2,7 +2,6 @@ import { describe, test, expectTypeOf } from 'vitest';
 import type {
   SSEEvent,
   SSEEventType,
-  Plan,
   PlanStep,
   AgentChatResponse,
   TaskStatus,
