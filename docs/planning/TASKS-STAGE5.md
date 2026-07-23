@@ -22,8 +22,8 @@
 | S5-09 | REST 四端点 + SSE 流端点 + 取消端点（路由顺序） | backend | S5-03, S5-08 | **PR-14** |
 | S5-10 | candidate-merge Skill（C1） | backend | S5-01, S5-02 | **PR-15** |
 | S5-11 | candidate-profile Skill（C2） | backend | S5-01, S5-02 | **PR-16** |
-| S5-12 | 前端类型 + SSE 客户端 Hook | frontend | S5-02 | **PR-17** |
-| S5-13 | 前端 ChatCenter + CandidateChat 页面 | frontend | S5-09, S5-12 | **PR-17（合）/ PR-18（拆）** |
+| S5-12 | 前端类型 + SSE 客户端 Hook | frontend | S5-02 | **PR-18** |
+| S5-13 | 前端 ChatCenter + CandidateChat 页面 | frontend | S5-09, S5-12 | **PR-19** |
 
 > 关键路径：`S5-01 → S5-02 → S5-04 → S5-05 → S5-06 → S5-07 → S5-08 → S5-09 → S5-12 → S5-13`；
 > `S5-03` 并入 PR-13（与 S5-07 发射对齐）；`S5-10`/`S5-11` 可在 S5-05 后并行。
@@ -253,7 +253,7 @@
 
 ## S5-12 · 前端类型 + SSE 客户端 Hook
 
-- **owner**: frontend ｜ **归属 PR**: PR-17 ｜ **依赖**: S5-02
+- **owner**: frontend ｜ **归属 PR**: PR-18 ｜ **依赖**: S5-02
 - **目标**: 前端 Task/SSE 类型与 `useTaskStream` Hook（EventSource + Last-Event-ID）。
 - **交付清单**:
   - `frontend/src/types/agent.ts`：`SSEEvent`（含 `id`）、`Plan`/`PlanStep`（含 `optional`）、`TaskStatus`（含 `CANCELLED`）、`AgentChatRequest/Response` 等（对齐 `api-contract §3/§4`）
@@ -269,7 +269,7 @@
 
 ## S5-13 · 前端 ChatCenter + CandidateChat 页面
 
-- **owner**: frontend ｜ **归属 PR**: PR-17（合入）/ PR-18（拆分）｜ **依赖**: S5-09, S5-12
+- **owner**: frontend ｜ **归属 PR**: PR-19 ｜ **依赖**: S5-09, S5-12
 - **目标**: 用对话中心替换占位页，渲染事件卡片；候选人详情内嵌对话。
 - **交付清单**:
   - `frontend/src/pages/ChatCenter.tsx`：消息输入框 → `chat()` → `useTaskStream` → 渲染 `ThinkingCard/PlanCard/ToolCallCard/ProgressCard/ResultCard/ErrorCard/WarningCard/SystemCard`（8 类事件卡片各 ≥1 例）；`PlanCard` 含「确认执行」「取消」按钮
@@ -289,8 +289,8 @@
 | 清扫项 | 归属 PR/任务 | 说明 |
 |---|---|---|
 | `services/match.py` 等 `datetime.utcnow()` → `datetime.now(timezone.utc)` | **PR-10**（S5-01 首个较大 backend 实现 PR） | 时区正确性，非功能阻断 |
-| 前端 MSW stderr 噪声 | **PR-17**（S5-12） | 检查 `vitest` setup 中 MSW 日志级别 |
-| `react-hooks/exhaustive-deps` warning | **PR-17**（S5-12/S5-13） | 顺手补齐依赖数组（既有 8 处，部分与 Stage 5 新增 hook 相关） |
+| 前端 MSW stderr 噪声 | **PR-18**（S5-12） | 检查 `vitest` setup 中 MSW 日志级别 |
+| `react-hooks/exhaustive-deps` warning | **PR-19**（S5-13） | 顺手补齐依赖数组（既有 8 处，部分与 Stage 5 新增 hook 相关） |
 | `ResumeWorkspace.tsx` 删除 | **PR-9.pre**（已提交 `819227e`，非本合并版范围） | 全仓仅自引用，无路由 |
 
 > 注：`raw_text[:3000]` 截断是否放宽至 6000–8000 仅**记录**于 HANDOFF（PR-9.pre 已记录），本 Stage 5 **不改代码**。
