@@ -1,21 +1,37 @@
-// PR-18 S5-12 · stage 1 stub.
-// Full `agentApi` (5 functions: chat / executePlan / skipToScore / cancelTask /
-// getTask) lands in commit 3 (stage 2). Until then every method throws so the
-// TC-S5-12-3 red test (marked `test.fails`) fails as expected.
+import request from '@/utils/request';
+import type {
+  AgentChatRequest,
+  AgentChatResponse,
+  ExecutePlanRequest,
+  ExecutePlanResponse,
+  SkipToScoreRequest,
+  SkipToScoreResponse,
+  CancelTaskResponse,
+  TaskStatusResponse,
+} from '@/types/agent';
+
+// PR-18 S5-12 · Agent REST 服务层。
+// 仿 candidateApi 对象模式(见 services/candidate.ts)。
+// Q9.1:429 不加中间层 —— request.ts 拦截器已 reject 原始 error,
+// 调用方自行 try/catch 判 err.response?.status === 429。
 export const agentApi = {
-  chat: () => {
-    throw new Error('not implemented: agentApi.chat');
+  chat(data: AgentChatRequest): Promise<AgentChatResponse> {
+    return request.post('/agent/chat', data);
   },
-  executePlan: () => {
-    throw new Error('not implemented: agentApi.executePlan');
+
+  executePlan(data: ExecutePlanRequest): Promise<ExecutePlanResponse> {
+    return request.post('/agent/execute-plan', data);
   },
-  skipToScore: () => {
-    throw new Error('not implemented: agentApi.skipToScore');
+
+  skipToScore(data: SkipToScoreRequest): Promise<SkipToScoreResponse> {
+    return request.post('/agent/skip-to-score', data);
   },
-  cancelTask: () => {
-    throw new Error('not implemented: agentApi.cancelTask');
+
+  cancelTask(taskId: string): Promise<CancelTaskResponse> {
+    return request.post(`/agent/tasks/${taskId}/cancel`);
   },
-  getTask: () => {
-    throw new Error('not implemented: agentApi.getTask');
+
+  getTask(taskId: string): Promise<TaskStatusResponse> {
+    return request.get(`/agent/tasks/${taskId}`);
   },
 };
