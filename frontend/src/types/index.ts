@@ -370,3 +370,6 @@ export interface BatchTaskStatus {
   started_at: string;
   finished_at?: string | null;
 }
+
+// ===== PR-18 S5-12: agent SSE/REST 类型契约 =====
+export * from './agent';
