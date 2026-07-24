@@ -92,4 +92,17 @@ describe('useTaskStream (S5-12)', () => {
       expect(result.current.lastEventId).toBe('4');
     },
   );
+
+  test.fails('TC-S5-13-11 system:cancelled → status closed, no reconnect', async () => {
+    let callCount = 0;
+    server.use(
+      http.get(streamUrl('t-cancel'), () => {
+        callCount += 1;
+        return makeStream([{ id: '1', type: 'system', data: { message: 'cancelled' } }]);
+      }),
+    );
+    const { result } = renderHook(() => useTaskStream({ taskId: 't-cancel' }));
+    await waitFor(() => expect(result.current.status).toBe('closed'), { timeout: 8000 });
+    expect(callCount).toBe(1);
+  });
 });
