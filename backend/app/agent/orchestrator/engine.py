@@ -622,8 +622,31 @@ class OrchestratorEngine:
             return {"final_result": "", "issues": [result.error_message or "reflect-act failed"]}
         return result.output or {}
 
-    async def run_cancel(self, task_id: str, db: Any = None) -> dict[str, Any]:
+    async def run_cancel(self, task_id: str, db: Any = None, event_buffer: Any = None) -> dict[str, Any]:
         # PLANNING 或 WAITING_CONFIRMATION 均可取消（DECISION §八）
         check_transition(TaskStatus.PLANNING, TaskStatus.CANCELLED)
         check_transition(TaskStatus.WAITING_CONFIRMATION, TaskStatus.CANCELLED)
+
+        # PR-20 S5.1: cancel 时将 task 关联的 PENDING executions 标为 CANCELLED
+        if db is not None:
+            from datetime import datetime, timezone
+
+            from sqlalchemy import select
+
+            from app.models.execution import Execution
+
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            stmt = (
+                select(Execution)
+                .where(Execution.task_id == task_id, Execution.execution_status == "PENDING")
+            )
+            result = await db.execute(stmt)
+            rows = result.scalars().all()
+            for row in rows:
+                row.execution_status = "CANCELLED"
+                row.finished_at = now
+                db.add(row)
+            if rows:
+                await db.commit()
+
         return {"status_code": 200, "status": "CANCELLED", "task_id": task_id}

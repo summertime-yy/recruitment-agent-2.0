@@ -148,13 +148,17 @@ async def test_tc_s5_1_3_execution_writer_updates_on_end(db_session: AsyncSessio
 # ====== TC-S5.1-4 ======
 
 
-@pytest.mark.xfail(reason="PR-20 commit 3 red: cancel not writing CANCELLED to DB")
 @pytest.mark.usefixtures("db_session")
 async def test_tc_s5_1_4_cancel_writes_cancelled(db_session: AsyncSession):
     """Engine cancel 将 executions 表的执行状态标为 CANCELLED。"""
+    from app.models.task import Task
+
     engine = OrchestratorEngine()
 
-    # 通过 run_execute 写入一条 ACT execution
+    # 先创建 task FK
+    db_session.add(Task(task_id="task-c4", status="PLANNING", user_message=""))
+    await db_session.commit()
+
     from sqlalchemy import select
 
     # 先直接写一条 execution 行模拟已启动但未完成的步骤
