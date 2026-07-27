@@ -22,6 +22,7 @@ from app.schemas.agent import SSEEvent, SSEEventType
 logger = logging.getLogger(__name__)
 
 EmitFn = Callable[[SSEEvent], Awaitable[None]]
+StepCallbackFn = Callable[[str, str], Awaitable[None]]  # (step_id, tool_name) → None
 
 
 @dataclass
@@ -33,6 +34,9 @@ class StepResult:
     success: bool
     output: dict[str, Any] | None = None
     error_message: str | None = None
+
+
+StepEndCallbackFn = Callable[[str, StepResult], Awaitable[None]]  # (step_id, result) → None
 
 
 async def _noop_emit(ev: SSEEvent) -> None:  # pragma: no cover - 占位
@@ -63,6 +67,8 @@ async def run_act(
     ctx: dict[str, Any] | None = None,
     emit: EmitFn | None = None,
     tool_router: ToolRouter | None = None,
+    on_step_start: StepCallbackFn | None = None,
+    on_step_end: StepEndCallbackFn | None = None,
 ) -> list[StepResult]:
     """按 plan["steps"] 顺序执行各步，返回每步的 StepResult 列表。
 
@@ -90,6 +96,10 @@ async def run_act(
         tool_input = step.get("tool_input") or step.get("args") or {}
         optional = bool(step.get("optional", False))
 
+        # PR-20 S5.1: on_step_start callback
+        if on_step_start is not None:
+            await on_step_start(step_id, tool_name or "")
+
         await _safe_emit(
             emit,
             _make_event(SSEEventType.TOOL_CALL, task_id, {"tool_name": tool_name, "tool_input": tool_input}, step_id),
@@ -106,7 +116,11 @@ async def run_act(
             await _safe_emit(
                 emit, _make_event(SSEEventType.PROGRESS, task_id, {"step_id": step_id, "percent": 100}, step_id)
             )
-            results.append(StepResult(step_id=step_id, tool_name=tool_name or "", success=True, output=sr.output))
+            result = StepResult(step_id=step_id, tool_name=tool_name or "", success=True, output=sr.output)
+            results.append(result)
+            # PR-20 S5.1: on_step_end callback (success)
+            if on_step_end is not None:
+                await on_step_end(step_id, result)
             await emit(
                 _make_event(
                     SSEEventType.RESULT,
@@ -117,17 +131,24 @@ async def run_act(
             )
         else:
             msg = err or (sr.error_message if sr else "unknown error")
+            result = StepResult(step_id=step_id, tool_name=tool_name or "", success=False, error_message=msg)
             if optional:
                 await _safe_emit(
                     emit, _make_event(SSEEventType.WARNING, task_id, {"step_id": step_id, "message": msg}, step_id)
                 )
-                results.append(StepResult(step_id=step_id, tool_name=tool_name or "", success=False, error_message=msg))
+                results.append(result)
+                # PR-20 S5.1: on_step_end callback (optional fail)
+                if on_step_end is not None:
+                    await on_step_end(step_id, result)
                 # 继续后续步
             else:
                 await _safe_emit(
                     emit, _make_event(SSEEventType.ERROR, task_id, {"step_id": step_id, "message": msg}, step_id)
                 )
-                results.append(StepResult(step_id=step_id, tool_name=tool_name or "", success=False, error_message=msg))
+                results.append(result)
+                # PR-20 S5.1: on_step_end callback (required fail)
+                if on_step_end is not None:
+                    await on_step_end(step_id, result)
                 break  # 必需步失败：中止
 
     return results

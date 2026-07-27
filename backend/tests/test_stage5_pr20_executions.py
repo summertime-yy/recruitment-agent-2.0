@@ -53,7 +53,6 @@ class _Collector:
 # ====== TC-S5.1-1 ======
 
 
-@pytest.mark.xfail(reason="PR-20 commit 1 red: on_step_start/on_step_end not wired to run_act")
 async def test_tc_s5_1_1_callbacks_called_in_order():
     """on_step_start / on_step_end 在每步执行前后依次调用。"""
     plan = {
@@ -174,7 +173,6 @@ async def test_tc_s5_1_4_cancel_writes_cancelled(db_session: AsyncSession):
 # ====== TC-S5.1-5 ======
 
 
-@pytest.mark.xfail(reason="PR-20 commit 1 red: failed step on_step_end not emitting FAILED")
 async def test_tc_s5_1_5_failed_step_calls_on_end_with_failed():
     """必需步失败时 on_step_end 仍被调用，且 result.success == False。"""
     plan = {"steps": [{"step_id": "s1", "tool_name": "fail_tool", "tool_input": {}}]}
