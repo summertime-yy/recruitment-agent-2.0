@@ -401,6 +401,7 @@ DATABASE_URL=postgresql+asyncpg://...
 9. **`create_match_score` REST 硬编码 plan 未走 dispatch**（PR-17 §19.4 归档追债项 12） — 前端不要期待通过 `POST /agent/chat` 自然语言触发 skip-to-score；skip-to-score 仍走 `POST /agent/skip-to-score` REST 端点硬编码 plan 绕开 tool_router（Stage 5.2 前独立 PR 二选一收敛，见 §9.3 追债项 12）。PR-18 前端 `agentApi.skipToScore` 已按此约定实现（直接调 REST 端点，不走 `agentApi.chat`）。
 10. **`system:cancelled` 已纳入 `useTaskStream` 终态判定**（PR-19 §5 commit `e250c9f` 收敛，PR-18 KICKOFF-DECISION §五 备忘已落地）— hook 处理 `system` 事件时，若 `data.message === 'cancelled'` 则设 `hasReachedTerminalRef + closedRef`，流结束不再重连。前端 UX 层面 clean 关流；ChatCenter/CandidateChat 顶部条从 `latestByType.system.data.message === 'cancelled'` 推导 `isCancelled` 状态显示"已取消"。**新增边界**：若后端未来引入非 `cancelled` 的 `system` 终态 message（如 `stalled`/`timeout`），需同步扩 hook 规则。
 11. **PR-19 前端 SSE 消费选型延续**（PR-18 KICKOFF-DECISION §二 Q2 选项 B）— hook 用 **fetch + ReadableStream 手写 SSE 解析器**，非原生 `EventSource`；未来引入 `Authorization` 头亦通过 fetch 加。忽略 server `retry:` 字段，用自身 3/6/12s 退避（B3）。PR-19 若消费 hook 无须改此选型。
+12. **ASGITransport + asyncio.create_task 后台任务在测试环境挂死**（PR-20 §九 TC-S5.1-7 发现）— pytest-asyncio + httpx.ASGITransport 下，REST 端点触发 `asyncio.create_task(_background_execute(...))` 后，测试侧用 `async_session_factory` 轮询后台写入的 execution 行时发生事件循环死锁。**禁忌**：不要在 TC 里对 `POST /agent/execute-plan` 或其他 `create_task` 类端点做端到端后台完成断言。**替代**：单元级测试 helper 函数 + E2E 测试同步端点（如 cancel）。**陷阱 5** 是同源问题（`is_disconnected()` 也是这个环境限制）的另一表现。
 
 ### 9.5 关键新增文件（PR-10~18 已合入）
 
