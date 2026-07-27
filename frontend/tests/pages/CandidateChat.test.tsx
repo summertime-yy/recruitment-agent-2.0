@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 describe('CandidateChat (S5-13)', () => {
-  test.fails(
+  test(
     'TC-S5-13-6 URL ?candidates=a,b → 发送 → chat.context.candidate_ids = ["a","b"]',
     async () => {
       const user = userEvent.setup();
@@ -46,7 +46,8 @@ describe('CandidateChat (S5-13)', () => {
 
       const input = await screen.findByPlaceholderText('输入消息...');
       await user.type(input, '你好');
-      await user.click(screen.getByText('发送'));
+      // antd v5 中文 Button 自动插入空格，"发送" → "发 送"
+      await user.click(screen.getByRole('button', { name: /发\s*送/ }));
 
       await waitFor(() => expect(chatCalls.length).toBe(1));
       expect((chatCalls[0] as { context?: { candidate_ids?: string[] } }).context?.candidate_ids).toEqual([
