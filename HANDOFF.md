@@ -1,9 +1,9 @@
 # 招聘 Agent 2.0 阶段性总结与交接文档
 
-> 更新时间：2026-07-23
-> 当前进度：**Stage 5 进行中**（PR-10/11/12/13/14/15/16/17/18 已合入 master，PR-19 待动工 —— 见 §九）
+> 更新时间：2026-07-27
+> 当前进度：**Stage 5 进行中**（PR-10/11/12/13/14/15/16/17/18/19 已合入 master —— 见 §九）
 > 上一阶段：Stage 4（人岗匹配评分）已完成
-> 下一阶段：Stage 5（Agent 对话核心）继续 PR-19（前端 ChatCenter + CandidateChat + 8 类 Card，S5-13）
+> 下一阶段：Stage 5.1 追债项收敛 / Stage 6 规划
 > 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `fb75251`/`6dd41b7`/`bc9545c`（接入真实分 + 匹配面板）；**本追加提交（PR-8 收尾）**：候选人管理页 UI/筛选/关联JD 重构 + ResumeDetail 匹配体验优化（详见 §3.2 / §6.1）
 > 面向读者：下一位系统架构师 / 开发者
 
@@ -356,9 +356,9 @@ DATABASE_URL=postgresql+asyncpg://...
 | PR-16 | S5-11 | candidate-profile Skill + engine 数据型 artifact 出口补齐 | ✅ | ab99b43 |
 | PR-17 | 追债项 10+11 收敛 | Orchestrator 端到端路由修复（`SkillRegistry._task_type_to_tool_name` 自动派生 + engine `run_plan` 动态注入 dispatchable Markdown 清单 + reason 值域补全） | ✅ | bcc6c3b |
 | PR-18 | S5-12 | 前端类型 + `agentApi` services + `useTaskStream` SSE Hook（fetch + ReadableStream 手写解析器 + Last-Event-ID 重连 + 3/6/12s 指数退避 + 心跳 `lastHeartbeatAt` 字段） | ✅ | 34703a0 |
-| **PR-19** | **S5-13** | **前端 ChatCenter + CandidateChat + 8 类事件卡片** | ⏳ **下一个** | — |
+| **PR-19** | **S5-13** | **前端 ChatCenter + CandidateChat + 8 类事件卡片** | ✅ | **6b9372a** |
 
-**当前 master HEAD**：`dd73c4d`（PR-18 STEP6 报告） · **后端测试基线**：**120 passed**（未变，PR-18 未触碰 backend/app）· **前端测试基线**：**20 passed**（PR-17 期 `N_before=16` → PR-18 新增 4：TC-S5-12-1..4）。
+**当前 master HEAD**：`6b9372a`（PR-19 build gate 返修） · **后端测试基线**：**120 passed**（未变，PR-19 未触碰 backend/app）· **前端测试基线**：**31 passed**（PR-18 期 `N_before=20` → PR-19 新增 11：TC-S5-13-1..11）。
 
 ### 9.2 Stage 5 架构约束（PR-13 起生效）
 
@@ -399,7 +399,7 @@ DATABASE_URL=postgresql+asyncpg://...
 7. **`test_s5_09_4_sse_heartbeat` 已知 flaky**（PR-14 §五 补充 3 · SSE 时序敏感） — 全量重跑约 1/N 概率单点失败（`hb` 长度 2 vs 3），isolated 运行必 pass。判定标准：若隔离 pass + 后续全量重跑连续 2 次通过，即非 regression。PR-16/17/18 FF-merge 评审均按此策略处理，未 flag 为回归。
 8. **dispatch 端点已支持自然语言触发 candidate-* skill**（PR-17 §19.2 追债项 11 已收敛，起手 master HEAD `dd73c4d`）— `candidate-merge` / `candidate-profile` / `jd-candidate-matching` 可通过 `POST /agent/chat` 自然语言用户消息触发（LLM 从注入的 dispatchable Markdown 清单学习 `task_type ↔ tool_name` 后自主输出合法 `tool_name`，`reflect_plan` 保护网挡下 LLM 犯错）。**前端 chat → SSE 流可拿到 THINKING + PLAN + TOOL_CALL + PROGRESS + RESULT 全事件序列**，可正常渲染 PlanCard 与 candidate-* skill 的 result artifact。**渲染时须知**：追债项 3（`_ARTIFACT_TYPE_MAP` 与前端渲染器手动同步）仍未消除，新增 artifact `type` 必须**同步改后端 `engine._ARTIFACT_TYPE_MAP` 与前端 `frontend/src/types/agent.ts::ArtifactType` union + PR-19 卡片 `switch` 分派**，忘则走 `generic` fallback（PR-18 前端 union 已就位 6 键 `jd/resume/match_score/candidate_merge/candidate_profile/generic`，PR-19 卡片 switch 时 exhaustiveness 护栏激活）。
 9. **`create_match_score` REST 硬编码 plan 未走 dispatch**（PR-17 §19.4 归档追债项 12） — 前端不要期待通过 `POST /agent/chat` 自然语言触发 skip-to-score；skip-to-score 仍走 `POST /agent/skip-to-score` REST 端点硬编码 plan 绕开 tool_router（Stage 5.2 前独立 PR 二选一收敛，见 §9.3 追债项 12）。PR-18 前端 `agentApi.skipToScore` 已按此约定实现（直接调 REST 端点，不走 `agentApi.chat`）。
-10. **PR-19 前端起手警惕：`useTaskStream` 终态判定按 A2 闭合**（PR-18 KICKOFF-DECISION §五）— hook 仅认 `type === 'result' || type === 'error'` 为终态并 `status='closed'` 不再重连；**弃 `data.recoverable` 判定**（后端 `SSEEvent.data` 为 Any 未固化 `recoverable`）。**已知边界**（PR-18 STEP6 §五 obs 3）：若任务经后端 `system:cancelled` 终止，hook 会因未收 `result/error` 而进入非终态重连（3s→6s→12s 退避 3 次后 `status='error'`，非 clean `closed`）。PR-19 若需处理 cancel 场景的 clean 关流 UX，评估是否将 `system:cancelled` 纳入终态判定（可能需扩 `system` 事件 payload 或改 hook 内规则；若改则同步 PR-18 KICKOFF-DECISION §五 备忘）。
+10. **`system:cancelled` 已纳入 `useTaskStream` 终态判定**（PR-19 §5 commit `e250c9f` 收敛，PR-18 KICKOFF-DECISION §五 备忘已落地）— hook 处理 `system` 事件时，若 `data.message === 'cancelled'` 则设 `hasReachedTerminalRef + closedRef`，流结束不再重连。前端 UX 层面 clean 关流；ChatCenter/CandidateChat 顶部条从 `latestByType.system.data.message === 'cancelled'` 推导 `isCancelled` 状态显示"已取消"。**新增边界**：若后端未来引入非 `cancelled` 的 `system` 终态 message（如 `stalled`/`timeout`），需同步扩 hook 规则。
 11. **PR-19 前端 SSE 消费选型延续**（PR-18 KICKOFF-DECISION §二 Q2 选项 B）— hook 用 **fetch + ReadableStream 手写 SSE 解析器**，非原生 `EventSource`；未来引入 `Authorization` 头亦通过 fetch 加。忽略 server `retry:` 字段，用自身 3/6/12s 退避（B3）。PR-19 若消费 hook 无须改此选型。
 
 ### 9.5 关键新增文件（PR-10~18 已合入）
@@ -439,8 +439,8 @@ DATABASE_URL=postgresql+asyncpg://...
 
 ### 9.6 下一位接手 Stage 5 的建议
 
-1. **PR-19 起手**（S5-13 前端 ChatCenter + CandidateChat + 8 类事件卡片）：**必读 §9.4 陷阱 4/5/6/8/10**（陷阱 4：`chat` 异步端点，前端已在 PR-18 `agentApi.chat` 按此约定；陷阱 5：`is_disconnected()` 测试限制；陷阱 6：REST 端点内不显式 `db.begin()`；陷阱 8：dispatch 端点支持自然语言触发 candidate-* skill，卡片 `switch` 分派时**追债项 3 exhaustiveness 护栏激活**，新增 artifact `type` 必须同步改后端 `_ARTIFACT_TYPE_MAP` 与前端 `ArtifactType` union；陷阱 10：`system:cancelled` 目前不在 hook 终态判定内，若需 clean 关流 UX 需评估是否扩规则）。**基建已就位**：PR-18 交付 `types/agent.ts` + `services/agent.ts` + `hooks/useTaskStream.ts`，PR-19 直接消费。**起手 master HEAD = `dd73c4d`，后端基线 120 passed，前端基线 20 passed**。
-2. **PR-19 交付清单**（TASKS §S5-13）：`pages/ChatCenter.tsx`（消息输入 → `agentApi.chat` → `useTaskStream` → 渲染 8 类事件卡片 · PlanCard 含"确认执行/取消"按钮 → `agentApi.executePlan` / `agentApi.cancelTask`）· `pages/CandidateChat.tsx`（预填 `context.candidate_ids`）· `components/agent/*Card.tsx` × 8（Thinking/Plan/ToolCall/Progress/Result/Error/Warning/System）· skip-to-score 快捷入口（选 JD + 候选人 → `agentApi.skipToScore`）· TC-S5-13-1..9（含 CANCELLED UI）。
+1. **PR-19 已合入**（S5-13 前端 ChatCenter + CandidateChat + 8 类事件卡片 · `6b9372a`）。**下一步方向**：**Stage 5.1 追债项收敛**（§9.3 追债项 7 `executions` 表全生命周期 + 追债项 8 `tasks.current_step` 中途写 DB + 追债项 12 `create_match_score` 工具路由收敛）或 **Stage 6 规划**（THINKING 流式 token 等）。
+2. **PR-19 交付回顾**：`pages/ChatCenter.tsx`（消息输入 → `agentApi.chat` → `useTaskStream` → 渲染 7 类 Card + system 顶部条 · PlanCard 含"确认执行/取消"按钮 → `agentApi.executePlan` / `agentApi.cancelTask`）· `pages/CandidateChat.tsx`（URL `?candidates=a,b` → `chat.context.candidate_ids`）· `components/agent/*Card.tsx` × 7（Thinking/Plan/ToolCall/Progress/Result/Error/Warning）+ SystemCard（备用，system 事件实际走顶部条）· 6 artifact 渲染器带 `never` 穷尽 switch · skip-to-score 快捷入口 · TC-S5-13-1..11（含 CANCELLED UI）。**hook 扩展**：`useTaskStream` 处理 `system:cancelled` 事件时标记终态，不再重连（PR-18 §9.4 陷阱 10 已消除）。
 3. **不要碰 `docs/planning/stage5/commander/` 和 `executor/` 子目录** —— 双盲评审前的初稿，已被顶层合并版覆盖。
-4. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。**当前 master HEAD = `dd73c4d`（PR-18 STEP6），后端基线 120 passed，前端基线 20 passed**。
+4. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。**当前 master HEAD = `6b9372a`（PR-19 build gate 返修），后端基线 120 passed，前端基线 31 passed**。
 5. **完成一个 PR 后**：更新本节 9.1 表格的状态与合入 commit；更新 9.4 陷阱表（如果新踩到坑）；`git push origin --delete feat/pr-NN-...` 清远端 feat 分支。
