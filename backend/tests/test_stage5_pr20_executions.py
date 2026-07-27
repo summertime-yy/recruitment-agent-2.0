@@ -425,3 +425,61 @@ async def test_tc_s5_1_8_cancel_task_endpoint_writes_cancelled_execution(
         assert exec_row.finished_at is not None
     finally:
         app.dependency_overrides.clear()
+
+
+# ======================================================================
+# PR-20 Commit 7: 追债 8 — writer start 分支写 tasks.current_step
+# ======================================================================
+
+
+# ====== TC-S5.1-9 ======
+
+
+@pytest.mark.usefixtures("db_session")
+async def test_tc_s5_1_9_writer_start_updates_task_current_step(db_session: AsyncSession):
+    """TC-S5.1-9：writer(action=\"start\") 同事务 UPDATE tasks.current_step = step_id。"""
+    from app.agent.orchestrator.engine import _make_db_execution_writer  # noqa: F811
+    from app.models.task import Task
+
+    task = Task(task_id="task-w9", status="EXECUTING", user_message="", current_step=None)
+    db_session.add(task)
+    await db_session.commit()
+    assert task.current_step is None
+
+    writer = _make_db_execution_writer(_test_session_factory(db_session), task_id="task-w9")
+    await writer("s_alpha", "foo", action="start")
+
+    await db_session.refresh(task)
+    assert task.current_step == "s_alpha"
+
+
+# ====== TC-S5.1-10 ======
+
+
+@pytest.mark.usefixtures("db_session")
+async def test_tc_s5_1_10_writer_end_does_not_clear_task_current_step(db_session: AsyncSession):
+    """TC-S5.1-10：writer(action=\"end\") 不动 current_step；下一次 start 才推进。"""
+    from app.agent.orchestrator.engine import _make_db_execution_writer  # noqa: F811
+    from app.models.task import Task
+
+    task = Task(task_id="task-w10", status="EXECUTING", user_message="", current_step=None)
+    db_session.add(task)
+    await db_session.commit()
+
+    writer = _make_db_execution_writer(_test_session_factory(db_session), task_id="task-w10")
+
+    # start s1 → current_step = s1
+    await writer("s1", "search_resumes", action="start")
+    await db_session.refresh(task)
+    assert task.current_step == "s1"
+
+    # end s1（成功）→ current_step 仍为 s1（保留"最后进行到哪一步"的痕迹）
+    sr = StepResult(step_id="s1", tool_name="search_resumes", success=True, output={"ok": True})
+    await writer("s1", "search_resumes", action="end", result=sr)
+    await db_session.refresh(task)
+    assert task.current_step == "s1"
+
+    # start s2 → current_step 推进为 s2
+    await writer("s2", "score", action="start")
+    await db_session.refresh(task)
+    assert task.current_step == "s2"

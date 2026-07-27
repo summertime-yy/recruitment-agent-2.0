@@ -56,17 +56,20 @@ def _make_db_execution_writer(
 ) -> ExecutionWriterFn:
     """返回 execution_writer(step_id, tool_name, action, result=None) 回调。
 
-    action="start": INSERT execution 行（phase=ACT, status=PENDING, started_at）。
+    action="start": INSERT execution 行（phase=ACT, status=PENDING, started_at）
+                    + UPDATE tasks.current_step = step_id（PR-20 追债 8，DECISION §二.3）。
     action="end":   UPDATE execution 行（status=COMPLETED/FAILED, finished_at, execution_time_ms, output_result）。
+                    不动 current_step——保留"最后进行到哪一步"的痕迹（与 cancel D2 语义一致）。
 
     每次 writer 调用通过 ``session_factory()`` 新建 session（对齐 _make_db_updater 模式），
     后台任务不持有请求级 db:AsyncSession。
     """
     from datetime import datetime
 
-    from sqlalchemy import select
+    from sqlalchemy import select, update
 
     from app.models.execution import Execution
+    from app.models.task import Task
 
     # 记录 start 时间以便计算 execution_time_ms
     start_times: dict[str, datetime] = {}  # step_id -> started_at
@@ -85,6 +88,10 @@ def _make_db_execution_writer(
                     started_at=now,
                 )
                 db.add(row)
+                # PR-20 追债 8：中途 UPDATE tasks.current_step（同一 session、同一事务）
+                await db.execute(
+                    update(Task).where(Task.task_id == task_id).values(current_step=step_id)
+                )
                 await db.commit()
             elif action == "end":
                 finished = utcnow_naive()
