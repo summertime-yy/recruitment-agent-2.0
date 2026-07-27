@@ -117,6 +117,11 @@ export function useTaskStream(opts: UseTaskStreamOptions): UseTaskStreamResult {
         lastHeartbeatAtRef.current = Date.now();
         setLastHeartbeatAt(lastHeartbeatAtRef.current);
         setLatestByType((prev) => ({ ...prev, system: ev }));
+        // PR-19 S5-13: system:cancelled 为终态,禁止重连
+        if ((data as { message?: string } | null)?.message === 'cancelled') {
+          hasReachedTerminalRef.current = true;
+          closedRef.current = true;
+        }
         return;
       }
       setEvents((prev) => {

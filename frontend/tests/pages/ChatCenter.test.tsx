@@ -7,7 +7,7 @@
 //  - SkipToScorePanel: JD Select(placeholder "选择 JD") + Resume 多选(placeholder "选择候选人简历") + 按钮 "立即评分"。
 //  - StreamStatusBar: status==='closed' 且 systemMessage==='cancelled' → 文本 "已取消"。
 import { describe, test, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfigProvider } from 'antd';
 import { MemoryRouter } from 'react-router-dom';

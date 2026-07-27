@@ -93,7 +93,7 @@ describe('useTaskStream (S5-12)', () => {
     },
   );
 
-  test.fails('TC-S5-13-11 system:cancelled → status closed, no reconnect', async () => {
+  test('TC-S5-13-11 system:cancelled → status closed, no reconnect', async () => {
     let callCount = 0;
     server.use(
       http.get(streamUrl('t-cancel'), () => {
