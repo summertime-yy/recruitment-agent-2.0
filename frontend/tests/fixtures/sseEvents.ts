@@ -21,8 +21,8 @@ export function makePlanEvent(id: string, plan?: Partial<Plan>): SSEEvent<Plan> 
   const full: Plan = {
     task_id: 't',
     steps: plan?.steps ?? [
-      { step_id: 's1', description: '步骤一', tool_name: 'search_resumes', params: {} },
-      { step_id: 's2', description: '步骤二', tool_name: 'score', params: {} },
+      { step_id: 's1', description: '步骤一', tool_name: 'search_resumes', params: {}, expected_output: '' },
+      { step_id: 's2', description: '步骤二', tool_name: 'score', params: {}, expected_output: '' },
     ],
     ...plan,
   };

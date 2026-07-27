@@ -1,5 +1,9 @@
 // PR-19 S5-13 · 消息时序(commit 2 实现 · 7 类 Card + system 不进列表)。
-import type { SSEEvent, Plan } from '@/types/agent';
+import type {
+  SSEEvent,
+  Plan, ThinkingData, ToolCallData, ProgressData,
+  ResultData, ErrorData, WarningData,
+} from '@/types/agent';
 import { ThinkingCard } from './ThinkingCard';
 import { PlanCard } from './PlanCard';
 import { ToolCallCard } from './ToolCallCard';
@@ -22,7 +26,7 @@ export function MessageTimeline({ events, onPlanConfirm, onPlanCancel }: Message
         .map((e) => {
           switch (e.type) {
             case 'thinking':
-              return <ThinkingCard key={e.id} event={e} />;
+              return <ThinkingCard key={e.id} event={e as SSEEvent<ThinkingData>} />;
             case 'plan':
               return (
                 <PlanCard
@@ -33,15 +37,15 @@ export function MessageTimeline({ events, onPlanConfirm, onPlanCancel }: Message
                 />
               );
             case 'tool_call':
-              return <ToolCallCard key={e.id} event={e} />;
+              return <ToolCallCard key={e.id} event={e as SSEEvent<ToolCallData>} />;
             case 'progress':
-              return <ProgressCard key={e.id} event={e} />;
+              return <ProgressCard key={e.id} event={e as SSEEvent<ProgressData>} />;
             case 'result':
-              return <ResultCard key={e.id} event={e} />;
+              return <ResultCard key={e.id} event={e as SSEEvent<ResultData>} />;
             case 'error':
-              return <ErrorCard key={e.id} event={e} />;
+              return <ErrorCard key={e.id} event={e as SSEEvent<ErrorData>} />;
             case 'warning':
-              return <WarningCard key={e.id} event={e} />;
+              return <WarningCard key={e.id} event={e as SSEEvent<WarningData>} />;
             default:
               return null;
           }

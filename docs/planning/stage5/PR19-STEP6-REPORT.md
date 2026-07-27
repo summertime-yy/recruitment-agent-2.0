@@ -7,9 +7,9 @@ S5-13 前端 ChatCenter / CandidateChat / 8 事件卡片 · 5 commit TDD
 ## §一 概述
 
 - **分支**：`feat/pr-19-s5-13-frontend-chat-cards`
-- **base**：`origin/master` @ `76e73bb`（PR-18 S5-12 已合入）
-- **提交数**：5（4 feat + 1 fix），strict TDD
-- **变更文件**：18 frontend 文件（15 src + 3 test），0 backend 文件
+- **base**：`origin/master` @ `76e73bb`（DECISION 原写 `9a6554e`，因 PR-18 合入导致 rebase 前移為 `76e73bb`）
+- **提交数**：6（4 feat + 1 fix + 1 docs），strict TDD
+- **变更文件**：20 frontend 文件（15 src + 3 test + 2 docs），0 backend 文件
 
 ---
 
@@ -17,9 +17,9 @@ S5-13 前端 ChatCenter / CandidateChat / 8 事件卡片 · 5 commit TDD
 
 | 门 | 指标 | 状态 |
 |----|------|------|
-| 测试 | 12 files / 31 passed / 0 expected fail | ✓ |
+| 测试 | 12 files / 31 passed / 0 expected fail / 12.15s | ✓ |
 | Lint | 0 errors / 8 warnings（均预先存在，本项目无新增） | ✓ |
-| Build | `tsc -b && vite build` ✓ | ✓ |
+| Build | `tsc -b && vite build` (3129 modules) ✓ | ✓ (返修复核通过) |
 
 ---
 
@@ -107,6 +107,8 @@ DECISION §十八 11 条求助全部未触发（执行期间无阻塞）。
 ## §八 提交链与 FF-merge 指引
 
 ```
+26d2cd4 fix(stage5): PR-19 build gate — TS type narrowing + fixture completeness
+2aeb1de docs(stage5): PR-19 STEP6 report (S5-13 frontend chat cards · 5 commit TDD)
 e250c9f fix(stage5): system:cancelled terminal
 7218a02 feat(stage5): CandidateChat page
 32342fa feat(stage5): PlanCard + ChatCenter assembly
@@ -120,3 +122,17 @@ e250c9f fix(stage5): system:cancelled terminal
 **合并后必做**（指挥官职责，执行体不做）：
 - HANDOFF.md §9.1 / §9.3 / §9.4 / §9.5 / §9.6 更新
 - TASKS §S5-12 / §S5-13 owner 更新
+
+---
+
+## §九 返修记录（commander review round 1）
+
+指挥官初审发现构建门未通过（`tsc -b` 报 9 个 TS 错误）。返修 fix commit 修三处：
+
+| # | 文件 | 错误 | 修复 |
+|---|------|------|------|
+| A | `MessageTimeline.tsx` | 6 × TS2322：SSEEvent\<unknown\> 不能赋给 SSEEvent\<XxxData\> | 每分支加 `as SSEEvent<XxxData>` 断言 + unlock 所需 import |
+| B | `ChatCenter.tsx` | TS2339：`Property 'message' does not exist on type '{}'` | `latestByType.system?.data as SystemData \| undefined` 窄化 |
+| C | `tests/fixtures/sseEvents.ts` | PlanStep 缺必填字段 `expected_output` | 补 `expected_output: ''` |
+
+返修后三门复核通过（test 31/31, lint 0/8, build tsc+vite ✓）。

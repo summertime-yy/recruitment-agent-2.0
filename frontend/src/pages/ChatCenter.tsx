@@ -7,13 +7,14 @@ import { resumeApi } from '@/services/resume';
 import { StreamStatusBar } from '@/components/agent/StreamStatusBar';
 import { MessageTimeline } from '@/components/agent/MessageTimeline';
 import type { JD, Resume } from '@/types';
+import type { SystemData } from '@/types/agent';
 
 // PR-19 S5-13 · ChatCenter 对话式任务中心。
 // 结构:SkipToScorePanel(可折叠) + 任务流(StreamStatusBar + MessageTimeline) + 消息输入框。
 
 function TaskStream({ taskId }: { taskId: string }) {
   const { events, latestByType } = useTaskStream({ taskId });
-  const systemMessage = latestByType.system?.data?.message;
+  const systemMessage = (latestByType.system?.data as SystemData | undefined)?.message;
 
   const handleConfirm = useCallback(() => {
     void agentApi.executePlan({ task_id: taskId });
