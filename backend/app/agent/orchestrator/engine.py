@@ -46,6 +46,68 @@ TaskLimitExceededError = _errors.TaskLimitExceededError
 # db_updater 回调：把 task_id + 字段补丁写进 tasks 表。默认 None（旧测试/纯内存引擎不写库）。
 DbUpdater = Callable[[str, dict[str, Any]], Awaitable[None]]
 
+# PR-20 S5.1: execution writer 回调（(step_id, tool_name, action, result?) → None）
+ExecutionWriterFn = Callable[[str, str, str, Any], Awaitable[None]]
+
+
+def _make_db_execution_writer(
+    db: Any,  # AsyncSession（避免循环依赖类型注解在运行时不可用）
+    task_id: str,
+) -> ExecutionWriterFn:
+    """返回 execution_writer(step_id, tool_name, action, result=None) 回调。
+
+    action="start": INSERT execution 行（phase=ACT, status=PENDING, started_at）。
+    action="end":   UPDATE execution 行（status=COMPLETED/FAILED, finished_at, execution_time_ms, output_result）。
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.models.execution import Execution
+
+    # 记录 start 时间以便计算 execution_time_ms
+    start_times: dict[str, datetime] = {}  # step_id -> started_at
+
+    async def writer(step_id: str, tool_name: str, action: str, result: Any = None) -> None:
+        if action == "start":
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            start_times[step_id] = now
+            row = Execution(
+                task_id=task_id,
+                step_id=step_id,
+                phase="ACT",
+                tool_name=tool_name,
+                execution_status="PENDING",
+                started_at=now,
+            )
+            db.add(row)
+            await db.commit()
+        elif action == "end":
+            finished = datetime.now(timezone.utc).replace(tzinfo=None)
+            stmt = (
+                select(Execution)
+                .where(Execution.task_id == task_id, Execution.step_id == step_id)
+                .order_by(Execution.created_at.desc())
+                .limit(1)
+            )
+            r = await db.execute(stmt)
+            row = r.scalars().first()
+            if row is None:
+                return
+            sr = result
+            status = "COMPLETED" if (sr is not None and getattr(sr, "success", False)) else "FAILED"
+            row.execution_status = status
+            row.finished_at = finished
+            if sr is not None and getattr(sr, "output", None) is not None:
+                row.output_result = sr.output
+            started = start_times.get(step_id)
+            if started is not None:
+                row.execution_time_ms = int((finished - started).total_seconds() * 1000)
+            db.add(row)
+            await db.commit()
+
+    return writer
+
 # tool_name -> 任务级 result artifact.type 映射（PR-13 Q6）
 _ARTIFACT_TYPE_MAP: dict[str, str] = {
     "create_match_score": "match_score",

@@ -75,11 +75,15 @@ async def test_tc_s5_1_1_callbacks_called_in_order():
 # ====== TC-S5.1-2 ======
 
 
-@pytest.mark.xfail(reason="PR-20 commit 2 red: db execution writer not created")
 @pytest.mark.usefixtures("db_session")
 async def test_tc_s5_1_2_execution_writer_creates_record_on_start(db_session: AsyncSession):
     """DB execution writer 在每步 START 时 INSERT execution 行。"""
     from app.agent.orchestrator.engine import _make_db_execution_writer  # noqa: F811
+    from app.models.task import Task
+
+    # 先创建 task（executions 有外键引用）
+    db_session.add(Task(task_id="task-w2", status="WAITING_CONFIRMATION", user_message=""))
+    await db_session.commit()
 
     plan = {"steps": [{"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}}]}
     writer = _make_db_execution_writer(db_session, task_id="task-w2")
@@ -111,10 +115,15 @@ async def test_tc_s5_1_2_execution_writer_creates_record_on_start(db_session: As
 # ====== TC-S5.1-3 ======
 
 
-@pytest.mark.xfail(reason="PR-20 commit 2 red: db execution writer update not implemented")
 @pytest.mark.usefixtures("db_session")
 async def test_tc_s5_1_3_execution_writer_updates_on_end(db_session: AsyncSession):
     """DB execution writer 在每步 END 时 UPDATE execution 行（status + finished_at + execution_time_ms）。"""
+    from app.agent.orchestrator.engine import _make_db_execution_writer  # noqa: F811
+    from app.models.task import Task
+
+    db_session.add(Task(task_id="task-w3", status="WAITING_CONFIRMATION", user_message=""))
+    await db_session.commit()
+
     plan = {"steps": [{"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}}]}
     writer = _make_db_execution_writer(db_session, task_id="task-w3")
 
@@ -190,10 +199,15 @@ async def test_tc_s5_1_5_failed_step_calls_on_end_with_failed():
 # ====== TC-S5.1-6 ======
 
 
-@pytest.mark.xfail(reason="PR-20 commit 2 red: run_act with writer creates one execution per step")
 @pytest.mark.usefixtures("db_session")
 async def test_tc_s5_1_6_run_act_creates_multiple_execution_records(db_session: AsyncSession):
     """完整的 run_act → 每个成功 step 产生一条 execution 记录。"""
+    from app.agent.orchestrator.engine import _make_db_execution_writer  # noqa: F811
+    from app.models.task import Task
+
+    db_session.add(Task(task_id="task-w6", status="WAITING_CONFIRMATION", user_message=""))
+    await db_session.commit()
+
     plan = {
         "steps": [
             {"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}},
