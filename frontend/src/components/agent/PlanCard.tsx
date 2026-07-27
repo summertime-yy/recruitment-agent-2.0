@@ -1,5 +1,5 @@
 // PR-19 S5-13 · 计划卡片(commit 2 实现步骤渲染;commit 3 补交互按钮)。
-import { List, Typography } from 'antd';
+import { List, Typography, Button, Space } from 'antd';
 import type { SSEEvent, Plan } from '@/types/agent';
 import { CardContainer } from './CardContainer';
 
@@ -9,8 +9,9 @@ export interface PlanCardProps {
   onCancel?: () => void;
 }
 
-export function PlanCard({ event }: PlanCardProps) {
+export function PlanCard({ event, onConfirm, onCancel }: PlanCardProps) {
   const plan = event.data;
+  const showActions = Boolean(onConfirm || onCancel);
   return (
     <CardContainer title="计划" testId="plan-card">
       <List
@@ -25,6 +26,20 @@ export function PlanCard({ event }: PlanCardProps) {
           </List.Item>
         )}
       />
+      {showActions && (
+        <Space style={{ marginTop: 8 }}>
+          {onConfirm && (
+            <Button type="primary" onClick={onConfirm}>
+              确认执行
+            </Button>
+          )}
+          {onCancel && (
+            <Button danger onClick={onCancel}>
+              取消
+            </Button>
+          )}
+        </Space>
+      )}
     </CardContainer>
   );
 }

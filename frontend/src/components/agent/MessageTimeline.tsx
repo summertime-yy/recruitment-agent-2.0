@@ -1,5 +1,5 @@
 // PR-19 S5-13 · 消息时序(commit 2 实现 · 7 类 Card + system 不进列表)。
-import type { SSEEvent } from '@/types/agent';
+import type { SSEEvent, Plan } from '@/types/agent';
 import { ThinkingCard } from './ThinkingCard';
 import { PlanCard } from './PlanCard';
 import { ToolCallCard } from './ToolCallCard';
@@ -8,7 +8,13 @@ import { ResultCard } from './ResultCard';
 import { ErrorCard } from './ErrorCard';
 import { WarningCard } from './WarningCard';
 
-export function MessageTimeline({ events }: { events: SSEEvent[] }) {
+export interface MessageTimelineProps {
+  events: SSEEvent[];
+  onPlanConfirm?: () => void;
+  onPlanCancel?: () => void;
+}
+
+export function MessageTimeline({ events, onPlanConfirm, onPlanCancel }: MessageTimelineProps) {
   return (
     <div data-testid="message-timeline">
       {events
@@ -18,7 +24,14 @@ export function MessageTimeline({ events }: { events: SSEEvent[] }) {
             case 'thinking':
               return <ThinkingCard key={e.id} event={e} />;
             case 'plan':
-              return <PlanCard key={e.id} event={e} />;
+              return (
+                <PlanCard
+                  key={e.id}
+                  event={e as SSEEvent<Plan>}
+                  onConfirm={onPlanConfirm}
+                  onCancel={onPlanCancel}
+                />
+              );
             case 'tool_call':
               return <ToolCallCard key={e.id} event={e} />;
             case 'progress':

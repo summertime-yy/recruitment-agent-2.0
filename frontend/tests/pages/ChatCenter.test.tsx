@@ -29,12 +29,26 @@ function renderChat() {
   );
 }
 
+// antd v5 Button 默认对 ≤2 个中文字符插入空格(发 送 / 取 消),用归一化正则匹配按钮。
+function cnBtn(text: string) {
+  return screen.getByRole('button', { name: new RegExp(text.split('').join('\\s*')) });
+}
+
 beforeEach(() => {
   server.resetHandlers();
+  // SkipToScorePanel 挂载即拉取 JD/简历列表,注册默认 handler 避免 bypass 到真实网络。
+  server.use(
+    http.get(`${base}/jds`, () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, page_size: 10 }),
+    ),
+    http.get(`${base}/resumes`, () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, page_size: 10 }),
+    ),
+  );
 });
 
 describe('ChatCenter (S5-13)', () => {
-  test.fails('TC-S5-13-1 send message → plan stream → PlanCard confirm → executePlan called', async () => {
+  test('TC-S5-13-1 send message → plan stream → PlanCard confirm → executePlan called', async () => {
     const user = userEvent.setup();
     server.use(
       http.post(`${base}/agent/chat`, () => HttpResponse.json({ task_id: 't1', status: 'PLANNING' })),
@@ -54,7 +68,7 @@ describe('ChatCenter (S5-13)', () => {
 
     const input = await screen.findByPlaceholderText('输入消息...');
     await user.type(input, '帮我找简历');
-    await user.click(screen.getByText('发送'));
+    await user.click(cnBtn('发送'));
 
     // PlanCard 出现并展示步骤
     await screen.findByText('步骤一');
@@ -72,7 +86,7 @@ describe('ChatCenter (S5-13)', () => {
     expect(executePlanCalls[0]).toMatchObject({ task_id: 't1' });
   });
 
-  test.fails('TC-S5-13-2 skip-to-score panel → select JD/resume → skipToScore called + progress card', async () => {
+  test('TC-S5-13-2 skip-to-score panel → select JD/resume → skipToScore called + progress card', async () => {
     const user = userEvent.setup();
     const skipCalls: unknown[] = [];
     server.use(
@@ -94,9 +108,10 @@ describe('ChatCenter (S5-13)', () => {
 
     // 展开 skip-to-score 面板(默认收起)并选择
     await user.click(screen.getByText('跳过计划直接评分'));
-    await user.click(screen.getByPlaceholderText('选择 JD'));
+    // antd Select 占位符 span 不可点击(pointer-events:none)，点击可点击的 selector 区域展开下拉
+    await user.click(screen.getByText('选择 JD').closest('.ant-select')!.querySelector('.ant-select-selector')!);
     await user.click(await screen.findByText('JD One'));
-    await user.click(screen.getByPlaceholderText('选择候选人简历'));
+    await user.click(screen.getByText('选择候选人简历').closest('.ant-select')!.querySelector('.ant-select-selector')!);
     await user.click(await screen.findByText('Alice'));
     await user.click(screen.getByText('立即评分'));
 
@@ -106,7 +121,7 @@ describe('ChatCenter (S5-13)', () => {
     await screen.findByText('progress-content');
   });
 
-  test.fails('TC-S5-13-4 SSE disconnect then reconnect → same event id not double-rendered', async () => {
+  test('TC-S5-13-4 SSE disconnect then reconnect → same event id not double-rendered', async () => {
     let call = 0;
     server.use(
       http.post(`${base}/agent/chat`, () => HttpResponse.json({ task_id: 't4', status: 'PLANNING' })),
@@ -129,20 +144,21 @@ describe('ChatCenter (S5-13)', () => {
         return new HttpResponse(stream, { headers: { 'content-type': 'text/event-stream' } });
       }),
     );
+    const user = userEvent.setup();
     renderChat();
     const input = await screen.findByPlaceholderText('输入消息...');
     await user.type(input, 'hi');
-    await user.click(screen.getByText('发送'));
+    await user.click(cnBtn('发送'));
 
     const timeline = await screen.findByTestId('message-timeline');
-    await waitFor(() => expect(timeline).toHaveTextContent('thinking-t4'));
-    await waitFor(() => expect(timeline).toHaveTextContent('thinking-t4-b'));
+    await waitFor(() => expect(timeline).toHaveTextContent('thinking-t4'), { timeout: 8000 });
+    await waitFor(() => expect(timeline).toHaveTextContent('thinking-t4-b'), { timeout: 8000 });
     // id=1 不应重复渲染
     const matches = screen.getAllByText('thinking-t4');
     expect(matches.length).toBe(1);
   });
 
-  test.fails('TC-S5-13-5 PlanCard cancel → cancelTask called', async () => {
+  test('TC-S5-13-5 PlanCard cancel → cancelTask called', async () => {
     const user = userEvent.setup();
     const cancelCalls: string[] = [];
     server.use(
@@ -165,14 +181,14 @@ describe('ChatCenter (S5-13)', () => {
     renderChat();
     const input = await screen.findByPlaceholderText('输入消息...');
     await user.type(input, 'plan');
-    await user.click(screen.getByText('发送'));
+    await user.click(cnBtn('发送'));
 
     await screen.findByText('步骤五');
-    await user.click(screen.getByText('取消'));
+    await user.click(cnBtn('取消'));
     await waitFor(() => expect(cancelCalls).toContain('t5'));
   });
 
-  test.fails('TC-S5-13-9 system:cancelled stream → top bar shows "已取消" · no ErrorCard', async () => {
+  test('TC-S5-13-9 system:cancelled stream → top bar shows "已取消" · no ErrorCard', async () => {
     const user = userEvent.setup();
     server.use(
       http.post(`${base}/agent/chat`, () => HttpResponse.json({ task_id: 't9', status: 'PLANNING' })),
@@ -183,7 +199,7 @@ describe('ChatCenter (S5-13)', () => {
     renderChat();
     const input = await screen.findByPlaceholderText('输入消息...');
     await user.type(input, 'go');
-    await user.click(screen.getByText('发送'));
+    await user.click(cnBtn('发送'));
 
     // 顶部状态条应显示 "已取消"(仅取消终态才出现)
     await screen.findByText('已取消');
