@@ -23,12 +23,13 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.orchestrator.engine import DbUpdater, OrchestratorEngine
+from app.agent.orchestrator.engine import DbUpdater, OrchestratorEngine, _make_db_execution_writer
 from app.agent.orchestrator.event_buffer import EventBuffer
 from app.core.config import get_settings
 from app.core.database import async_session_factory, get_db
 from app.core.redis import get_redis
 from app.core.time import utcnow_naive
+from app.models.execution import Execution
 from app.models.task import Task, generate_task_id
 from app.schemas.agent import (
     AgentChatRequest,
@@ -122,12 +123,15 @@ async def execute_plan(
     # 在事务内捕获 plan，避免会话关闭后惰性加载
     task_plan = task.plan
     db_updater = await _make_db_updater()
+    # PR-20 S5.1: 构造 execution writer（后台任务用 async_session_factory 管理 session 生命周期）
+    exec_writer = _make_db_execution_writer(async_session_factory, task_id=req.task_id)
     resp = await engine.run_execute(
         req.task_id,
         plan=task_plan,
         accepted_steps=req.accepted_steps,
         modifications=req.modifications,
         db_updater=db_updater,
+        execution_writer=exec_writer,
     )
     if resp.get("status_code") == 429:
         _raise_429()
@@ -165,11 +169,14 @@ async def skip_to_score(
     )
     await db.commit()
     db_updater = await _make_db_updater()
+    # PR-20 S5.1: 构造 execution writer（后台任务用 async_session_factory 管理 session 生命周期）
+    exec_writer = _make_db_execution_writer(async_session_factory, task_id=task_id)
     resp = await engine.run_skip_to_score(
         req.jd_id,
         req.candidate_ids,
         task_id=task_id,
         db_updater=db_updater,
+        execution_writer=exec_writer,
     )
     if resp.get("status_code") == 429:
         _raise_429()
@@ -327,6 +334,17 @@ async def cancel_task(
         )
     task.status = "CANCELLED"
     task.finished_at = utcnow_naive()
+    # PR-20 S5.1 D2: cancel 时将当前步骤的 PENDING execution 标为 CANCELLED
+    if task.current_step is not None:
+        await db.execute(
+            update(Execution)
+            .where(
+                Execution.task_id == task_id,
+                Execution.step_id == task.current_step,
+                Execution.execution_status == "PENDING",
+            )
+            .values(execution_status="CANCELLED", finished_at=utcnow_naive()),
+        )
     await db.commit()
     # 事务提交后补发 SSE（Q3）
     if engine.event_buffer is not None:

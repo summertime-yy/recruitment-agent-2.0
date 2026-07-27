@@ -18,6 +18,26 @@ from app.agent.orchestrator.act import StepResult, run_act
 from app.agent.orchestrator.engine import OrchestratorEngine
 from app.models.execution import Execution
 
+
+def _test_session_factory(session: AsyncSession):
+    """返回一个 callable，内部作为 async context manager 产出给定的 db_session。
+
+    _make_db_execution_writer 现在收 session_factory（callable() → async context manager），
+    测试中用此包装器把 fixture-level db_session 适配为工厂模式，且 __aexit__ 不关闭 session。
+    """
+
+    class _NoCloseSession:
+        def __init__(self, sess: AsyncSession) -> None:
+            self._sess = sess
+
+        async def __aenter__(self) -> AsyncSession:
+            return self._sess
+
+        async def __aexit__(self, *exc: Any) -> None:
+            pass  # fixture 管理生命周期，不在此处关闭
+
+    return lambda: _NoCloseSession(session)
+
 # ---------------------------------------------------------------------------
 
 pytestmark = pytest.mark.asyncio
@@ -86,7 +106,7 @@ async def test_tc_s5_1_2_execution_writer_creates_record_on_start(db_session: As
     await db_session.commit()
 
     plan = {"steps": [{"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}}]}
-    writer = _make_db_execution_writer(db_session, task_id="task-w2")
+    writer = _make_db_execution_writer(_test_session_factory(db_session), task_id="task-w2")
 
     # 模拟 run_act 调用 writer
     await writer("s1", "search_resumes", action="start")
@@ -125,7 +145,7 @@ async def test_tc_s5_1_3_execution_writer_updates_on_end(db_session: AsyncSessio
     await db_session.commit()
 
     plan = {"steps": [{"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}}]}
-    writer = _make_db_execution_writer(db_session, task_id="task-w3")
+    writer = _make_db_execution_writer(_test_session_factory(db_session), task_id="task-w3")
 
     await writer("s1", "search_resumes", action="start")
     # 模拟执行耗时
@@ -218,12 +238,18 @@ async def test_tc_s5_1_6_run_act_creates_multiple_execution_records(db_session: 
             {"step_id": "s2", "tool_name": "score", "tool_input": {}},
         ],
     }
-    writer = _make_db_execution_writer(db_session, task_id="task-w6")
+    writer = _make_db_execution_writer(_test_session_factory(db_session), task_id="task-w6")
+
+    async def _on_start(sid: str, tn: str) -> None:
+        await writer(sid, tn, "start")
+
+    async def _on_end(sid: str, sr: StepResult) -> None:
+        await writer(sid, sr.tool_name, "end", sr)
 
     await run_act(
         plan,
-        on_step_start=lambda sid, tn: writer(sid, tn, action="start"),
-        on_step_end=lambda sid, sr: asyncio.ensure_future(writer(sid, sr.tool_name, action="end", result=sr)),
+        on_step_start=_on_start,
+        on_step_end=_on_end,
         tool_router=_FakeRouter(),
     )
     # 刷新 DB 并查行

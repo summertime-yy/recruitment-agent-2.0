@@ -51,15 +51,18 @@ ExecutionWriterFn = Callable[[str, str, str, Any], Awaitable[None]]
 
 
 def _make_db_execution_writer(
-    db: Any,  # AsyncSession（避免循环依赖类型注解在运行时不可用）
+    session_factory: Any,  # callable() → async context manager yielding AsyncSession
     task_id: str,
 ) -> ExecutionWriterFn:
     """返回 execution_writer(step_id, tool_name, action, result=None) 回调。
 
     action="start": INSERT execution 行（phase=ACT, status=PENDING, started_at）。
     action="end":   UPDATE execution 行（status=COMPLETED/FAILED, finished_at, execution_time_ms, output_result）。
+
+    每次 writer 调用通过 ``session_factory()`` 新建 session（对齐 _make_db_updater 模式），
+    后台任务不持有请求级 db:AsyncSession。
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from sqlalchemy import select
 
@@ -69,42 +72,43 @@ def _make_db_execution_writer(
     start_times: dict[str, datetime] = {}  # step_id -> started_at
 
     async def writer(step_id: str, tool_name: str, action: str, result: Any = None) -> None:
-        if action == "start":
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
-            start_times[step_id] = now
-            row = Execution(
-                task_id=task_id,
-                step_id=step_id,
-                phase="ACT",
-                tool_name=tool_name,
-                execution_status="PENDING",
-                started_at=now,
-            )
-            db.add(row)
-            await db.commit()
-        elif action == "end":
-            finished = datetime.now(timezone.utc).replace(tzinfo=None)
-            stmt = (
-                select(Execution)
-                .where(Execution.task_id == task_id, Execution.step_id == step_id)
-                .order_by(Execution.created_at.desc())
-                .limit(1)
-            )
-            r = await db.execute(stmt)
-            row = r.scalars().first()
-            if row is None:
-                return
-            sr = result
-            status = "COMPLETED" if (sr is not None and getattr(sr, "success", False)) else "FAILED"
-            row.execution_status = status
-            row.finished_at = finished
-            if sr is not None and getattr(sr, "output", None) is not None:
-                row.output_result = sr.output
-            started = start_times.get(step_id)
-            if started is not None:
-                row.execution_time_ms = int((finished - started).total_seconds() * 1000)
-            db.add(row)
-            await db.commit()
+        async with session_factory() as db:
+            if action == "start":
+                now = utcnow_naive()
+                start_times[step_id] = now
+                row = Execution(
+                    task_id=task_id,
+                    step_id=step_id,
+                    phase="ACT",
+                    tool_name=tool_name,
+                    execution_status="PENDING",
+                    started_at=now,
+                )
+                db.add(row)
+                await db.commit()
+            elif action == "end":
+                finished = utcnow_naive()
+                stmt = (
+                    select(Execution)
+                    .where(Execution.task_id == task_id, Execution.step_id == step_id)
+                    .order_by(Execution.created_at.desc())
+                    .limit(1)
+                )
+                r = await db.execute(stmt)
+                row = r.scalars().first()
+                if row is None:
+                    return
+                sr = result
+                status = "COMPLETED" if (sr is not None and getattr(sr, "success", False)) else "FAILED"
+                row.execution_status = status
+                row.finished_at = finished
+                if sr is not None and getattr(sr, "output", None) is not None:
+                    row.output_result = sr.output
+                started = start_times.get(step_id)
+                if started is not None:
+                    row.execution_time_ms = int((finished - started).total_seconds() * 1000)
+                db.add(row)
+                await db.commit()
 
     return writer
 
@@ -442,6 +446,7 @@ class OrchestratorEngine:
         db: Any = None,
         event_buffer: EventBuffer | None = None,
         db_updater: DbUpdater | None = None,
+        execution_writer: Any | None = None,
     ) -> dict[str, Any]:
         # 状态守卫：非 WAITING_CONFIRMATION -> 抛 IllegalTransitionError（PR-14 REST 层转 409）
         check_transition(TaskStatus.WAITING_CONFIRMATION, TaskStatus.EXECUTING)
@@ -471,7 +476,7 @@ class OrchestratorEngine:
             }
         # 后台跑（不阻塞 HTTP 响应）；收尾 decr 由 _background_execute 负责
         asyncio.create_task(
-            self._background_execute(task_id, plan, buffer, db_updater or self.db_updater),
+            self._background_execute(task_id, plan, buffer, db_updater or self.db_updater, execution_writer),
             name=f"orch-execute-{task_id}",
         )
         return {"status_code": 200, "status": "EXECUTING", "task_id": task_id}
@@ -484,6 +489,7 @@ class OrchestratorEngine:
         db: Any = None,
         event_buffer: EventBuffer | None = None,
         db_updater: DbUpdater | None = None,
+        execution_writer: Any | None = None,
     ) -> dict[str, Any]:
         try:
             await self.active_counter.incr()
@@ -503,7 +509,7 @@ class OrchestratorEngine:
         }
         # 后台跑；收尾 decr 由 _background_execute 负责
         asyncio.create_task(
-            self._background_execute(task_id, plan, buffer, db_updater or self.db_updater),
+            self._background_execute(task_id, plan, buffer, db_updater or self.db_updater, execution_writer),
             name=f"orch-skip-{task_id}",
         )
         return {
@@ -520,14 +526,26 @@ class OrchestratorEngine:
         plan: dict[str, Any],
         buffer: EventBuffer | None,
         db_updater: DbUpdater | None = None,
+        execution_writer: Any | None = None,
     ) -> None:
         """后台任务：跑 Act + Reflect-Act，收尾发 result 事件 + 设 TTL + 写 tasks 终态（PR-13 Q4 + PR-14 Q1）。
 
         try/finally 保证无论成功/失败/超时都 decr 活跃计数（PR-13 Q4）。
+        PR-20 S5.1: execution_writer 可选，传入时每次 step 写 executions 表。
         """
         from app.agent.orchestrator.act import run_act
 
         emit = self._make_emit(task_id) if buffer else None
+        # PR-20 S5.1: 构造 on_step_start / on_step_end 回调适配器
+        _on_start: Any = None
+        _on_end: Any = None
+        if execution_writer is not None:
+            async def _on_start(step_id: str, tool_name: str) -> None:
+                await execution_writer(step_id, tool_name, "start")
+
+            async def _on_end(step_id: str, result: Any) -> None:
+                await execution_writer(step_id, result.tool_name, "end", result)
+
         try:
             # 起始：写 EXECUTING（Q1 方案 B 第 2 处）
             await self._write_task(
@@ -536,7 +554,14 @@ class OrchestratorEngine:
                 {"status": "EXECUTING", "started_at": utcnow_naive()},
             )
             results = await asyncio.wait_for(
-                run_act(plan, ctx={"task_id": task_id}, emit=emit, tool_router=self.tool_router),
+                run_act(
+                    plan,
+                    ctx={"task_id": task_id},
+                    emit=emit,
+                    tool_router=self.tool_router,
+                    on_step_start=_on_start,
+                    on_step_end=_on_end,
+                ),
                 timeout=self.task_timeout_sec,
             )
             reflect_act_out = await self.run_reflect_act(
@@ -629,13 +654,11 @@ class OrchestratorEngine:
 
         # PR-20 S5.1: cancel 时将 task 关联的 PENDING executions 标为 CANCELLED
         if db is not None:
-            from datetime import datetime, timezone
-
             from sqlalchemy import select
 
             from app.models.execution import Execution
 
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            now = utcnow_naive()
             stmt = (
                 select(Execution)
                 .where(Execution.task_id == task_id, Execution.execution_status == "PENDING")

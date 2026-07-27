@@ -52,7 +52,7 @@ async def test_engine_2_background_execute_writes_executing_then_completed(fake_
     db_updater = AsyncMock()
     eng, _ = await _make_engine(fake_redis, db_updater=db_updater)
 
-    async def _fake_run_act(plan, ctx=None, emit=None, tool_router=None):
+    async def _fake_run_act(plan, ctx=None, emit=None, tool_router=None, **kwargs):
         return [_FakeResult("s1", "create_match_score", success=True, output={"match_score_id": "ms_1"})]
 
     monkeypatch.setattr(act_mod, "run_act", _fake_run_act)
@@ -74,7 +74,7 @@ async def test_engine_3_skip_to_score_uses_provided_task_id(fake_redis, monkeypa
     db_updater = AsyncMock()
     eng, _ = await _make_engine(fake_redis, db_updater=db_updater)
 
-    async def _fake_run_act(plan, ctx=None, emit=None, tool_router=None):
+    async def _fake_run_act(plan, ctx=None, emit=None, tool_router=None, **kwargs):
         return [_FakeResult("step_score_0", "create_match_score", success=True, output={"match_score_id": "ms_1"})]
 
     monkeypatch.setattr(act_mod, "run_act", _fake_run_act)
