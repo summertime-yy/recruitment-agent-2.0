@@ -40,9 +40,9 @@ class Task(Base, TimestampMixin):
         String(50), nullable=True, comment="进行中 step_id（前端「进行中」展示）"
     )
     started_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, comment="进入 EXECUTING 时刻（Q8 超时判定）"
+        DateTime(timezone=True), nullable=True, comment="进入 EXECUTING 时刻（Q8 超时判定）"
     )
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="进入终态时刻（Q8 超时判定）")
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="进入终态时刻（Q8 超时判定）")
 
     __table_args__ = (Index("idx_tasks_status_created", "status", desc("created_at")),)
 

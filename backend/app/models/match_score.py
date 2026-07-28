@@ -42,9 +42,9 @@ class MatchScore(Base, TimestampMixin):
         Integer, ForeignKey("skill_execution_logs.execution_id"), nullable=True
     )
     resume_updated_at_snapshot: Mapped[datetime | None] = mapped_column(
-        DateTime, comment="生成时简历updated_at快照，用于陈旧判断"
+        DateTime(timezone=True), comment="生成时简历updated_at快照，用于陈旧判断"
     )
-    jd_updated_at_snapshot: Mapped[datetime | None] = mapped_column(DateTime, comment="生成时JD updated_at快照")
+    jd_updated_at_snapshot: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), comment="生成时JD updated_at快照")
     status: Mapped[str] = mapped_column(
         String(20),
         default="COMPLETED",

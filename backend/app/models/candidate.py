@@ -112,7 +112,7 @@ class CandidateStatusHistory(Base, TimestampMixin):
     to_status: Mapped[str] = mapped_column(String(30), nullable=False, comment="变更后状态")
     reason: Mapped[str | None] = mapped_column(String(500), comment="变更原因/备注")
     operator: Mapped[str | None] = mapped_column(String(50), comment="操作人ID")
-    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False, index=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False, index=True)
 
 
 # ---------------------------------------------------------------------------

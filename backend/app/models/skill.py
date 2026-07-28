@@ -39,8 +39,8 @@ class SkillVersion(Base):
     avg_latency_ms: Mapped[int | None] = mapped_column(Integer)
     quality_score: Mapped[float | None] = mapped_column(Float)
     created_by: Mapped[str | None] = mapped_column(String(100))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (UniqueConstraint("skill_id", "version", name="uq_skill_version"),)
 
@@ -59,4 +59,4 @@ class SkillExecutionLog(Base):
     execution_time_ms: Mapped[int | None] = mapped_column(Integer)
     validation_score: Mapped[float | None] = mapped_column(Float)
     error_message: Mapped[str | None] = mapped_column(Text)
-    executed_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
