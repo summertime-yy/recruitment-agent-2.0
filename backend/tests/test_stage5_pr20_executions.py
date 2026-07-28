@@ -7,17 +7,16 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.orchestrator.act import StepResult, run_act
 from app.agent.orchestrator.engine import OrchestratorEngine
+from app.core.config import get_settings
 from app.core.redis import get_redis
-from app.core.time import utcnow_naive
+from app.core.time import utcnow_aware
 from app.main import app
 from app.models.execution import Execution
 
@@ -108,14 +107,14 @@ async def test_tc_s5_1_2_execution_writer_creates_record_on_start(db_session: As
     db_session.add(Task(task_id="task-w2", status="WAITING_CONFIRMATION", user_message=""))
     await db_session.commit()
 
-    plan = {"steps": [{"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}}]}
+    _plan = {"steps": [{"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}}]}
     writer = _make_db_execution_writer(_test_session_factory(db_session), task_id="task-w2")
 
     # 模拟 run_act 调用 writer
     await writer("s1", "search_resumes", action="start")
 
     # 验证 DB 已写入
-    row = await db_session.get(Execution, "mock-exec-id")
+    _row = await db_session.get(Execution, "mock-exec-id")
     # 在 writer 未实现时这里无法拿到真实 execution_id
     # 我们直接查询 task 关联的 executions
     from sqlalchemy import select
@@ -147,7 +146,7 @@ async def test_tc_s5_1_3_execution_writer_updates_on_end(db_session: AsyncSessio
     db_session.add(Task(task_id="task-w3", status="WAITING_CONFIRMATION", user_message=""))
     await db_session.commit()
 
-    plan = {"steps": [{"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}}]}
+    _plan = {"steps": [{"step_id": "s1", "tool_name": "search_resumes", "tool_input": {}}]}
     writer = _make_db_execution_writer(_test_session_factory(db_session), task_id="task-w3")
 
     await writer("s1", "search_resumes", action="start")
@@ -182,7 +181,6 @@ async def test_tc_s5_1_4_cancel_writes_cancelled(db_session: AsyncSession):
     db_session.add(Task(task_id="task-c4", status="PLANNING", user_message=""))
     await db_session.commit()
 
-    from sqlalchemy import select
 
     # 先直接写一条 execution 行模拟已启动但未完成的步骤
     exec_row = Execution(
@@ -274,8 +272,6 @@ async def test_tc_s5_1_6_run_act_creates_multiple_execution_records(db_session: 
 # ======================================================================
 
 # 复用 agent endpoint 测试中的路径前缀模式
-from app.core.config import get_settings
-
 PREFIX = get_settings().API_V1_PREFIX
 
 
@@ -298,9 +294,8 @@ async def test_tc_s5_1_7_execute_plan_writes_executions_via_endpoint(
     from unittest.mock import AsyncMock
 
     from app.agent.orchestrator import act as act_mod
-    from app.models.task import Task as TaskModel
-
     from app.core.database import async_session_factory
+    from app.models.task import Task as TaskModel
 
     app.dependency_overrides[get_redis] = lambda: fake_redis
     task_id = f"task-e2e-7-{int(time.monotonic() * 1000)}"
@@ -392,7 +387,6 @@ async def test_tc_s5_1_8_cancel_task_endpoint_writes_cancelled_execution(
     client_db, db_session: AsyncSession, fake_redis
 ):
     """TC-S5.1-8：POST /agent/tasks/{id}/cancel → executions 中 PENDING 行标为 CANCELLED。"""
-    from httpx import AsyncClient
 
     from app.models.task import Task as TaskModel
 
@@ -415,7 +409,7 @@ async def test_tc_s5_1_8_cancel_task_endpoint_writes_cancelled_execution(
             phase="ACT",
             tool_name="search_resumes",
             execution_status="PENDING",
-            started_at=utcnow_naive(),
+            started_at=utcnow_aware(),
         )
         db_session.add(exec_row)
         await db_session.commit()

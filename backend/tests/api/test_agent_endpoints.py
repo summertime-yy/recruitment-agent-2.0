@@ -27,7 +27,7 @@ import asyncio
 from app.api.v1.agent import get_engine
 from app.core.config import get_settings
 from app.core.redis import get_redis
-from app.core.time import utcnow_naive
+from app.core.time import utcnow_aware
 from app.main import app
 from app.models.task import Task
 from app.schemas.agent import SSEEventType
@@ -48,7 +48,7 @@ async def test_s5_09_1_route_order_stream_before_task(client_db, db_session, fak
             status="COMPLETED",
             user_message="x",
             result={"ok": True},
-            finished_at=utcnow_naive(),
+            finished_at=utcnow_aware(),
         )
     )
     await db_session.commit()
@@ -77,7 +77,7 @@ async def test_s5_09_2_status_codes(client_db, db_session, fake_redis):
         assert r2.status_code == 404
 
         # 非确认态（EXECUTING）cancel → 409
-        db_session.add(Task(task_id="task_cancel_409", status="EXECUTING", user_message="x", created_at=utcnow_naive()))
+        db_session.add(Task(task_id="task_cancel_409", status="EXECUTING", user_message="x", created_at=utcnow_aware()))
         await db_session.commit()
         r3 = await client_db.post(f"{PREFIX}/agent/tasks/task_cancel_409/cancel")
         assert r3.status_code == 409
@@ -91,7 +91,7 @@ async def test_s5_09_3_sse_last_event_id_replay(client_db, db_session, fake_redi
     缓冲末尾追加一条终态 RESULT 事件，使 _event_stream 回放后自然关流。
     """
     app.dependency_overrides[get_redis] = lambda: fake_redis
-    db_session.add(Task(task_id="task_replay", status="EXECUTING", user_message="x", started_at=utcnow_naive()))
+    db_session.add(Task(task_id="task_replay", status="EXECUTING", user_message="x", started_at=utcnow_aware()))
     await db_session.commit()
     for i in range(10):
         await event_buffer.append("task_replay", SSEEventType.TOOL_CALL, {"i": i})
@@ -122,7 +122,7 @@ async def test_s5_09_4_sse_heartbeat(client_db, db_session, fake_redis, event_bu
 
     app.dependency_overrides[get_redis] = lambda: fake_redis
     app.dependency_overrides[get_settings] = lambda: Settings(sse_heartbeat_interval_sec=0.1)
-    db_session.add(Task(task_id="task_hb", status="EXECUTING", user_message="x", started_at=utcnow_naive()))
+    db_session.add(Task(task_id="task_hb", status="EXECUTING", user_message="x", started_at=utcnow_aware()))
     await db_session.commit()
 
     async def _finish_later():
@@ -155,7 +155,7 @@ async def test_s5_09_5_sse_content_type(client_db, db_session, fake_redis):
             status="COMPLETED",
             user_message="x",
             result={"ok": True},
-            finished_at=utcnow_naive(),
+            finished_at=utcnow_aware(),
         )
     )
     await db_session.commit()

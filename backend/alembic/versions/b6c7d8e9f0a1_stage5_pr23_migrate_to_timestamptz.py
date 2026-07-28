@@ -17,9 +17,8 @@ Reversible: downgrade strips the tz back to naive UTC with the symmetric
 ``AT TIME ZONE 'UTC'`` expression.
 """
 
-from collections.abc import Sequence
-
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "b6c7d8e9f0a1"

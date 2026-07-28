@@ -10,8 +10,6 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
-import pytest
-
 
 class _FakeResult:
     def __init__(self, step_id: str, tool_name: str, success: bool = True, output: dict | None = None):
