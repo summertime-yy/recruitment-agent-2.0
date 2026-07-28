@@ -1,9 +1,9 @@
 # 招聘 Agent 2.0 阶段性总结与交接文档
 
-> 更新时间：2026-07-27
-> 当前进度：**Stage 5 进行中**（PR-10/11/12/13/14/15/16/17/18/19 已合入 master —— 见 §九）
+> 更新时间：2026-07-28
+> 当前进度：**Stage 5 进行中**（PR-10/11/12/13/14/15/16/17/18/19/20 已合入 master —— 见 §九）
 > 上一阶段：Stage 4（人岗匹配评分）已完成
-> 下一阶段：Stage 5.1 追债项收敛 / Stage 6 规划
+> 下一阶段：Stage 5.1 追债项 12 收敛（PR-21） / Stage 6 规划
 > 对应提交：后端 `74482ba`（PR-5 匹配核心）；前端 `9002305`（PR-7 匹配服务/页面）、PR-8 `fb75251`/`6dd41b7`/`bc9545c`（接入真实分 + 匹配面板）；**本追加提交（PR-8 收尾）**：候选人管理页 UI/筛选/关联JD 重构 + ResumeDetail 匹配体验优化（详见 §3.2 / §6.1）
 > 面向读者：下一位系统架构师 / 开发者
 
@@ -356,9 +356,10 @@ DATABASE_URL=postgresql+asyncpg://...
 | PR-16 | S5-11 | candidate-profile Skill + engine 数据型 artifact 出口补齐 | ✅ | ab99b43 |
 | PR-17 | 追债项 10+11 收敛 | Orchestrator 端到端路由修复（`SkillRegistry._task_type_to_tool_name` 自动派生 + engine `run_plan` 动态注入 dispatchable Markdown 清单 + reason 值域补全） | ✅ | bcc6c3b |
 | PR-18 | S5-12 | 前端类型 + `agentApi` services + `useTaskStream` SSE Hook（fetch + ReadableStream 手写解析器 + Last-Event-ID 重连 + 3/6/12s 指数退避 + 心跳 `lastHeartbeatAt` 字段） | ✅ | 34703a0 |
-| **PR-19** | **S5-13** | **前端 ChatCenter + CandidateChat + 8 类事件卡片** | ✅ | **6b9372a** |
+| PR-19 | S5-13 | 前端 ChatCenter + CandidateChat + 8 类事件卡片 | ✅ | 6b9372a |
+| **PR-20** | **追债 7+8** | **executions 全生命周期落库 + `tasks.current_step` 中途 UPDATE**（`_make_db_execution_writer` 闭包 + `run_act` `on_step_start`/`on_step_end` callback + `agent.py::execute_plan`/`skip_to_score` 生产接线 + `cancel_task` D2 分支 UPDATE Execution → CANCELLED） | ✅ | **6a13228** |
 
-**当前 master HEAD**：`6b9372a`（PR-19 build gate 返修） · **后端测试基线**：**120 passed**（未变，PR-19 未触碰 backend/app）· **前端测试基线**：**31 passed**（PR-18 期 `N_before=20` → PR-19 新增 11：TC-S5-13-1..11）。
+**当前 master HEAD**：`6a13228`（PR-20 追债 7+8 收敛） · **后端测试基线**：**129 passed + 1 skipped**（PR-19 期 120 → PR-20 新增 9：TC-S5.1-1..6/8/9/10；TC-S5.1-7 skip 记 §9.4 陷阱 12）· **前端测试基线**：**31 passed**（PR-20 未触碰 frontend）。
 
 ### 9.2 Stage 5 架构约束（PR-13 起生效）
 
@@ -381,8 +382,8 @@ DATABASE_URL=postgresql+asyncpg://...
 4. **fakeredis 覆盖不到真 Redis 边界差异** — pipeline 语义、LTRIM 负索引等边界在 fakeredis 与真 Redis 上可能不一致。Stage 6/后期加 docker-redis 集成测试套件。
 5. **`app/core/redis.py` 全局单例已删除（PR-13）** — 若后续发现历史代码有隐式引用（当前 grep 无匹配），走 `Depends(get_redis)` 补齐。
 6. **DB 列仍为 `TIMESTAMP WITHOUT TIME ZONE`（naive）** — PR-13 §十二 清扫 `datetime.utcnow()` 时发现，`skill_execution_logs.executed_at` 等列是 naive，直接改 tz-aware 会导致 asyncpg 写入失败。PR-13 裁定采用方案 B：新增 `app/core/time.py` 提供 `utcnow_naive()`（落库用）和 `utcnow_aware()`（SSE / 内存 / 日志用）双 helper。**Stage 5.1 需专项 PR 用 Alembic 迁移相关列到 `TIMESTAMPTZ`，然后收敛为单一 `utcnow_aware()`**。详见 `docs/planning/stage5/PR13-HELP-REQUEST-datetime-tz.md`。
-7. **`executions` 表全生命周期未落库**（PR-14 §19.1 引入）— `api-contract.md §4.5`（cancel 写 `executions.status='CANCELLED'`）与 `PLAN-STAGE5.md §5.5`（Act 逐步 executions 记录）**违契**。PR-14 的 cancel/execute 端点仅操作 `tasks` 表；`models/execution.py` 已存在但闲置。**Stage 5.1 专门 PR**：db_updater 回调扩至两张表 + `run_act` 加 per-step callback + cancel 端点同事务内 UPDATE `executions`。详见 `docs/planning/stage5/PR14-KICKOFF-DECISION.md §19.1` + `PR14-STEP6-REPORT.md §五 19.1`。
-8. **`tasks.current_step` 中途不写 DB**（PR-14 §19.2 引入）— db_updater 只在 INSERT/终态触碰；`_background_execute` 中途不 UPDATE。前端进行中步骤高亮**只能从 SSE `tool_call`/`progress` 事件推导**；SSE 断连且 TTL 过期后前端拿不到"进行到哪一步"（属降级路径，可接受）。**与追债项 7 同 PR 补齐**：给 `run_act` 加 `on_step_start` / `on_step_end` callback，db_updater 逐步 UPDATE `current_step`。
+7. **`executions` 表全生命周期未落库**（PR-14 §19.1 引入）**✅ 已收敛（PR-20 `6a13228`）** — `_make_db_execution_writer(session_factory, task_id)` 闭包工厂（`engine.py:53-102`）：`action="start"` → INSERT `executions` 行（`phase="ACT"`、`status="PENDING"`、`started_at`）；`action="end"` → UPDATE 同行（`status=COMPLETED/FAILED`、`finished_at`、`execution_time_ms`、`output_result`）。`run_act` 接 `on_step_start`/`on_step_end` callback（`act.py`，按步顺序回调）。生产接线：`agent.py::execute_plan` L127 + `skip_to_score` L173 均构造 writer 并作 `execution_writer` kwarg 传入 engine 后台任务；`cancel_task` D2（L340-347）同事务 UPDATE Execution → CANCELLED（`WHERE task_id AND step_id=task.current_step AND status=PENDING`）。测试覆盖：TC-S5.1-1..6/8（unit + cancel E2E）；TC-S5.1-7 xfail→skip（§9.4 陷阱 12）。
+8. **`tasks.current_step` 中途不写 DB**（PR-14 §19.2 引入）**✅ 已收敛（PR-20 `6a13228`）** — `_make_db_execution_writer` 的 `action="start"` 分支同事务内 `UPDATE tasks SET current_step=step_id WHERE task_id=...`；`action="end"` 不动 `current_step`（保留"最后进行到哪一步"痕迹，与 cancel D2 语义一致）。测试覆盖：TC-S5.1-9（start 写 current_step）+ TC-S5.1-10（end 不清、下一次 start 推进）。
 9. **`THINKING` 事件非 token 流**（PR-14 §19.3 引入）— Reason 完成后**一次性**发一条 `THINKING`（summary），Reflect / Reflect-Plan 不 emit thinking。**不在 Stage 5.1 范围**，属 Stage 6+ 独立 PR：Reason skill 接入流式 LLM adapter（`langchain-openai` 的 `astream`），`run_reason` 改为 async generator 逐 token yield，`_background_reason_plan` 逐帧 `emit(THINKING, {"delta": token})`。
 10. **`task_type` 三命名空间共存**（PR-16 §19.1 引入，canonical 表述见 `PR16-KICKOFF-DECISION.md §十九`）**✅ 已收敛（PR-17 `bcc6c3b`，Y 方向；X/Z 留 Stage 5.2）** — `skill_id` / `tool_name`（连字符 lowercase）≠ `skill.yaml.task_type`（下划线 lowercase）≠ `tasks.task_type` DB 列（SCREAMING）三层同名不同义。**Y 方向已实施**：`SkillRegistry._load_all_skills` 末尾自动从 `skill.yaml.task_type` 派生 `_task_type_to_tool_name` 映射表，权威源单一、新增 skill 零维护、冲突启动即 fail-fast raise（PR-17 canonical 收敛点，见 `skill_registry.py`）。**X 方向（拆字段名 refactor）/ Z 方向（DB 列 SCREAMING → 与 skill.yaml 对齐迁移）明留 Stage 5.2**，触发条件不变。
 11. **orchestrator reason/plan 未登记 dispatchable Skill，自然语言路由不通**（PR-16 §19.2 引入，跨 PR-15/16 共同债务）**✅ 已收敛（PR-17 `bcc6c3b`）** — reason 补全 `profile_candidate` 值域 + examples；`OrchestratorEngine._format_dispatchable_tools` 合并 `BUILTIN_TOOLS` + `registry.list_dispatchable()` 生成 Markdown 列表；`run_plan` 每次调用注入 `plan_input["dispatchable_tools"]`（`orchestrator_plan/skill.yaml.input_schema.properties` 加 `dispatchable_tools` **不入 `required`**）；LLM 从清单学习 `task_type ↔ tool_name` 对应后自主输出合法 `tool_name`，`reflect_plan` 保护网（engine.py:169 `dispatchable_tool_names()` 校验）挡下 LLM 犯错。**canonical 收敛点**：`engine.run_plan` + `_format_dispatchable_tools` + `orchestrator-plan/prompt.md` + `orchestrator-reason/prompt.md`。集成测试 TC-PR17-1..4 覆盖 candidate-profile / candidate-merge / jd-candidate-matching 三条正向路径 + 1 条 reflect_plan 反向拦截。
@@ -437,11 +438,16 @@ DATABASE_URL=postgresql+asyncpg://...
 | `frontend/tests/hooks/useTaskStream.test.ts` | **PR-18 新增**：TC-S5-12-1（8 类事件解析 · system 不入 `events[]` 但进 `latestByType` + `lastHeartbeatAt`）· TC-S5-12-2（Last-Event-ID 重连头断言） |
 | `frontend/tests/services/agent.test.ts` | **PR-18 新增**：TC-S5-12-3（429 抛可捕获错误） |
 | `frontend/tests/types/agent.types.test.ts` | **PR-18 新增**：TC-S5-12-4（`expectTypeOf` 运行期类型校验 · 8 类型 union / 3 值子集 / union 完整性） |
+| `backend/app/agent/orchestrator/engine.py` | **PR-20 修改**：新增 `_make_db_execution_writer(session_factory, task_id)` 闭包工厂（execution 表全生命周期 + `tasks.current_step` 同事务 UPDATE）；`_background_execute` 增 `on_step_start`/`on_step_end` 参数；`run_execute`/`run_skip_to_score` 增 `execution_writer` kwarg 转接 |
+| `backend/app/agent/orchestrator/act.py` | **PR-20 修改**：`run_act` 增 `on_step_start: StepCallbackFn \| None` / `on_step_end: StepEndCallbackFn \| None` 参数，每步开始/结束回调（成功、可选失败、必需失败三分支） |
+| `backend/app/api/v1/agent.py` | **PR-20 修改**：`execute_plan`/`skip_to_score` 构造 `_make_db_execution_writer(async_session_factory, task_id)` 并作 kwarg 传入 engine；`cancel_task` 新增 D2 分支（同事务 UPDATE Execution WHERE task_id AND step_id=task.current_step AND status=PENDING → CANCELLED + finished_at） |
+| `backend/tests/test_stage5_pr20_executions.py` | **PR-20 新增**：TC-S5.1-1..10（unit + E2E · writer helper 生命周期 + run_act callback + cancel D2 端到端 + current_step 中途写；TC-S5.1-7 skip 见 §9.4 陷阱 12） |
 
 ### 9.6 下一位接手 Stage 5 的建议
 
-1. **PR-19 已合入**（S5-13 前端 ChatCenter + CandidateChat + 8 类事件卡片 · `6b9372a`）。**下一步方向**：**Stage 5.1 追债项收敛**（§9.3 追债项 7 `executions` 表全生命周期 + 追债项 8 `tasks.current_step` 中途写 DB + 追债项 12 `create_match_score` 工具路由收敛）或 **Stage 6 规划**（THINKING 流式 token 等）。
-2. **PR-19 交付回顾**：`pages/ChatCenter.tsx`（消息输入 → `agentApi.chat` → `useTaskStream` → 渲染 7 类 Card + system 顶部条 · PlanCard 含"确认执行/取消"按钮 → `agentApi.executePlan` / `agentApi.cancelTask`）· `pages/CandidateChat.tsx`（URL `?candidates=a,b` → `chat.context.candidate_ids`）· `components/agent/*Card.tsx` × 7（Thinking/Plan/ToolCall/Progress/Result/Error/Warning）+ SystemCard（备用，system 事件实际走顶部条）· 6 artifact 渲染器带 `never` 穷尽 switch · skip-to-score 快捷入口 · TC-S5-13-1..11（含 CANCELLED UI）。**hook 扩展**：`useTaskStream` 处理 `system:cancelled` 事件时标记终态，不再重连（PR-18 §9.4 陷阱 10 已消除）。
-3. **不要碰 `docs/planning/stage5/commander/` 和 `executor/` 子目录** —— 双盲评审前的初稿，已被顶层合并版覆盖。
-4. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。**当前 master HEAD = `6b9372a`（PR-19 build gate 返修），后端基线 120 passed，前端基线 31 passed**。
-5. **完成一个 PR 后**：更新本节 9.1 表格的状态与合入 commit；更新 9.4 陷阱表（如果新踩到坑）；`git push origin --delete feat/pr-NN-...` 清远端 feat 分支。
+1. **PR-20 已合入**（追债 7 executions 全生命周期 + 追债 8 `tasks.current_step` 中途 UPDATE · `6a13228`）。**下一步方向**：**Stage 5.1 追债项 12 收敛**（PR-21 独立 PR，`create_match_score` REST 硬编码 plan 二选一：注册进 `BUILTIN_TOOLS` 或改硬编码 `tool_name` 为 `jd-candidate-matching`；风险等级低但归档已久）。之后可推进 **Stage 5.1 P2**（`TIMESTAMPTZ` 迁移 + Artifact codegen 护栏）或 **MVP release 准备**（隐藏 6 个空壳页 sidebar / 端到端验收）。
+2. **PR-20 交付回顾**：`_make_db_execution_writer(session_factory, task_id)` 闭包工厂（每次 writer 调用 `async with session_factory()` 新建 session，后台任务不持有请求级 db）· `action="start"` 同事务 INSERT execution + UPDATE tasks.current_step · `action="end"` 只写 execution 不动 current_step · `run_act` 接 on_step_start/on_step_end callback（成功、可选失败、必需失败三分支） · `agent.py::execute_plan`/`skip_to_score` 生产接线（构造 writer 传 engine） · `cancel_task` D2 同事务 UPDATE Execution PENDING→CANCELLED · TC-S5.1-1..10（unit + cancel E2E · TC-7 skip 记 §9.4 陷阱 12）。
+3. **PR-19 交付回顾**：`pages/ChatCenter.tsx`（消息输入 → `agentApi.chat` → `useTaskStream` → 渲染 7 类 Card + system 顶部条 · PlanCard 含"确认执行/取消"按钮 → `agentApi.executePlan` / `agentApi.cancelTask`）· `pages/CandidateChat.tsx`（URL `?candidates=a,b` → `chat.context.candidate_ids`）· `components/agent/*Card.tsx` × 7（Thinking/Plan/ToolCall/Progress/Result/Error/Warning）+ SystemCard（备用，system 事件实际走顶部条）· 6 artifact 渲染器带 `never` 穷尽 switch · skip-to-score 快捷入口 · TC-S5-13-1..11（含 CANCELLED UI）。**hook 扩展**：`useTaskStream` 处理 `system:cancelled` 事件时标记终态，不再重连（PR-18 §9.4 陷阱 10 已消除）。
+4. **不要碰 `docs/planning/stage5/commander/` 和 `executor/` 子目录** —— 双盲评审前的初稿，已被顶层合并版覆盖。
+5. **写代码前先 `git log --oneline master` 确认基线** —— Stage 5 每个 PR 都以 master HEAD 为起点建 feat 分支，走 fast-forward merge 回归。**当前 master HEAD = `6a13228`（PR-20 追债 7+8 收敛），后端基线 129 passed + 1 skipped，前端基线 31 passed**。
+6. **完成一个 PR 后**：更新本节 9.1 表格的状态与合入 commit；更新 9.4 陷阱表（如果新踩到坑）；`git push origin --delete feat/pr-NN-...` 清远端 feat 分支。
