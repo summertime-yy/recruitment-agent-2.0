@@ -34,8 +34,8 @@ async def test_tc_s5_2_1_match_score_registered_and_dispatch_resolves():
         await router.dispatch("match_score", {"jd_id": "jd_x", "resume_id": "resume_y"})
 
 
-@pytest.mark.xfail(strict=True, reason="PR-21 未实现：run_act db 透传 + 计划 tool_name 未收敛")
 async def test_tc_s5_2_2_skip_to_score_persists_match_score(db_session, monkeypatch):
+    from factories import build_jd, build_resume
     from sqlalchemy import select
 
     from app.agent.orchestrator.act import run_act
@@ -43,6 +43,11 @@ async def test_tc_s5_2_2_skip_to_score_persists_match_score(db_session, monkeypa
     from app.agent.orchestrator.tool_router import ToolRouter
     from app.models.match_score import MatchScore, generate_match_score_id
     from app.services.match import MatchService
+
+    # 建父表行以满足 match_scores 的 FK 约束（status 默认即可，stub 不校验 parse）
+    db_session.add(build_jd(jd_id="jd_tc"))
+    db_session.add(build_resume(resume_id="resume_tc"))
+    await db_session.flush()
 
     # 单元级组合：stub match_one 仅保留"真实落库"副作用，避免 LLM 链路 hang
     async def _fake_match_one(self, jd_id, resume_id, *, force=False):

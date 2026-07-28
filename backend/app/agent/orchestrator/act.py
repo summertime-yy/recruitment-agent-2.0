@@ -69,6 +69,7 @@ async def run_act(
     tool_router: ToolRouter | None = None,
     on_step_start: StepCallbackFn | None = None,
     on_step_end: StepEndCallbackFn | None = None,
+    db: Any = None,
 ) -> list[StepResult]:
     """按 plan["steps"] 顺序执行各步，返回每步的 StepResult 列表。
 
@@ -105,7 +106,7 @@ async def run_act(
             _make_event(SSEEventType.TOOL_CALL, task_id, {"tool_name": tool_name, "tool_input": tool_input}, step_id),
         )
         try:
-            sr = await router.dispatch(tool_name, tool_input)
+            sr = await router.dispatch(tool_name, tool_input, db=db)
         except Exception as e:  # noqa: BLE001 - emit 不应中断业务
             sr = None
             err = str(e)

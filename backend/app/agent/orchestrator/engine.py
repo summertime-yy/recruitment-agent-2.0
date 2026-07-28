@@ -129,6 +129,25 @@ _ARTIFACT_TYPE_MAP: dict[str, str] = {
 }
 
 
+def _build_skip_plan(jd_id: str, candidate_ids: list[str]) -> dict[str, Any]:
+    """构造 skip-to-score 的 Act plan：每候选人对 (jd_id, resume_id) 跑 match_score builtin。
+
+    PR-21：tool_name 由非法硬编码 "create_match_score" 收敛为合法 builtin "match_score"
+    （F1 修复——经 dispatch 解析为 _execute_builtin 的 match_score 分支，调 MatchService.match_one）。
+    单点构造，避免 agent.py 端点与 engine 双份硬编码漂移（DECISION Q4.1）。
+    """
+    return {
+        "steps": [
+            {
+                "step_id": f"step_score_{i}",
+                "tool_name": "match_score",
+                "tool_input": {"jd_id": jd_id, "resume_id": cid},
+            }
+            for i, cid in enumerate(candidate_ids)
+        ]
+    }
+
+
 def _build_artifacts(results: list[Any]) -> list[dict[str, Any]]:
     """把 Act 各步 StepResult 映射为 ResultArtifact 列表（PR-13 Q6）。"""
     out: list[dict[str, Any]] = []
@@ -497,6 +516,7 @@ class OrchestratorEngine:
         event_buffer: EventBuffer | None = None,
         db_updater: DbUpdater | None = None,
         execution_writer: Any | None = None,
+        session_factory: Any = None,
     ) -> dict[str, Any]:
         try:
             await self.active_counter.incr()
@@ -504,19 +524,17 @@ class OrchestratorEngine:
             return {"status_code": 429, "error": "TASK_LIMIT_EXCEEDED"}
         # bypass R-P-R：跳过 PENDING/PLANNING 直接 EXECUTING（状态守卫移除，端点侧已 INSERT 为 EXECUTING）
         buffer = event_buffer or self.event_buffer
-        plan = {
-            "steps": [
-                {
-                    "step_id": f"step_score_{i}",
-                    "tool_name": "create_match_score",
-                    "tool_input": {"jd_id": jd_id, "resume_id": cid},
-                }
-                for i, cid in enumerate(candidate_ids)
-            ]
-        }
+        plan = _build_skip_plan(jd_id, candidate_ids)
         # 后台跑；收尾 decr 由 _background_execute 负责
         asyncio.create_task(
-            self._background_execute(task_id, plan, buffer, db_updater or self.db_updater, execution_writer),
+            self._background_execute(
+                task_id,
+                plan,
+                buffer,
+                db_updater or self.db_updater,
+                execution_writer,
+                session_factory=session_factory,
+            ),
             name=f"orch-skip-{task_id}",
         )
         return {
@@ -534,6 +552,7 @@ class OrchestratorEngine:
         buffer: EventBuffer | None,
         db_updater: DbUpdater | None = None,
         execution_writer: Any | None = None,
+        session_factory: Any = None,
     ) -> None:
         """后台任务：跑 Act + Reflect-Act，收尾发 result 事件 + 设 TTL + 写 tasks 终态（PR-13 Q4 + PR-14 Q1）。
 
@@ -560,17 +579,33 @@ class OrchestratorEngine:
                 task_id,
                 {"status": "EXECUTING", "started_at": utcnow_naive()},
             )
-            results = await asyncio.wait_for(
-                run_act(
-                    plan,
-                    ctx={"task_id": task_id},
-                    emit=emit,
-                    tool_router=self.tool_router,
-                    on_step_start=_on_start,
-                    on_step_end=_on_end,
-                ),
-                timeout=self.task_timeout_sec,
-            )
+            if session_factory is not None:
+                # PR-21 §3.5：db 透传到 run_act -> dispatch -> builtin（match_score 等需 db）
+                async with session_factory() as db:
+                    results = await asyncio.wait_for(
+                        run_act(
+                            plan,
+                            ctx={"task_id": task_id},
+                            emit=emit,
+                            tool_router=self.tool_router,
+                            on_step_start=_on_start,
+                            on_step_end=_on_end,
+                            db=db,
+                        ),
+                        timeout=self.task_timeout_sec,
+                    )
+            else:
+                results = await asyncio.wait_for(
+                    run_act(
+                        plan,
+                        ctx={"task_id": task_id},
+                        emit=emit,
+                        tool_router=self.tool_router,
+                        on_step_start=_on_start,
+                        on_step_end=_on_end,
+                    ),
+                    timeout=self.task_timeout_sec,
+                )
             reflect_act_out = await self.run_reflect_act(
                 {
                     "step_results": [
