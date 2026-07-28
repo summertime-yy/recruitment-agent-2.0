@@ -50,6 +50,13 @@ npm run dev
 - **架构与脚手架说明**：[`CLAUDE.md`](./CLAUDE.md)
 - **规划文档目录**：[`docs/planning/`](./docs/planning/)
 
+### 新增 skill 的三步走
+
+1. **后端**：在 `backend/app/agent/orchestrator/engine.py` 的 `_ARTIFACT_TYPE_MAP` 新增一个 value（如 `'new_skill'`），对应 skill 名。
+2. **codegen**：跑 `uv run python backend/scripts/gen_artifact_types.py`，自动更新前端 `frontend/src/types/agent.ts` 的 `ArtifactType` union（标记段 `// <auto-gen-artifacttype-start>` / `-end>` 之间，幂等，勿手改）。
+3. **前端**：在 PlanCard / 产物卡片 `switch` 里加一个 `case` 渲染该 skill 的产物类型即可。
+4. **内部 skill**：纯内部编排 skill（`orchestrator-{reason,reflect,plan,reflect-plan,reflect-act}`）标 `internal: true`，不进 `SkillRegistry.list_dispatchable()`，不要为其加前端 case。
+
 ---
 
 ## 常用命令速查
