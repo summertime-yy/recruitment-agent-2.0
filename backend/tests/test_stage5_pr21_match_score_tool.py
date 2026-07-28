@@ -16,7 +16,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.xfail(strict=True, reason="PR-21 未实现：match_score builtin 未注册")
 async def test_tc_s5_2_1_match_score_registered_and_dispatch_resolves():
     from app.agent.orchestrator.tool_router import (
         ToolParamError,

@@ -22,6 +22,7 @@ from jsonschema import ValidationError, validate
 from app.agent.base_skill import SkillResult
 from app.agent.skill_registry import SkillRegistry, get_skill_registry
 from app.services.jd import JDService
+from app.services.match import MatchService
 from app.services.resume import ResumeService
 
 
@@ -85,6 +86,21 @@ BUILTIN_TOOLS: dict[str, dict[str, Any]] = {
                 },
             },
             "required": ["jd_id"],
+        },
+    },
+    # PR-21（追债 12 + F1 修复）：原硬编码 tool_name "create_match_score" 既非 BUILTIN 亦非
+    # skill_id，经 dispatch 必抛 UnknownToolError 且被 run_act 逐步骤吞异常，导致 skip-to-score
+    # 任务"成功"却 0 条 match_score 落库。收敛为合法 builtin，委托确定性评分
+    # MatchService.match_one（与 POST /api/v1/match 同源）。
+    "match_score": {
+        "description": "对指定 (jd_id, resume_id) 跑确定性匹配打分并写入 match_scores 行（委托 MatchService.match_one）。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "jd_id": {"type": "string", "description": "职位需求 ID"},
+                "resume_id": {"type": "string", "description": "简历 ID"},
+            },
+            "required": ["jd_id", "resume_id"],
         },
     },
 }
@@ -182,6 +198,23 @@ class ToolRouter:
             if jd is None:
                 raise ToolParamError(f"jd not found: {tool_input['jd_id']}")
             return SkillResult(success=True, output=_build_jd_output(jd))
+
+        if tool_name == "match_score":
+            service = MatchService(db)
+            score = await service.match_one(
+                tool_input["jd_id"], tool_input["resume_id"], force=False
+            )
+            return SkillResult(
+                success=True,
+                output={
+                    "match_score_id": score.score_id,
+                    "jd_id": score.jd_id,
+                    "resume_id": score.resume_id,
+                    "score": score.overall_score,
+                    "dimension_scores": score.dimension_scores,
+                    "status": score.status,
+                },
+            )
 
         raise UnknownToolError(tool_name)
 
