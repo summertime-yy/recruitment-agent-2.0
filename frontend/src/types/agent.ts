@@ -68,13 +68,9 @@ export interface SystemData {
 
 // ============ Result Artifact · 追债项 3 前端 union 侧 ============
 
-export type ArtifactType =
-  | 'jd'
-  | 'resume'
-  | 'match_score'
-  | 'candidate_merge'
-  | 'candidate_profile'
-  | 'generic';
+// <auto-gen-artifacttype-start> — DO NOT EDIT. Run: uv run python backend/scripts/gen_artifact_types.py
+export type ArtifactType = 'candidate_merge' | 'candidate_profile' | 'generic' | 'jd' | 'match_score' | 'resume';
+// <auto-gen-artifacttype-end>
 
 export interface ResultArtifact {
   step_id: string;
