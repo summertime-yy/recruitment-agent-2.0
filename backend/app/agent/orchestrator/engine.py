@@ -33,7 +33,7 @@ from app.agent.orchestrator.state_machine import TaskStatus, check_transition
 from app.agent.orchestrator.tool_router import BUILTIN_TOOLS, ToolRouter
 from app.agent.skill_registry import SkillRegistry, get_skill_registry
 from app.core.config import get_settings
-from app.core.time import utcnow_naive
+from app.core.time import utcnow_aware
 from app.schemas.agent import SSEEvent, SSEEventType
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ def _make_db_execution_writer(
     async def writer(step_id: str, tool_name: str, action: str, result: Any = None) -> None:
         async with session_factory() as db:
             if action == "start":
-                now = utcnow_naive()
+                now = utcnow_aware()
                 start_times[step_id] = now
                 row = Execution(
                     task_id=task_id,
@@ -94,7 +94,7 @@ def _make_db_execution_writer(
                 )
                 await db.commit()
             elif action == "end":
-                finished = utcnow_naive()
+                finished = utcnow_aware()
                 stmt = (
                     select(Execution)
                     .where(Execution.task_id == task_id, Execution.step_id == step_id)
@@ -414,7 +414,7 @@ class OrchestratorEngine:
                 {
                     "status": "FAILED",
                     "error": {"code": "REASON_PLAN_FAILED", "message": str(e)},
-                    "finished_at": utcnow_naive(),
+                    "finished_at": utcnow_aware(),
                 },
             )
             try:
@@ -577,7 +577,7 @@ class OrchestratorEngine:
             await self._write_task(
                 db_updater,
                 task_id,
-                {"status": "EXECUTING", "started_at": utcnow_naive()},
+                {"status": "EXECUTING", "started_at": utcnow_aware()},
             )
             if session_factory is not None:
                 # PR-21 §3.5：db 透传到 run_act -> dispatch -> builtin（match_score 等需 db）
@@ -623,7 +623,7 @@ class OrchestratorEngine:
             await self._write_task(
                 db_updater,
                 task_id,
-                {"status": "COMPLETED", "finished_at": utcnow_naive(), "result": result_payload},
+                {"status": "COMPLETED", "finished_at": utcnow_aware(), "result": result_payload},
             )
         except TimeoutError:
             if buffer is not None:
@@ -643,7 +643,7 @@ class OrchestratorEngine:
                 task_id,
                 {
                     "status": "FAILED",
-                    "finished_at": utcnow_naive(),
+                    "finished_at": utcnow_aware(),
                     "error": {"code": "TASK_TIMEOUT", "message": "task overall timeout", "recoverable": False},
                 },
             )
@@ -669,7 +669,7 @@ class OrchestratorEngine:
                 task_id,
                 {
                     "status": "FAILED",
-                    "finished_at": utcnow_naive(),
+                    "finished_at": utcnow_aware(),
                     "error": {"code": "INTERNAL_ERROR", "message": str(e), "recoverable": False},
                 },
             )
@@ -700,7 +700,7 @@ class OrchestratorEngine:
 
             from app.models.execution import Execution
 
-            now = utcnow_naive()
+            now = utcnow_aware()
             stmt = (
                 select(Execution)
                 .where(Execution.task_id == task_id, Execution.execution_status == "PENDING")

@@ -7,7 +7,7 @@ import logging
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.time import utcnow_naive
+from app.core.time import utcnow_aware
 from app.models.candidate import (
     ALLOWED_TRANSITIONS,
     CandidateNote,
@@ -74,12 +74,12 @@ class CandidateService:
             to_status=to_status,
             reason=req.reason,
             operator=req.operator,
-            occurred_at=utcnow_naive(),
+            occurred_at=utcnow_aware(),
         )
         self.db.add(history)
 
         resume.candidate_status = to_status
-        resume.updated_at = utcnow_naive()
+        resume.updated_at = utcnow_aware()
         await self.db.commit()
         await self.db.refresh(resume)
         logger.info(
@@ -165,7 +165,7 @@ class CandidateService:
             note.content = req.content
         if req.rating is not None:
             note.rating = req.rating
-        note.updated_at = utcnow_naive()
+        note.updated_at = utcnow_aware()
         await self.db.commit()
         await self.db.refresh(note)
         return CandidateNoteItem.model_validate(note)

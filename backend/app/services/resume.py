@@ -14,7 +14,7 @@ from app.agent.skill_registry import get_skill_registry
 from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.minio import get_minio
-from app.core.time import utcnow_aware, utcnow_naive
+from app.core.time import utcnow_aware
 from app.models import Resume, SkillExecutionLog
 from app.schemas.resume import ResumeUpdateRequest
 from app.utils.document_parser import extract_text
@@ -79,7 +79,7 @@ class ResumeService:
             await self._detect_duplicate(resume)
         else:
             raise ValueError(f"unsupported dedup action: {action}")
-        resume.updated_at = utcnow_naive()
+        resume.updated_at = utcnow_aware()
         await self.db.commit()
         await self.db.refresh(resume)
         return resume
@@ -150,8 +150,8 @@ class ResumeService:
             raw_text=raw_text,
             parse_status="PENDING",
             created_by=created_by,
-            created_at=utcnow_naive(),
-            updated_at=utcnow_naive(),
+            created_at=utcnow_aware(),
+            updated_at=utcnow_aware(),
         )
         self.db.add(resume)
         await self.db.flush()
@@ -381,7 +381,7 @@ class ResumeService:
         if "source" in update_data:
             resume.source = update_data["source"]
 
-        resume.updated_at = utcnow_naive()
+        resume.updated_at = utcnow_aware()
         await self.db.commit()
         await self.db.refresh(resume)
         return resume

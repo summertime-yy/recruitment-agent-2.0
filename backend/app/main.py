@@ -9,7 +9,7 @@ from app.api.v1 import api_v1_router
 from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.minio import ensure_buckets
-from app.core.time import utcnow_naive
+from app.core.time import utcnow_aware
 from app.models import Skill
 
 settings = get_settings()
@@ -30,7 +30,7 @@ async def _sync_skills_to_db() -> None:
                 existing.current_version = skill_meta["version"]
                 existing.skill_name = skill_meta["skill_name"]
                 existing.description = skill_meta["description"]
-                existing.updated_at = utcnow_naive()
+                existing.updated_at = utcnow_aware()
                 logger.info(f"Updated skill in DB: {skill_meta['skill_id']} v{skill_meta['version']}")
             else:
                 skill = Skill(
@@ -39,8 +39,8 @@ async def _sync_skills_to_db() -> None:
                     description=skill_meta["description"],
                     current_version=skill_meta["version"],
                     status="ACTIVE",
-                    created_at=utcnow_naive(),
-                    updated_at=utcnow_naive(),
+                    created_at=utcnow_aware(),
+                    updated_at=utcnow_aware(),
                 )
                 session.add(skill)
                 logger.info(f"Registered skill in DB: {skill_meta['skill_id']} v{skill_meta['version']}")

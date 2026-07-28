@@ -33,7 +33,7 @@ from app.agent.orchestrator.event_buffer import EventBuffer
 from app.core.config import get_settings
 from app.core.database import async_session_factory, get_db
 from app.core.redis import get_redis
-from app.core.time import utcnow_naive
+from app.core.time import utcnow_aware
 from app.models.execution import Execution
 from app.models.task import Task, generate_task_id
 from app.schemas.agent import (
@@ -161,7 +161,7 @@ async def skip_to_score(
             user_message=f"skip-to-score jd={req.jd_id}",
             context={"jd_id": req.jd_id, "candidate_ids": req.candidate_ids},
             plan=plan,
-            started_at=utcnow_naive(),
+            started_at=utcnow_aware(),
         )
     )
     await db.commit()
@@ -331,7 +331,7 @@ async def cancel_task(
             },
         )
     task.status = "CANCELLED"
-    task.finished_at = utcnow_naive()
+    task.finished_at = utcnow_aware()
     # PR-20 S5.1 D2: cancel 时将当前步骤的 PENDING execution 标为 CANCELLED
     if task.current_step is not None:
         await db.execute(
@@ -341,7 +341,7 @@ async def cancel_task(
                 Execution.step_id == task.current_step,
                 Execution.execution_status == "PENDING",
             )
-            .values(execution_status="CANCELLED", finished_at=utcnow_naive()),
+            .values(execution_status="CANCELLED", finished_at=utcnow_aware()),
         )
     await db.commit()
     # 事务提交后补发 SSE（Q3）

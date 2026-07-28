@@ -18,7 +18,7 @@ from sqlalchemy.pool import NullPool
 
 from app.agent.skill_registry import get_skill_registry
 from app.core.config import get_settings
-from app.core.time import _to_naive_utc, utcnow_aware, utcnow_naive
+from app.core.time import utcnow_aware
 from app.models import JD, MatchScore, Resume, Skill, SkillExecutionLog
 
 logger = logging.getLogger(__name__)
@@ -147,10 +147,10 @@ class MatchService:
         jd_updated_at: datetime | None = None,
         resume_updated_at: datetime | None = None,
     ) -> bool:
-        snap_r = _to_naive_utc(score.resume_updated_at_snapshot)
-        snap_j = _to_naive_utc(score.jd_updated_at_snapshot)
-        r = _to_naive_utc(resume_updated_at)
-        j = _to_naive_utc(jd_updated_at)
+        snap_r = score.resume_updated_at_snapshot
+        snap_j = score.jd_updated_at_snapshot
+        r = resume_updated_at
+        j = jd_updated_at
         if snap_r is not None and r is not None and r > snap_r:
             return True
         if snap_j is not None and j is not None and j > snap_j:
@@ -231,7 +231,7 @@ class MatchService:
             execution_time_ms=result.execution_time_ms,
             validation_score=result.validation_score,
             error_message=result.error_message,
-            executed_at=utcnow_naive(),
+            executed_at=utcnow_aware(),
         )
         self.db.add(exec_log)
         await self.db.flush()
@@ -254,7 +254,7 @@ class MatchService:
             "education_match": edm,
             "overall_reasoning": output.get("overall_reasoning", ""),
         }
-        now = utcnow_naive()
+        now = utcnow_aware()
 
         if existing is not None:
             existing.overall_score = overall
