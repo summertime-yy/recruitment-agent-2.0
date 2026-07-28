@@ -23,7 +23,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.orchestrator.engine import DbUpdater, OrchestratorEngine, _make_db_execution_writer
+from app.agent.orchestrator.engine import (
+    DbUpdater,
+    OrchestratorEngine,
+    _build_skip_plan,
+    _make_db_execution_writer,
+)
 from app.agent.orchestrator.event_buffer import EventBuffer
 from app.core.config import get_settings
 from app.core.database import async_session_factory, get_db
@@ -146,16 +151,8 @@ async def skip_to_score(
 ):
     """跳过 R-P-R 直接评分：INSERT tasks(EXECUTING) + 后台 run_skip_to_score（真 task_id）。"""
     task_id = generate_task_id()
-    plan = {
-        "steps": [
-            {
-                "step_id": f"step_score_{i}",
-                "tool_name": "create_match_score",
-                "tool_input": {"jd_id": req.jd_id, "resume_id": cid},
-            }
-            for i, cid in enumerate(req.candidate_ids)
-        ]
-    }
+    # PR-21：plan 单点构造（engine._build_skip_plan），tool_name 收敛为合法 builtin "match_score"
+    plan = _build_skip_plan(req.jd_id, req.candidate_ids)
     db.add(
         Task(
             task_id=task_id,
@@ -177,6 +174,7 @@ async def skip_to_score(
         task_id=task_id,
         db_updater=db_updater,
         execution_writer=exec_writer,
+        session_factory=async_session_factory,
     )
     if resp.get("status_code") == 429:
         _raise_429()
