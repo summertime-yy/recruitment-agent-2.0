@@ -6,13 +6,7 @@ import {
   FileTextOutlined,
   FileSearchOutlined,
   BarChartOutlined,
-  SendOutlined,
-  LineChartOutlined,
-  SettingOutlined,
-  CalendarOutlined,
   TeamOutlined,
-  BranchesOutlined,
-  SwapOutlined,
   PlusOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -34,19 +28,24 @@ const coreNavItems: NavItem[] = [
   { key: 'jds', label: 'JD 管理', icon: <FileTextOutlined />, path: '/jds' },
   { key: 'resumes', label: '简历工作台', icon: <FileSearchOutlined />, path: '/resumes' },
   { key: 'scores', label: '评分报告', icon: <BarChartOutlined />, path: '/scores' },
-  { key: 'push', label: '推送反馈', icon: <SendOutlined />, path: '/push' },
+  // Stage 6/7 未实施 · MVP 隐藏（PR-22）——功能落地后取消注释即可恢复
+  // { key: 'push', label: '推送反馈', icon: <SendOutlined />, path: '/push' },
 ];
 
+// Stage 6/7 未实施 · MVP 隐藏（PR-22）——功能落地后取消注释即可恢复（整组）
 const analyticsNavItems: NavItem[] = [
-  { key: 'analytics', label: '数据看板', icon: <LineChartOutlined />, path: '/analytics' },
-  { key: 'settings', label: '系统设置', icon: <SettingOutlined />, path: '/settings' },
+  // { key: 'analytics', label: '数据看板', icon: <LineChartOutlined />, path: '/analytics' },
+  // { key: 'settings', label: '系统设置', icon: <SettingOutlined />, path: '/settings' },
 ];
 
 const phase2NavItems: NavItem[] = [
-  { key: 'interview', label: '面试安排', icon: <CalendarOutlined />, path: '/interview', phase2: true },
+  // Stage 6/7 未实施 · MVP 隐藏（PR-22）——功能落地后取消注释即可恢复
+  // { key: 'interview', label: '面试安排', icon: <CalendarOutlined />, path: '/interview', phase2: true },
   { key: 'candidate-chat', label: '候选人沟通', icon: <TeamOutlined />, path: '/candidate-chat', phase2: true },
-  { key: 'workflow', label: '流程跟踪', icon: <BranchesOutlined />, path: '/workflow', phase2: true },
-  { key: 'compare', label: '对比分析', icon: <SwapOutlined />, path: '/compare', phase2: true },
+  // Stage 6/7 未实施 · MVP 隐藏（PR-22）——功能落地后取消注释即可恢复
+  // { key: 'workflow', label: '流程跟踪', icon: <BranchesOutlined />, path: '/workflow', phase2: true },
+  // Stage 6/7 未实施 · MVP 隐藏（PR-22）——功能落地后取消注释即可恢复
+  // { key: 'compare', label: '对比分析', icon: <SwapOutlined />, path: '/compare', phase2: true },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -112,12 +111,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: !collapsed && <div className="nav-group-label">核心流程</div>,
       children: renderNavItems(coreNavItems),
     },
-    {
-      key: 'analytics-group',
-      type: 'group' as const,
-      label: !collapsed && <div className="nav-group-label">分析与设置</div>,
-      children: renderNavItems(analyticsNavItems),
-    },
+    // Stage 6/7 未实施 · MVP 隐藏（PR-22）——整组功能未落地，取消注释 analyticsNavItems 与本节即可恢复
+    // {
+    //   key: 'analytics-group',
+    //   type: 'group' as const,
+    //   label: !collapsed && <div className="nav-group-label">分析与设置</div>,
+    //   children: renderNavItems(analyticsNavItems),
+    // },
     {
       key: 'phase2-group',
       type: 'group' as const,
