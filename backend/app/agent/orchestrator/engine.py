@@ -121,7 +121,7 @@ def _make_db_execution_writer(
 
 # tool_name -> 任务级 result artifact.type 映射（PR-13 Q6）
 _ARTIFACT_TYPE_MAP: dict[str, str] = {
-    "create_match_score": "match_score",
+    "match_score": "match_score",
     "read_jd": "jd",
     "read_resume": "resume",
     "candidate-merge": "candidate_merge",

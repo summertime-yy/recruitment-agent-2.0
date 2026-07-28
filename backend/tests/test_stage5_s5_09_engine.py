@@ -53,12 +53,12 @@ async def test_engine_2_background_execute_writes_executing_then_completed(fake_
     eng, _ = await _make_engine(fake_redis, db_updater=db_updater)
 
     async def _fake_run_act(plan, ctx=None, emit=None, tool_router=None, **kwargs):
-        return [_FakeResult("s1", "create_match_score", success=True, output={"match_score_id": "ms_1"})]
+        return [_FakeResult("s1", "match_score", success=True, output={"match_score_id": "ms_1"})]
 
     monkeypatch.setattr(act_mod, "run_act", _fake_run_act)
     eng.run_reflect_act = AsyncMock(return_value={"final_result": "ok"})
 
-    plan = {"steps": [{"step_id": "s1", "tool_name": "create_match_score", "tool_input": {"jd_id": "j", "resume_id": "r"}}]}
+    plan = {"steps": [{"step_id": "s1", "tool_name": "match_score", "tool_input": {"jd_id": "j", "resume_id": "r"}}]}
     await eng._background_execute("task_e2", plan, eng.event_buffer, db_updater)
 
     statuses = [c.args[1]["status"] for c in db_updater.call_args_list]
@@ -75,7 +75,7 @@ async def test_engine_3_skip_to_score_uses_provided_task_id(fake_redis, monkeypa
     eng, _ = await _make_engine(fake_redis, db_updater=db_updater)
 
     async def _fake_run_act(plan, ctx=None, emit=None, tool_router=None, **kwargs):
-        return [_FakeResult("step_score_0", "create_match_score", success=True, output={"match_score_id": "ms_1"})]
+        return [_FakeResult("step_score_0", "match_score", success=True, output={"match_score_id": "ms_1"})]
 
     monkeypatch.setattr(act_mod, "run_act", _fake_run_act)
     eng.run_reflect_act = AsyncMock(return_value={"final_result": "ok"})

@@ -53,7 +53,7 @@ async def test_s5_13_execute_1_returns_executing_immediately(fake_redis):
     eng, _ = await _make_engine(fake_redis)
     plan = {
         "steps": [
-            {"step_id": "s1", "tool_name": "create_match_score", "tool_input": {"jd_id": "jd_1", "resume_id": "r_1"}}
+            {"step_id": "s1", "tool_name": "match_score", "tool_input": {"jd_id": "jd_1", "resume_id": "r_1"}}
         ]
     }
     result = await eng.run_execute("task_x", plan=plan)
@@ -68,7 +68,7 @@ async def test_s5_13_execute_2_result_in_buffer(fake_redis):
     eng, buffer = await _make_engine(fake_redis)
     plan = {
         "steps": [
-            {"step_id": "s1", "tool_name": "create_match_score", "tool_input": {"jd_id": "jd_1", "resume_id": "r_1"}}
+            {"step_id": "s1", "tool_name": "match_score", "tool_input": {"jd_id": "jd_1", "resume_id": "r_1"}}
         ]
     }
     await eng.run_execute("task_x", plan=plan)
