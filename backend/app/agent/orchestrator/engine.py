@@ -385,6 +385,24 @@ class OrchestratorEngine:
                         "error": {"blocking_reason": reflect_out.get("blocking_reason", "")},
                     },
                 )
+                # B4 fix (PR-24): emit a terminal ERROR event so the frontend learns the
+                # plan is infeasible, instead of silently returning with no SSE signal.
+                if emit is not None:
+                    await emit(
+                        SSEEvent(
+                            type=SSEEventType.ERROR,
+                            id="0",
+                            task_id=task_id,
+                            timestamp="",
+                            data={
+                                "code": "REASON_PLAN_FAILED",
+                                "message": reflect_out.get("blocking_reason", ""),
+                                "recoverable": False,
+                            },
+                        )
+                    )
+                    if self.event_buffer is not None:
+                        await self.event_buffer.set_terminal_ttl(task_id)
                 return
             plan_out = await self.run_plan({"reason_output": reason_out})
             await emit(SSEEvent(type=SSEEventType.PLAN, id="0", task_id=task_id, timestamp="", data=plan_out))
