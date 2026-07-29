@@ -113,6 +113,17 @@ class BaseSkill:
             if len(parts) > 1:
                 self._user_prompt_template = parts[1].strip()
 
+        # Fail-fast (PR-24 B5): a skill that declares required input fields but ships
+        # no ---USER_TEMPLATE--- would render an EMPTY user prompt, silently dropping
+        # every caller-supplied token before it reaches the LLM.
+        required_fields = (self.input_schema or {}).get("required", []) or []
+        if self._user_prompt_template == "" and required_fields:
+            raise ValueError(
+                f"Skill '{self.skill_id}' declares required input fields {required_fields} "
+                f"but prompt.md has no ---USER_TEMPLATE--- section; the user prompt would "
+                f"render empty and drop all caller input."
+            )
+
         examples_path = skill_dir / "examples.yaml"
         if examples_path.exists():
             with open(examples_path, encoding="utf-8") as f:
