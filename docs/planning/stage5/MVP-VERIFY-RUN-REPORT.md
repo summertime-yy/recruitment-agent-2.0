@@ -134,6 +134,9 @@ non-empty input_schema.required but no USER_TEMPLATE in prompt.md"）。防止�
 无关联。
 - HANDOFF §9.4 · 建议新增陷阱条目「orchestrator internal skill 若 prompt.md 无 USER_TEMPLATE
 段，LLM 只见 system prompt，输出完全依赖 few-shot 幻觉，静默产出示例值而非真实推理结果」。
+- HANDOFF §9.3.19 · B5 修复后浮现的新问题：orchestrator-reason 对 `context` 结构化字段
+（`jd_id`/`candidate_ids`/`task_id`）的提取非确定性（TC-PR24-6 真 LLM e2e 偶发丢失
+`jd_id`）。**B5 结论保持 CLOSED 不变**，§9.3.19 仅标注后续 prompt-engineering 待跟进（建议 PR-25）。
 
 发现时机：MVP 手工验收 Step 4（新 agent 触发 chat 时 reflect 恒判 not feasible → 复核
 base_skill.py 加载逻辑 + 5 skill prompt.md 后确认根因）。

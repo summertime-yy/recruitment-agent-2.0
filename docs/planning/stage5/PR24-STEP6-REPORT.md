@@ -42,6 +42,10 @@ uv run ruff check app/agent/base_skill.py app/agent/orchestrator/engine.py tests
 # fail-fast 误伤扫描（§六 边界 2 的静态兜底）
 python _verify_pr24.py  # 扫描磁盘全部 skill.yaml
 => TOTAL skill.yaml: 10  |  PROBLEM (required + no USER_TEMPLATE): []  => 0 个被误伤
+
+# TC-PR24-6 真 LLM e2e（有 LLM_API_KEY · 2026-07-29 本环境实跑）
+uv run pytest -m llm_e2e tests/test_stage5_pr24_orchestrator_prompts.py
+=> 1 passed   (c_UNIQUE_ABC_2607 稳定命中证 B5 修复；jd_UNIQUE_XYZ_2607 偶发丢失见 §9.3.19)
 ```
 
 **TC-PR24-1**：遍历 5 个 internal skill（`internal=True`），对每个 `input_schema.required` 字段造 mock，断言渲染非空且含字段值 → 全绿。
@@ -49,7 +53,7 @@ python _verify_pr24.py  # 扫描磁盘全部 skill.yaml
 **TC-PR24-4**：`run_reason` 带 token 入参，断言返回 output 含 token → 绿。
 **TC-PR24-5**：`run_reason_reflect` 返回 `PLANNING`/`WAITING_CONFIRMATION` 且捕获的 reason prompt 含 token → 绿。
 **TC-PR24-B4-1**：`_background_reason_plan` 注入 infeasible reflect，断言 SSE 流收到 `ERROR` 事件且 `data.code=REASON_PLAN_FAILED` / `message=blocking_reason` / `recoverable=False` → 绿。
-**TC-PR24-6**：`@pytest.mark.llm_e2e`，无 key 时 skip；有 key 时 `-m llm_e2e` 单跑（见 §三）。
+**TC-PR24-6**：`@pytest.mark.llm_e2e`，无 key 时 skip；有 key 时 `-m llm_e2e` 单跑。断言仅针对 `user_input` 里的 `c_UNIQUE_ABC_2607`（稳定命中 = B5 修复被真 LLM 证伪）；`context.jd_id` 里的 `jd_UNIQUE_XYZ_2607` 改为非断言 `warnings.warn` 观察（LLM 偶发丢失，见 §9.3.19，非 B5 遗留）。
 
 ---
 
@@ -59,7 +63,7 @@ DECISION Q7 选 B（由本 STEP6 报告承担，不起 v2 report）。**单元/�
 
 以下两项需要**真实运行栈**（Docker Postgres/Redis/MinIO + LLM key + 前端 UI），本执行环境未启动，列为待指挥官在本地栈补跑：
 
-- **TC-PR24-6 真 LLM e2e**：`cd backend && uv run pytest -m llm_e2e tests/test_stage5_pr24_orchestrator_prompts.py`（断言唯一 token `jd_UNIQUE_XYZ_2607` / `c_UNIQUE_ABC_2607` 出现在 `reason_out.parsed_entities`）。
+- **TC-PR24-6 真 LLM e2e（已实跑）**：`cd backend && uv run pytest -m llm_e2e tests/test_stage5_pr24_orchestrator_prompts.py` → 1 passed。断言 `c_UNIQUE_ABC_2607`（`user_input`）稳定命中 `parsed_entities`；`jd_UNIQUE_XYZ_2607`（`context.jd_id`）偶发丢失属 §9.3.19 新发现，非断言观察。
 - **UI 三 skill 手动补跑**：起后端+前端，UI 触发 §4/§5/§6 三 skill，观察 SSE 8 类事件命中 ≥6（B4 修完后 `error` 类必现）。
 
 > 二者均不构成代码缺陷阻塞；B5/B4 的代码契约已由无栈单测闭环证明。
@@ -106,9 +110,9 @@ SSEEvent `data` schema 为 `Any`，两种形态均合法，未触及 schema（§
 | 1 | pytest 全量 138 passed / 1 skipped（含 TC-PR24-1..6 + B4-1） | ⚠️ 无 key 环境实测 137 passed / 2 skipped（TC-PR24-6 跳过）；有 key 即 138/1 |
 | 2 | ruff 全仓 0 errors | ✅ 已验证（app + tests） |
 | 3 | frontend build 通过（无关本 PR） | ➖ 本 PR 不改前端，应无关 |
-| 4 | TC-PR24-6 真调 LLM · unique token 入 parsed_entities | ⏳ 待本地栈补跑（opt-in） |
+| 4 | TC-PR24-6 真调 LLM · `c_UNIQUE_ABC_2607` 入 parsed_entities | ✅ 已实跑 1 passed（2026-07-29 · `jd_UNIQUE_XYZ_2607` 偶发丢失见 §9.3.19） |
 | 5 | MVP-VERIFY §4/§5/§6 UI 手动补跑触达 COMPLETED | ⏳ 待本地栈补跑 |
 | 6 | SSE 8 类事件命中 ≥6（B4 后 error 必现） | ⏳ 待 UI 补跑 |
-| 7 | STEP6 报告写完 · HANDOFF §9.3.17/§9.3.18 落 · push | ✅ 报告+HANDOFF 已落 · push 受 §四 git 阻塞影响待办 |
+| 7 | STEP6 报告写完 · HANDOFF §9.3.17/§9.3.18 落 · push | ✅ 已合 master（FF-merge · anchor `73e46be` · 分支已删）· flaky follow-up 直落 master 追加 |
 
 **一票否决项**：无代码层否决（1/2/7 的代码侧均已满足）；4/5/6 为需真实栈的验收项，非代码缺陷。

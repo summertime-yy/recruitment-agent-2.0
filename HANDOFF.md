@@ -419,11 +419,20 @@ DATABASE_URL=postgresql+asyncpg://...
 - **建议**：独立 PR-25 或后续任一 PR 顺路修
 
 ### §9.3.18 B5 orchestrator prompt template 修复完成（PR-24）
-- **状态**：CLOSED · 分支 `feat/pr-24-fix-orchestrator-prompt-templates` · commit anchor `73e46be`（本地 · 待 FF-merge）
-- **关联**：§9.3.16 · §9.4.13 · MVP-VERIFY-RUN-REPORT §四 B5 · §9.3 B4
+- **状态**：CLOSED · 已 FF-merge master · anchor `73e46be`（测试 commit）· PR-24 分支已删
+- **关联**：§9.3.16 · §9.4.13 · MVP-VERIFY-RUN-REPORT §四 B5 · §9.3 B4 · §9.3.19（B5 修后浮现的新发现）
 - **修复面**：5 prompt.md + base_skill.py fail-fast + engine.py B4 emit + 7 测试（TC-PR24-1..6 + B4-1）
-- **本地三门**：pytest 137 passed / 2 skipped（TC-PR24-6 无 LLM_API_KEY 跳过 · 其余 baseline 1 skip）· ruff 0 · frontend 未触
-- **e2e 待补跑**：TC-PR24-6 用 unique token `jd_UNIQUE_XYZ_2607` / `c_UNIQUE_ABC_2607` 反幻觉验证（`-m llm_e2e` · 需 `LLM_API_KEY`）
+- **本地三门**：pytest 137 passed / 2 skipped（无 key 环境 · TC-PR24-6 skip）· ruff 0 · frontend 未触
+- **e2e 实跑**：TC-PR24-6 真 LLM（有 `LLM_API_KEY` · 2026-07-29）1 passed · `c_UNIQUE_ABC_2607`（user_input）稳定命中 → 证 B5 修复；`jd_UNIQUE_XYZ_2607`（context）偶发丢失 → 见 §9.3.19（非 B5 遗留 · 收 warnings 观察不进门禁）
+- **测试断言 flaky follow-up commit**：`4a82c19`（直落 master · docs+test only · 无 SUT 变更）
+
+### §9.3.19 orchestrator-reason 对 context 字段提取的非确定性（B5 修后浮现）
+- **状态**：登记不修（超 PR-24 范围 · 是 B5 修完后浮现的新问题）
+- **发现**：TC-PR24-6 真 LLM e2e 多次运行显示 · `c_UNIQUE_ABC_2607`（user_input 里）100% 命中，但 `jd_UNIQUE_XYZ_2607`（context.jd_id 里）偶发丢失（jd_id 解析成 None）
+- **性质**：LLM 对结构化 JSON context 的提取指令不够强 · 属 prompt engineering
+- **不是 B5 遗留**：B5 = 模板空 · LLM 什么都没看见；本项 = 模板渲染正确 · LLM 看见了但选择性丢弃
+- **建议**：独立 PR-25 · 强化 orchestrator_reason 的 system prompt · 增加对 context 字段的显式提取指令（如"⚠️ 若 context 中含 jd_id/candidate_ids/task_id 等字段，必须原样填入 parsed_entities"）
+- **绕过**：前端明确将结构化字段拼入自然语言（如"找候选人 c_ABC 匹配 jd_XYZ"）而非仅塞进 context
 
 ### 9.5 关键新增文件（PR-10~18 已合入）
 
