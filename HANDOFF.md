@@ -412,6 +412,19 @@ DATABASE_URL=postgresql+asyncpg://...
 12. **ASGITransport + asyncio.create_task 后台任务在测试环境挂死**（PR-20 §九 TC-S5.1-7 发现）— pytest-asyncio + httpx.ASGITransport 下，REST 端点触发 `asyncio.create_task(_background_execute(...))` 后，测试侧用 `async_session_factory` 轮询后台写入的 execution 行时发生事件循环死锁。**禁忌**：不要在 TC 里对 `POST /agent/execute-plan` 或其他 `create_task` 类端点做端到端后台完成断言。**替代**：单元级测试 helper 函数 + E2E 测试同步端点（如 cancel）。**陷阱 5** 是同源问题（`is_disconnected()` 也是这个环境限制）的另一表现。
 13. **orchestrator internal skill 若 prompt.md 无 `---USER_TEMPLATE---` 段，LLM 只见 system prompt** — `base_skill.py` 切分模板时若无分隔符，`_user_prompt_template` 默认 `""`，`Jinja Template("").render()` 产出空串，`call_llm_json(system_prompt, "")` 让 LLM 仅靠 few-shot 幻觉输出 JSON，静默产出示例值（`jd_1` / `c_1`）而非真实推理。新增 internal skill 时务必确认 prompt.md 含 USER_TEMPLATE 段且覆盖 `input_schema.required` 全部字段；PR-24 已加启动 fail-fast 护栏（见 §9.3.16）。
 
+### §9.3.17 GET /api/v1/agent/tasks/{id} 返回 500（挂账）
+- **状态**：登记不修 · 等某 PR 顺清
+- **现象**：MVP-VERIFY §附3 记录 · 疑似 plan 缺 task_id 字段致响应序列化失败
+- **绕过**：DB 直查 executions/tasks 表（MVP-VERIFY §附1 有示范）
+- **建议**：独立 PR-25 或后续任一 PR 顺路修
+
+### §9.3.18 B5 orchestrator prompt template 修复完成（PR-24）
+- **状态**：CLOSED · 分支 `feat/pr-24-fix-orchestrator-prompt-templates` · commit anchor `73e46be`（本地 · 待 FF-merge）
+- **关联**：§9.3.16 · §9.4.13 · MVP-VERIFY-RUN-REPORT §四 B5 · §9.3 B4
+- **修复面**：5 prompt.md + base_skill.py fail-fast + engine.py B4 emit + 7 测试（TC-PR24-1..6 + B4-1）
+- **本地三门**：pytest 137 passed / 2 skipped（TC-PR24-6 无 LLM_API_KEY 跳过 · 其余 baseline 1 skip）· ruff 0 · frontend 未触
+- **e2e 待补跑**：TC-PR24-6 用 unique token `jd_UNIQUE_XYZ_2607` / `c_UNIQUE_ABC_2607` 反幻觉验证（`-m llm_e2e` · 需 `LLM_API_KEY`）
+
 ### 9.5 关键新增文件（PR-10~18 已合入）
 
 | 文件 | 用途 |
