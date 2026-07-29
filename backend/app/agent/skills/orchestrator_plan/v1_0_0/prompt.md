@@ -10,6 +10,8 @@
 1. 仅输出 JSON 对象，不要输出多余文字。
 
 ---USER_TEMPLATE---
-以下清单为当前系统可派单的所有工具（Markdown 列表，运行时由 engine 注入），请严格从中选择 tool_name：
+## Reason 输出
+{{ reason_output | tojson }}
 
+## 可派单工具清单
 {{ dispatchable_tools }}

@@ -8,3 +8,7 @@
 
 # 原则
 1. 仅输出 JSON 对象，不要输出多余文字。
+
+---USER_TEMPLATE---
+## 各步骤执行结果
+{{ step_results | tojson }}

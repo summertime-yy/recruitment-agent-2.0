@@ -12,3 +12,10 @@
 # 原则
 1. 只依据用户消息与给定上下文，不编造实体。
 2. 仅输出 JSON 对象，不要输出多余文字。
+
+---USER_TEMPLATE---
+## 用户消息
+{{ user_input }}
+
+## 上下文
+{{ context | tojson if context else '{}' }}

@@ -7,3 +7,7 @@
 
 # 原则
 1. 仅输出 JSON 对象，不要输出多余文字。
+
+---USER_TEMPLATE---
+## Reason 输出
+{{ reason_output | tojson }}
