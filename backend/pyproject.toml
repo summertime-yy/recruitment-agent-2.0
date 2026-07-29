@@ -57,3 +57,6 @@ ignore = ["E501"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = [".", "tests"]
+markers = [
+    "llm_e2e: end-to-end tests that hit a real LLM endpoint (require LLM_API_KEY)",
+]
