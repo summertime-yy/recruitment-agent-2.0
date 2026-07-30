@@ -412,11 +412,13 @@ DATABASE_URL=postgresql+asyncpg://...
 12. **ASGITransport + asyncio.create_task 后台任务在测试环境挂死**（PR-20 §九 TC-S5.1-7 发现）— pytest-asyncio + httpx.ASGITransport 下，REST 端点触发 `asyncio.create_task(_background_execute(...))` 后，测试侧用 `async_session_factory` 轮询后台写入的 execution 行时发生事件循环死锁。**禁忌**：不要在 TC 里对 `POST /agent/execute-plan` 或其他 `create_task` 类端点做端到端后台完成断言。**替代**：单元级测试 helper 函数 + E2E 测试同步端点（如 cancel）。**陷阱 5** 是同源问题（`is_disconnected()` 也是这个环境限制）的另一表现。
 13. **orchestrator internal skill 若 prompt.md 无 `---USER_TEMPLATE---` 段，LLM 只见 system prompt** — `base_skill.py` 切分模板时若无分隔符，`_user_prompt_template` 默认 `""`，`Jinja Template("").render()` 产出空串，`call_llm_json(system_prompt, "")` 让 LLM 仅靠 few-shot 幻觉输出 JSON，静默产出示例值（`jd_1` / `c_1`）而非真实推理。新增 internal skill 时务必确认 prompt.md 含 USER_TEMPLATE 段且覆盖 `input_schema.required` 全部字段；PR-24 已加启动 fail-fast 护栏（见 §9.3.16）。
 
-### §9.3.17 GET /api/v1/agent/tasks/{id} 返回 500（挂账）
-- **状态**：登记不修 · 等某 PR 顺清
-- **现象**：MVP-VERIFY §附3 记录 · 疑似 plan 缺 task_id 字段致响应序列化失败
-- **绕过**：DB 直查 executions/tasks 表（MVP-VERIFY §附1 有示范）
-- **建议**：独立 PR-25 或后续任一 PR 顺路修
+### §9.3.17 GET /api/v1/agent/tasks/{id} 返回 500（CLOSED · PR-25）
+- **状态**：CLOSED · 已 FF-merge master · anchor `6b58c93`（测试 commit）· PR-25 分支已删
+- **关联**：`PR25-KICKOFF-DECISION.md`（commit `ea1e25b`）· §9.3.19（B5 修后浮现 · 非本 PR 范围）
+- **根因**：orchestrator / `_build_skip_plan` 产出存储 plan `{steps:[{step_id, tool_name, tool_input, description?}], reasoning}`，而 REST `Plan`/`PlanStep` 要求 `task_id`(必填)/`params`(非 `tool_input`)/`expected_output`(必填)/`description`(必填)。旧 `get_task` 直传 `TaskStatus(plan=task.plan)` → pydantic 校验失败 500。
+- **修复面**：`backend/app/api/v1/agent.py` 加 `_stored_plan_to_rest_plan`（方案 C adapter，REST 层最小 blast radius）+ 3 处消费点（chat_start / skip_to_score / get_task）接入；**不改 orchestrator engine / 不改 REST schema**。
+- **测试**：`backend/tests/test_stage5_pr25_get_task_plan_schema.py`（TC-PR25-1 单测 adapter · TC-PR25-2 GET with-plan 200 · TC-PR25-3 GET no-plan 200 plan=null）
+- **本地三门**：pytest 140 passed / 2 skipped · ruff 0 errors · curl GET /tasks/{id} 200（plan.task_id 非空 · steps[0].params 取自 tool_input）
 
 ### §9.3.18 B5 orchestrator prompt template 修复完成（PR-24）
 - **状态**：CLOSED · 已 FF-merge master · anchor `73e46be`（测试 commit）· PR-24 分支已删
