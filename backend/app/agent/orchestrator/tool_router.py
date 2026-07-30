@@ -151,6 +151,9 @@ class ToolRouter:
         db: Any = None,
     ) -> SkillResult:
         tool_input = tool_input or {}
+        # PR-26: hydration middleware — 数据型 skill 从 DB 补齐 tool_input
+        from app.agent.orchestrator.hydration import hydrate_tool_input
+        tool_input = await hydrate_tool_input(tool_name, tool_input, db)
 
         # 1. 内置工具
         if tool_name in BUILTIN_TOOLS:
