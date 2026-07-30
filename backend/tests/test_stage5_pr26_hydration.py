@@ -23,10 +23,12 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.orchestrator.act import run_act
+
 # 被测符号（commit 2 才落地 -> 本 commit 1 为 red）
 from app.agent.orchestrator.hydration import hydrate_tool_input
-from app.agent.orchestrator.act import run_act
-from app.agent.orchestrator.tool_router import SSEEvent, SSEEventType, ToolParamError, ToolRouter
+from app.agent.orchestrator.tool_router import ToolParamError, ToolRouter
+from app.api.v1.agent import SSEEvent, SSEEventType
 from app.models.resume import Resume
 
 
@@ -74,8 +76,9 @@ def _make_resume(resume_id: str, parsed_content, tags=None, candidate_name: str 
     return Resume(
         resume_id=resume_id,
         candidate_name=candidate_name,
-        filename=f"{resume_id}.pdf",
-        s3_key=f"raw/{resume_id}.pdf",
+        file_name=f"{resume_id}.pdf",
+        file_path=f"raw/{resume_id}.pdf",
+        file_type="pdf",
         parsed_content=parsed_content,
         tags=tags,
     )
@@ -119,7 +122,7 @@ async def test_tc_pr26_3_run_act_candidate_profile_end_to_end(db_session: AsyncS
 
     collector, _events = _collector_factory()
     router, skill = _make_router()
-    steps_results, _final = await run_act(
+    steps_results = await run_act(
         _plan_with({"candidate_id": "res_x"}), emit=collector, tool_router=router, db=db_session
     )
     assert steps_results[0].success is True
@@ -150,7 +153,7 @@ async def test_tc_pr26_4_hydrate_candidate_merge_fills_resume_fields(db_session:
 async def test_tc_pr26_5_run_act_candidate_profile_missing_resume_emits_error_event(db_session: AsyncSession):
     collector, events = _collector_factory()
     router, skill = _make_router()
-    steps_results, _final = await run_act(
+    steps_results = await run_act(
         _plan_with({"candidate_id": "no_such"}), emit=collector, tool_router=router, db=db_session
     )
     error_events = [e for e in events if e.type == SSEEventType.ERROR]
