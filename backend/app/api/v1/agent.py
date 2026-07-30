@@ -40,6 +40,8 @@ from app.schemas.agent import (
     AgentChatRequest,
     CancelTaskResponse,
     ExecutePlanRequest,
+    Plan,
+    PlanStep,
     SkipToScoreRequest,
     SSEEvent,
     SSEEventType,
@@ -47,6 +49,43 @@ from app.schemas.agent import (
 )
 
 router = APIRouter(prefix="/agent", tags=["Agent / Orchestrator"])
+
+
+# ---- Bug A 适配：存储 plan dict -> REST Plan（方案 C，REST 层最小 blast radius）----
+def _stored_plan_to_rest_plan(task_id: str, stored: dict | None):
+    """把 orchestrator / ``_build_skip_plan`` 产出的存储 plan dict 适配为 REST ``Plan``。
+
+    存储 plan 形状（orchestrator reason_plan / ``_build_skip_plan``）：
+        ``{steps:[{step_id, tool_name, tool_input, description?}], reasoning?}``
+
+    REST ``Plan`` / ``PlanStep`` 形状（见 ``app.schemas.agent``）：
+        ``Plan(task_id 必填, steps[PlanStep])``
+        ``PlanStep(step_id, tool_name, description 必填, expected_output 必填, params=dict)``
+
+    方案 C 约束：**不改 orchestrator 存储、不改 REST schema**，仅在 REST 层适配：
+    - ``task_id``：取自入参（存储 plan 不携带该字段）
+    - 每步 ``tool_input`` → ``params``；``expected_output`` / ``description`` 缺省 ``""``
+    - ``stored`` 为 ``None``（任务尚无 plan）→ 返回 ``None``（``TaskStatus.plan`` 可选）
+
+    这是 PR-25 修复 ``GET /agent/tasks/{id}`` 对存 plan 任务必 500 的根因。
+    """
+    if stored is None:
+        return None
+    steps = [
+        PlanStep(
+            step_id=s.get("step_id", ""),
+            tool_name=s.get("tool_name", ""),
+            params=s.get("tool_input") or {},
+            expected_output=s.get("expected_output", ""),
+            description=s.get("description", ""),
+        )
+        for s in stored.get("steps", [])
+    ]
+    return Plan(
+        task_id=task_id,
+        steps=steps,
+        reasoning=stored.get("reasoning"),
+    )
 
 
 # ---- 依赖：构造 OrchestratorEngine（共享请求级 Redis / EventBuffer）----
@@ -100,7 +139,12 @@ async def chat(
     resp = await engine.start_chat(task_id, req.message, req.context, db_updater)
     if resp.get("status_code") == 429:
         _raise_429()
-    return {"task_id": resp["task_id"], "status": resp["status"]}
+    # 新建任务尚无 plan（reason 后台异步生成）→ adapter 对 None 返回 None
+    return {
+        "task_id": resp["task_id"],
+        "status": resp["status"],
+        "plan": _stored_plan_to_rest_plan(task_id, None),
+    }
 
 
 @router.post("/execute-plan")
@@ -178,7 +222,11 @@ async def skip_to_score(
     )
     if resp.get("status_code") == 429:
         _raise_429()
-    return {"task_id": task_id, "status": "EXECUTING"}
+    return {
+        "task_id": task_id,
+        "status": "EXECUTING",
+        "plan": _stored_plan_to_rest_plan(task_id, plan),
+    }
 
 
 # ---- SSE 流（Q2/Q3/Q4/Q8）----
@@ -300,7 +348,7 @@ async def get_task(task_id: str, db: AsyncSession = Depends(get_db)) -> TaskStat
         task_id=task.task_id,
         status=task.status,
         current_step=task.current_step,
-        plan=task.plan,
+        plan=_stored_plan_to_rest_plan(task.task_id, task.plan),
         result=task.result,
         error=task.error,
         created_at=task.created_at.isoformat() if task.created_at else "",
