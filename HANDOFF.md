@@ -437,6 +437,14 @@ DATABASE_URL=postgresql+asyncpg://...
 - **建议**：独立 PR-25 · 强化 orchestrator_reason 的 system prompt · 增加对 context 字段的显式提取指令（如"⚠️ 若 context 中含 jd_id/candidate_ids/task_id 等字段，必须原样填入 parsed_entities"）
 - **绕过**：前端明确将结构化字段拼入自然语言（如"找候选人 c_ABC 匹配 jd_XYZ"）而非仅塞进 context
 
+### §9.3.20 candidate-profile / candidate-merge 缺 parsed_content 等 DB 字段（Bug B · CLOSED · PR-26）
+- **状态**：CLOSED · 已 FF-merge master · anchor `c299d22`（测试 commit）· PR-26 分支已删
+- **关联**：`PR26-KICKOFF-DECISION.md`（commit `f3d175e`）
+- **根因**：orchestrator 现有 `ToolRouter.dispatch` 把 tool_input 原样透传给 executor；`candidate-profile` / `candidate-merge` 这类数据型 skill 需要 `parsed_content` / `tags` / `candidate_name` 等来自 DB 的字段，但上游 tool_input 不携带 → executor 拿不到 → Bug B（500 / 缺字段）。
+- **修复面**：`backend/app/agent/orchestrator/hydration.py`（新建：HYDRATION_RULES 静态注册表 + `_hydrate_candidate_profile` / `_hydrate_candidate_merge` async fn + `hydrate_tool_input` 单点入口；缺失 parsed_content 等硬失败抛 `ToolParamError`，沿用 `dispatch` 现成 try/except 兜底为 SSE ERROR）+ `backend/app/agent/orchestrator/tool_router.py::ToolRouter.dispatch` 首行接入 `tool_input = await hydrate_tool_input(tool_name, tool_input, db)`。**不改 run_act 签名/行为、不改 REST schema、不改 skill.yaml input_schema.required、不触 frontend**。
+- **测试**：`backend/tests/test_stage5_pr26_hydration.py`（TC-PR26-1 单测 profile 映射 · TC-PR26-2 缺失 resume 抛 ToolParamError · TC-PR26-3 run_act 端到端 · TC-PR26-4 merge resumes 补齐 · TC-PR26-5 缺失 resume ERROR 事件 + StepResult 失败）
+- **本地三门**：pytest 145 passed / 2 skipped · ruff 0 errors · frontend 未触
+
 ### 9.5 关键新增文件（PR-10~18 已合入）
 
 | 文件 | 用途 |
