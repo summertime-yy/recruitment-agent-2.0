@@ -445,7 +445,16 @@ DATABASE_URL=postgresql+asyncpg://...
 - **测试**：`backend/tests/test_stage5_pr26_hydration.py`（TC-PR26-1 单测 profile 映射 · TC-PR26-2 缺失 resume 抛 ToolParamError · TC-PR26-3 run_act 端到端 · TC-PR26-4 merge resumes 补齐 · TC-PR26-5 缺失 resume ERROR 事件 + StepResult 失败）
 - **本地三门**：pytest 145 passed / 2 skipped · ruff 0 errors · frontend 未触
 
-### 9.5 关键新增文件（PR-10~18 已合入）
+### §9.3.21 CandidateChat 空壳页渲染空白（Bug C · CLOSED · PR-27）
+- **状态**：CLOSED · 已实现 + 本地 5 commit 完成 + 全部门禁通过；待指挥官 FF-merge `feat/pr-27-fix-candidatechat-and-entry` → master（本 agent 不自动执行 merge / 删远程分支）
+- **关联**：`PR27-KICKOFF-DECISION.md` · `PR27-STEP6-REPORT.md` · MVP-VERIFY §4.1 Bug C
+- **根因**：`frontend/src/pages/CandidateChat.tsx` 旧版为**空壳页**（仅占位 `Empty`，丢弃路由 `task_id` / `?candidates` 后直接 `return null`，无任何聊天流渲染）—— MVP-VERIFY §4.1 已验证 Bug C 仍存在。同时 `ChatCenter.tsx` 的 SSE 聊天流逻辑与页面强耦合、不可复用，无法供 CandidateChat 复用。
+- **修复面（纯前端）**：① 从 `ChatCenter.tsx` 抽取复用组件 `TaskStream.tsx`（包裹 `useTaskStream` + `StreamStatusBar` + `MessageTimeline` + 可选 `SkipToScorePanel` + 可选输入区）；② 激活 `CandidateChat.tsx`——解析 `?candidates=a,b`、无候选走 `Empty` 分支（按钮"去候选人列表选择" → `/resumes`）、有候选渲染 `<TaskStream/>` + 内联输入区；③ `Resumes.tsx` 加 `rowSelection` 多选 + 批量区"AI 对话 / 画像（N）"按钮跳 `/candidate-chat?candidates=<ids>`；④ `AgentChatRequest.context` 补 `resume_id?: string`（后端 `dict[str, Any]`，匹配 `/chat/:jdId/:resumeId` 路由）。**零后端 / schema / migration 变更**。
+- **踩坑**：antd v5 `<Header>`/`<Content>` 非顶层导出须用 `Layout.Header`/`Layout.Content`；`request` 直接返回 `response.data`（取 `.items` 而非 `.data.items`）；`Resume.candidate_name` 为 `string | undefined` 须兜底。
+- **测试**：TC-PR27-1（`CandidateChat` 挂载 + SSE `/agent/tasks/t1/stream` 请求 + 无 skip 面板）· TC-PR27-2（空 candidates → `Empty` + 跳 `/resumes`）· TC-PR27-3（`Resumes.entry` 渲染 2 行 → 点"AI 对话/画像" → location 含 `candidates=r1,r2`）· TC-PR27-4（回归：`ChatCenter.test.tsx` 原 TC-S5-13-1/2/4/5/9 + `CandidateChat.test.tsx` 原 TC-S5-13-6 全绿）
+- **本地门禁**：`npm test` 34 passed（31 baseline + 3 新增，TC-PR27-4 系回归项不新增函数，故非文档 §三.4 写的 35）· `npm run lint` 0 · `npm run build` 通过 · backend `pytest` 145/2 · `ruff check app/` 0
+
+### 9.5 关键新增文件（PR-10~18 已合入 + PR-22~27 追加）
 
 | 文件 | 用途 |
 |------|------|
@@ -498,6 +507,14 @@ DATABASE_URL=postgresql+asyncpg://...
 | `backend/scripts/gen_artifact_types.py` | **PR-23 新增**：codegen 脚本（纯 stdlib · `ast` 解析 `_ARTIFACT_TYPE_MAP`（兼容 `Assign` + `AnnAssign`）· `re` 定位 marker · `newline="\n"` + UTF-8 无 BOM · marker 缺失/非字符串字面量即 `sys.exit` · 幂等） |
 | `frontend/src/types/agent.ts` | **PR-23 修改**：`ArtifactType` union 包裹于 marker 段 `// <auto-gen-artifacttype-start> ... // <auto-gen-artifacttype-end>`（DO NOT EDIT）· 6 值 sorted：`'candidate_merge' \| 'candidate_profile' \| 'generic' \| 'jd' \| 'match_score' \| 'resume'` |
 | `backend/tests/test_stage5_pr20_executions.py` | **PR-23 修改**：`utcnow_naive → utcnow_aware`（2 处）+ 清 12 处预存 ruff error（F401 unused imports × 4 + F841 unused variable × 1 + 更多） |
+| `frontend/src/components/agent/TaskStream.tsx` | **PR-27 新增**：从 `ChatCenter.tsx` 抽取的复用 SSE 聊天流组件（`useTaskStream` + `StreamStatusBar` + `MessageTimeline` + 可选 `SkipToScorePanel` + 可选输入区）；props `taskId / showSkipToScore? / showInput? / input? / onInputChange? / onSend? / onTaskCreated?` |
+| `frontend/src/components/agent/SkipToScorePanel.tsx` | **PR-27 新增**：JD `Select` + 简历多选 `Select` + "立即评分"按钮，调 `agentApi.skipToScore`；`request` 直接返 body 故取 `.items`（非 `.data.items`） |
+| `frontend/src/pages/ChatCenter.tsx` | **PR-27 改写**：持 `taskId`/`input` state，渲染 `<TaskStream .../>`，`handleSend` 调 `agentApi.chat({message, context:{jd_id, resume_id}})` |
+| `frontend/src/pages/CandidateChat.tsx` | **PR-27 改写**：激活空壳页——解析 `?candidates=a,b`、无候选走 `Empty` 分支（跳 `/resumes`）+ 有候选 `<TaskStream/>` + 内联输入区；关闭 MVP-VERIFY §4.1 Bug C |
+| `frontend/src/pages/Resumes.tsx` | **PR-27 修改**：Table 加 `rowSelection` 多选 + 批量区"AI 对话 / 画像（N）"按钮 → `/candidate-chat?candidates=<ids>` |
+| `frontend/src/types/agent.ts` | **PR-27 修改**：`AgentChatRequest.context` 补 `resume_id?: string`（后端 `dict[str, Any]`，匹配 `/chat/:jdId/:resumeId` 路由） |
+| `frontend/tests/pages/CandidateChat.test.tsx` | **PR-27 追加**：TC-PR27-1（`TaskStream` 挂载 + SSE 请求 + 无 skip 面板）· TC-PR27-2（空 candidates → `Empty` + 跳 `/resumes`）；保留 TC-S5-13-6 |
+| `frontend/tests/pages/Resumes.entry.test.tsx` | **PR-27 新增**：TC-PR27-3（渲染 2 行 → 点"AI 对话/画像" → location 含 `candidates=r1,r2`） |
 
 ### 9.6 下一位接手 Stage 5 的建议
 
