@@ -31,6 +31,7 @@ import {
   LinkOutlined,
   LoadingOutlined,
   EditOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
@@ -106,6 +107,8 @@ const ResumesPage: React.FC = () => {
   const [associateJdId, setAssociateJdId] = useState<string | undefined>(undefined);
   const [detailScore, setDetailScore] = useState<MatchScore | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  // PR-27 · 批量多选(独立于现有单选 selectedResume 语义)
+  const [checkedResumeIds, setCheckedResumeIds] = useState<string[]>([]);
 
   const fetchAllStats = async () => {
     try {
@@ -739,6 +742,14 @@ const ResumesPage: React.FC = () => {
             </Badge>
           </Space>
           <Space>
+            <Button
+              type="primary"
+              icon={<MessageOutlined />}
+              disabled={checkedResumeIds.length === 0}
+              onClick={() => navigate(`/candidate-chat?candidates=${checkedResumeIds.join(',')}`)}
+            >
+              AI 对话 / 画像（{checkedResumeIds.length}）
+            </Button>
             <Button icon={<ExportOutlined />} onClick={handleExport}>批量导出</Button>
             <Button icon={<ReloadOutlined />} onClick={handleParseAll}>重新解析全部</Button>
             <Upload {...uploadProps}>
@@ -831,6 +842,10 @@ const ResumesPage: React.FC = () => {
                 columns={columns}
                 dataSource={resumes}
                 rowKey="resume_id"
+                rowSelection={{
+                  selectedRowKeys: checkedResumeIds,
+                  onChange: (keys) => setCheckedResumeIds(keys as string[]),
+                }}
                 loading={loading}
                 pagination={{
                   current: page,
