@@ -401,3 +401,141 @@ async def test_pr28_hydration_rejects_multi_element_candidate_ids(
     assert "candidate-merge" in str(exc_info.value), (
         f"error should point at candidate-merge; got {exc_info.value!r}"
     )
+
+
+# ===========================================================================
+# S3.4 commit 5: _make_db_execution_writer must persist input_params on
+# start and error_message on end (when the step ended FAILED).  Also
+# the background-execute failure path must always end the Task as
+# FAILED, never leaving it EXECUTING.
+# ===========================================================================
+async def test_pr28_execution_writer_persists_input_params_and_error(
+    db_session: Any,
+) -> None:
+    """PR-28 Q4-B (commit 5): _make_db_execution_writer.start stores
+    tool_input into executions.input_params; on 'end' with a FAILED
+    SkillResult, error_message is written to executions.error_message.
+    """
+    from factories import build_task
+    from sqlalchemy import select
+
+    from app.agent.base_skill import SkillResult
+    from app.agent.orchestrator.engine import _make_db_execution_writer
+    from app.models.execution import Execution
+
+    task = build_task(task_id="task_pr28_writer", status="EXECUTING")
+    db_session.add(task)
+    await db_session.flush()
+
+    async def _session_factory():
+        return _AsyncSessionCM(db_session)
+
+    # _make_db_execution_writer calls `async with session_factory() as db:`
+    # (no await), so the factory must itself be a sync callable returning
+    # an async context manager.  Mirror that contract.
+    def _session_factory_sync():
+        return _AsyncSessionCM(db_session)
+
+    writer = _make_db_execution_writer(_session_factory_sync, task_id="task_pr28_writer")
+    await writer(
+        "step_x",
+        "candidate-profile",
+        "start",
+        tool_input={"candidate_id": "res_xyz", "existing_tags": ["t"]},
+    )
+    failed = SkillResult(
+        success=False,
+        output=None,
+        error_message="required property 'resume_id' is missing",
+    )
+    await writer("step_x", "candidate-profile", "end", result=failed)
+
+    row = (
+        (
+            await db_session.execute(
+                select(Execution).where(Execution.task_id == "task_pr28_writer")
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert row is not None, "writer did not insert an execution row"
+    assert row.input_params == {
+        "candidate_id": "res_xyz",
+        "existing_tags": ["t"],
+    }, f"input_params not persisted; got {row.input_params!r}"
+    assert row.execution_status == "FAILED"
+    assert "resume_id" in (row.error_message or ""), (
+        f"error_message not populated on FAILED step; got {row.error_message!r}"
+    )
+
+
+async def test_pr28_background_execute_ends_task_failed_on_skill_exception(
+    db_session: Any,
+    fake_redis: Any,
+) -> None:
+    """PR-28 Q4-A: when _background_execute catches an unhandled exception
+    (e.g. a skill that raises), the Task row must end with status=FAILED
+    and finished_at populated.  Before commit 5 the row could be left in
+    EXECUTING because the inner _write_task in the 'else' branch was
+    not reached.
+
+    We exercise the path: a fake tool_router that raises, plus a db_updater
+    that records every call.
+    """
+    import asyncio
+
+    from factories import build_task
+
+    from app.agent.orchestrator.engine import OrchestratorEngine
+    from app.agent.orchestrator.event_buffer import EventBuffer
+
+    task = build_task(task_id="task_pr28_bgexc", status="EXECUTING")
+    db_session.add(task)
+    await db_session.flush()
+
+    recorded_writes: list = []
+
+    async def _db_updater(task_id: str, fields: dict) -> None:
+        recorded_writes.append(fields)
+
+    class _BoomRouter:
+        async def dispatch(self, tool_name, tool_input, db=None):
+            raise RuntimeError("skill exploded for the test")
+
+    class _Registry:
+        def get(self, skill_id):
+            return None
+
+        def list_dispatchable(self):
+            return []
+
+    buffer = EventBuffer(fake_redis)
+
+    async def _sf():
+        return _AsyncSessionCM(db_session)
+
+    eng = OrchestratorEngine(
+        registry=_Registry(),
+        tool_router=_BoomRouter(),
+        event_buffer=buffer,
+        db_updater=_db_updater,
+    )
+    plan = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "tool_name": "candidate-profile",
+                "tool_input": {"candidate_id": "res_x"},
+            }
+        ]
+    }
+    await eng.run_execute("task_pr28_bgexc", plan=plan, session_factory=_sf)
+    bg = [t for t in asyncio.all_tasks() if t.get_name().startswith("orch-execute-")]
+    await asyncio.gather(*bg, return_exceptions=True)
+
+    failed_writes = [w for w in recorded_writes if w.get("status") == "FAILED"]
+    assert failed_writes, (
+        f"background execute did not write a FAILED task terminal; "
+        f"writes={recorded_writes!r}"
+    )

@@ -54,15 +54,21 @@ def _make_db_execution_writer(
     session_factory: Any,  # callable() → async context manager yielding AsyncSession
     task_id: str,
 ) -> ExecutionWriterFn:
-    """返回 execution_writer(step_id, tool_name, action, result=None) 回调。
+    """返回 execution_writer(step_id, tool_name, action, result=None, tool_input=None) 回调。
 
-    action="start": INSERT execution 行（phase=ACT, status=PENDING, started_at）
+    action="start": INSERT execution 行（phase=ACT, status=PENDING, started_at, input_params）
                     + UPDATE tasks.current_step = step_id（PR-20 追债 8，DECISION §二.3）。
-    action="end":   UPDATE execution 行（status=COMPLETED/FAILED, finished_at, execution_time_ms, output_result）。
+    action="end":   UPDATE execution 行（status=COMPLETED/FAILED, finished_at, execution_time_ms,
+                    output_result, error_message）。
                     不动 current_step——保留"最后进行到哪一步"的痕迹（与 cancel D2 语义一致）。
 
     每次 writer 调用通过 ``session_factory()`` 新建 session（对齐 _make_db_updater 模式），
     后台任务不持有请求级 db:AsyncSession。
+
+    PR-28 Q4-B (commit 5): on_step_start forwards tool_input; the writer
+    stores it into executions.input_params (JSONB) for forensic review of
+    why a Task ended FAILED.  on_step_end populates executions.error_message
+    from the SkillResult.error_message when status flips to FAILED.
     """
     from datetime import datetime
 
@@ -74,7 +80,13 @@ def _make_db_execution_writer(
     # 记录 start 时间以便计算 execution_time_ms
     start_times: dict[str, datetime] = {}  # step_id -> started_at
 
-    async def writer(step_id: str, tool_name: str, action: str, result: Any = None) -> None:
+    async def writer(
+        step_id: str,
+        tool_name: str,
+        action: str,
+        result: Any = None,
+        tool_input: Any = None,
+    ) -> None:
         async with session_factory() as db:
             if action == "start":
                 now = utcnow_aware()
@@ -87,6 +99,11 @@ def _make_db_execution_writer(
                     execution_status="PENDING",
                     started_at=now,
                 )
+                # PR-28 Q4-B: persist the resolved tool_input so the
+                # executions table becomes a faithful audit trail of
+                # what the plan layer produced.
+                if tool_input is not None:
+                    row.input_params = tool_input
                 db.add(row)
                 # PR-20 追债 8：中途 UPDATE tasks.current_step（同一 session、同一事务）
                 await db.execute(
@@ -111,6 +128,13 @@ def _make_db_execution_writer(
                 row.finished_at = finished
                 if sr is not None and getattr(sr, "output", None) is not None:
                     row.output_result = sr.output
+                # PR-28 Q4-B: surface the error message so a FAILED
+                # execution is no longer just 'FAILED' but also carries
+                # the actual cause.
+                if status == "FAILED":
+                    err_msg = getattr(sr, "error_message", None) if sr is not None else None
+                    if err_msg:
+                        row.error_message = err_msg
                 started = start_times.get(step_id)
                 if started is not None:
                     row.execution_time_ms = int((finished - started).total_seconds() * 1000)
@@ -609,11 +633,13 @@ class OrchestratorEngine:
 
         emit = self._make_emit(task_id) if buffer else None
         # PR-20 S5.1: 构造 on_step_start / on_step_end 回调适配器
+        # PR-28 Q4-B (commit 5): on_step_start forward tool_input so the
+        # writer can populate executions.input_params for forensic review.
         _on_start: Any = None
         _on_end: Any = None
         if execution_writer is not None:
-            async def _on_start(step_id: str, tool_name: str) -> None:
-                await execution_writer(step_id, tool_name, "start")
+            async def _on_start(step_id: str, tool_name: str, tool_input: Any = None) -> None:
+                await execution_writer(step_id, tool_name, "start", tool_input=tool_input)
 
             async def _on_end(step_id: str, result: Any) -> None:
                 await execution_writer(step_id, result.tool_name, "end", result)

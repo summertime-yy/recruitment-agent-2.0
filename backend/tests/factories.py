@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from app.core.time import utcnow_aware
 from app.models import JD, Resume, Skill, SkillExecutionLog
+from app.models.task import Task
 
 
 def build_skill(**kwargs) -> Skill:
@@ -52,3 +53,18 @@ def build_skill_execution_log(**kwargs) -> SkillExecutionLog:
     }
     data.update(kwargs)
     return SkillExecutionLog(**data)
+
+
+def build_task(**kwargs) -> Task:
+    """PR-28 commit 5: minimum-viable Task row for writer / engine tests.
+
+    `user_message` is NOT NULL on the model; default to a short fixture
+    string so callers can build a Task with only `task_id` /
+    `status` overridden.
+    """
+    data: dict = {
+        "user_message": "fixture task for pr-28",
+        "status": "PENDING",
+    }
+    data.update(kwargs)
+    return Task(**data)

@@ -98,8 +98,26 @@ async def run_act(
         optional = bool(step.get("optional", False))
 
         # PR-20 S5.1: on_step_start callback
+        # PR-28 Q4-B (commit 5): forward tool_input to the writer so
+        # executions.input_params can be populated for forensic review.
+        # Callers that pre-date commit 5 accept only (step_id, tool_name);
+        # new callers may also take tool_input.  We inspect the callback
+        # signature to stay backwards compatible.
         if on_step_start is not None:
-            await on_step_start(step_id, tool_name or "")
+            try:
+                import inspect
+
+                params = inspect.signature(on_step_start).parameters
+                if "tool_input" in params or any(
+                    p.kind is p.VAR_KEYWORD for p in params.values()
+                ):
+                    await on_step_start(step_id, tool_name or "", tool_input)
+                else:
+                    await on_step_start(step_id, tool_name or "")
+            except (TypeError, ValueError):
+                # builtin / C-implemented callables: fall back to the
+                # 2-arg form.
+                await on_step_start(step_id, tool_name or "")
 
         await _safe_emit(
             emit,
