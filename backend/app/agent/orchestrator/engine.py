@@ -491,6 +491,7 @@ class OrchestratorEngine:
         event_buffer: EventBuffer | None = None,
         db_updater: DbUpdater | None = None,
         execution_writer: Any | None = None,
+        session_factory: Any = None,
     ) -> dict[str, Any]:
         # 状态守卫：非 WAITING_CONFIRMATION -> 抛 IllegalTransitionError（PR-14 REST 层转 409）
         check_transition(TaskStatus.WAITING_CONFIRMATION, TaskStatus.EXECUTING)
@@ -519,8 +520,18 @@ class OrchestratorEngine:
                 ],
             }
         # 后台跑（不阻塞 HTTP 响应）；收尾 decr 由 _background_execute 负责
+        # PR-28 commit 2: PR-21 §3.5 session_factory 透传到 _background_execute
+        # -> run_act(db=...) -> dispatch(db=...) -> hydrate_tool_input 拿真 db
+        # (S3.1 修复：S2.1 commit 2 漏掉 run_execute 路径，S2.2 commit 5 补全)
         asyncio.create_task(
-            self._background_execute(task_id, plan, buffer, db_updater or self.db_updater, execution_writer),
+            self._background_execute(
+                task_id,
+                plan,
+                buffer,
+                db_updater or self.db_updater,
+                execution_writer,
+                session_factory=session_factory,
+            ),
             name=f"orch-execute-{task_id}",
         )
         return {"status_code": 200, "status": "EXECUTING", "task_id": task_id}

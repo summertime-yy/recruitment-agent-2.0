@@ -174,6 +174,9 @@ async def execute_plan(
     db_updater = await _make_db_updater()
     # PR-20 S5.1: 构造 execution writer（后台任务用 async_session_factory 管理 session 生命周期）
     exec_writer = _make_db_execution_writer(async_session_factory, task_id=req.task_id)
+    # PR-28 commit 2: PR-21 S3.5 透传 session_factory -> _background_execute(run_act)
+    # -> dispatch(db=...) -> hydrate_tool_input 拿真 db，resume_parsing 才能拉
+    # candidate_tags / parsed_jd 等真值。
     resp = await engine.run_execute(
         req.task_id,
         plan=task_plan,
@@ -181,6 +184,7 @@ async def execute_plan(
         modifications=req.modifications,
         db_updater=db_updater,
         execution_writer=exec_writer,
+        session_factory=async_session_factory,
     )
     if resp.get("status_code") == 429:
         _raise_429()
