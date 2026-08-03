@@ -1,10 +1,20 @@
-"""Hydration middleware · PR-26.
+"""Hydration middleware · PR-26 / PR-28.
 
 在 ToolRouter.dispatch 之前，为数据型 skill 从 DB 补齐 tool_input 缺失字段。
 Skill 保持纯函数 · 单点注入 · 显式静态注册表。
+
+PR-26 S3.3 边界：当 db 为 None 时，hydration **必须**抛
+``ToolParamError("hydration for '<tool>' requires a db session")``，
+**禁止**继续静默返回 ``{}``（否则下游 skill 拿空 tool_input 报 LLM 'required
+property' 错、Task 留下"反解析成功"假阳性）。
+
+PR-28 S3.2：``HYDRATION_HINTS`` 是面向 plan LLM 的中文提示语，**配套**
+``engine._format_dispatchable_tools`` 使用——告诉 LLM 哪些字段由系统从
+数据库自动补齐、它只需提供哪些最小 key。
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -13,18 +23,40 @@ from sqlalchemy import select
 from app.agent.orchestrator.tool_router import ToolParamError
 from app.models.resume import Resume
 
+logger = logging.getLogger(__name__)
+
 HydrationFn = Callable[[dict[str, Any], Any], Awaitable[dict[str, Any]]]
 
 
 async def _hydrate_candidate_profile(tool_input: dict[str, Any], db: Any) -> dict[str, Any]:
     """从 resumes 表补 parsed_content + existing_tags 到 candidate-profile 的 tool_input。
 
-    - 键：``candidate_id``（来自 plan LLM 的 tool_input）
-    - 未提供 candidate_id → ToolParamError
+    - 键：``candidate_id`` / ``resume_id``（单数字符串，来自 plan LLM 的 tool_input）
+    - PR-28 Q3-A：兼容 ``candidate_ids`` / ``resume_ids`` 单元素数组（LLM 非确定性防御层）；
+      多元素直接抛 ToolParamError 并指向 candidate-merge（**不静默取首个**）
+    - 未提供任何候选人 ID → ToolParamError
     - resume 不存在 → ToolParamError
     - parsed_content 为 None（parse_status != PARSED）→ ToolParamError
     """
     cid = tool_input.get("candidate_id") or tool_input.get("resume_id")
+    if not cid:
+        # PR-28 Q3-A：LLM 常输出复数键 + 数组（MVP-VERIFY v2 §4.1 实测）
+        for plural_key in ("candidate_ids", "resume_ids"):
+            vals = tool_input.get(plural_key)
+            if not vals:
+                continue
+            if len(vals) > 1:
+                raise ToolParamError(
+                    f"candidate-profile handles exactly one candidate; got {len(vals)} "
+                    f"in '{plural_key}' — use candidate-merge for multiple resumes"
+                )
+            cid = vals[0]
+            logger.warning(
+                "candidate-profile tool_input used plural key '%s'; "
+                "expected singular 'candidate_id' (PR-28 compat path)",
+                plural_key,
+            )
+            break
     if not cid:
         raise ToolParamError("candidate-profile requires 'candidate_id' in tool_input")
     r = await db.execute(select(Resume).where(Resume.resume_id == cid))

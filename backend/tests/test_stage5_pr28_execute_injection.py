@@ -27,6 +27,8 @@ import json
 import pathlib
 from typing import Any
 
+import pytest
+
 
 # ---------------------------------------------------------------------------
 # Helpers: fake skill (captures tool_input) + fake registry
@@ -339,4 +341,63 @@ async def test_pr28_hydration_receives_real_db_and_pulls_parsed_content(
     )
     assert list(received_input.get("existing_tags") or []) == ["技术", "高潜"], (
         f"expected tags from seeded Resume, got {received_input!r}"
+    )
+
+
+# ===========================================================================
+# S3.3 commit 4: candidate-profile hydration must accept a single-element
+# `candidate_ids` / `resume_ids` list (PR-28 Q3-A compat layer).  When
+# the LLM outputs more than one entry, hydration must raise
+# ToolParamError pointing the caller at candidate-merge rather than
+# silently picking the first.
+# ===========================================================================
+async def test_pr28_hydration_accepts_single_element_candidate_ids(
+    db_session: Any,
+) -> None:
+    """PR-28 Q3-A (commit 4) red-then-green: candidate-profile with
+    `candidate_ids: ["res_xxx"]` must hydrate successfully.
+    """
+    from factories import build_resume
+
+    from app.agent.orchestrator.hydration import HYDRATION_RULES
+
+    resume = build_resume(
+        resume_id="res_pr28_plural_one",
+        parsed_content={"summary": "plural-ok"},
+        tags=["backend"],
+    )
+    db_session.add(resume)
+    await db_session.flush()
+
+    hydrated = await HYDRATION_RULES["candidate-profile"](
+        {"candidate_ids": ["res_pr28_plural_one"]}, db_session
+    )
+    assert hydrated["parsed_content"] == {"summary": "plural-ok"}, (
+        f"single-element candidate_ids was not accepted; got {hydrated!r}"
+    )
+
+
+async def test_pr28_hydration_rejects_multi_element_candidate_ids(
+    db_session: Any,
+) -> None:
+    """PR-28 Q3-A (commit 4) red-then-green: candidate-profile with
+    `candidate_ids: ["res_a", "res_b"]` must raise ToolParamError
+    pointing at candidate-merge.
+    """
+    from factories import build_resume
+
+    from app.agent.orchestrator.hydration import HYDRATION_RULES
+    from app.agent.orchestrator.tool_router import ToolParamError
+
+    a = build_resume(resume_id="res_pr28_plural_a", parsed_content={"summary": "a"}, tags=[])
+    b = build_resume(resume_id="res_pr28_plural_b", parsed_content={"summary": "b"}, tags=[])
+    db_session.add_all([a, b])
+    await db_session.flush()
+
+    with pytest.raises(ToolParamError) as exc_info:
+        await HYDRATION_RULES["candidate-profile"](
+            {"candidate_ids": ["res_pr28_plural_a", "res_pr28_plural_b"]}, db_session
+        )
+    assert "candidate-merge" in str(exc_info.value), (
+        f"error should point at candidate-merge; got {exc_info.value!r}"
     )
