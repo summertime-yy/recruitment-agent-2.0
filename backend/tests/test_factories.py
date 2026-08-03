@@ -20,10 +20,13 @@ async def test_factories_build_valid_jd(db_session: AsyncSession) -> None:
 
 
 async def test_factories_build_skill_execution_log(db_session: AsyncSession) -> None:
-    db_session.add(build_skill())
+    """PR-28 commit 1 隔离修复后：默认 skill_id 加 uuid 后缀，仅断言前缀保持。"""
+    skill = build_skill()
+    db_session.add(skill)
     await db_session.flush()
-    log = build_skill_execution_log()
+    log = build_skill_execution_log(skill_id=skill.skill_id)
     db_session.add(log)
     await db_session.flush()
     assert log.execution_id is not None
-    assert log.skill_id == "jd-candidate-matching"
+    assert log.skill_id == skill.skill_id
+    assert log.skill_id.startswith("jd-candidate-matching-")
