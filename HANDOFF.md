@@ -446,13 +446,13 @@ DATABASE_URL=postgresql+asyncpg://...
 - **本地三门**：pytest 145 passed / 2 skipped · ruff 0 errors · frontend 未触
 
 ### §9.3.21 CandidateChat 空壳页渲染空白（Bug C · CLOSED · PR-27）
-- **状态**：CLOSED · 已实现 + 本地 5 commit 完成 + 全部门禁通过；待指挥官 FF-merge `feat/pr-27-fix-candidatechat-and-entry` → master（本 agent 不自动执行 merge / 删远程分支）
-- **关联**：`PR27-KICKOFF-DECISION.md` · `PR27-STEP6-REPORT.md` · MVP-VERIFY §4.1 Bug C
+- **状态**：CLOSED · 已 FF-merge master · anchor `e1cb840`（commit 6 · 复审偏离修复后的最终代码态）· 6 commit（`fe89a7b` 抽组件 → `c7f164b` CandidateChat 活化 → `d0484d0` Resumes 入口 → `e0b4756` TC-PR27-1..3 → `5cb8eb3` 报告 → `e1cb840` 复审修偏离 → `a06c05a` 报告补记）· PR-27 分支已删
+- **关联**：`PR27-KICKOFF-DECISION.md`（commit `7c42bd6`）· `PR27-STEP6-REPORT.md` §九 复审偏离与处置 · MVP-VERIFY §4.1 Bug C · §9.3.19（commit 6 回退的动因）
 - **根因**：`frontend/src/pages/CandidateChat.tsx` 旧版为**空壳页**（仅占位 `Empty`，丢弃路由 `task_id` / `?candidates` 后直接 `return null`，无任何聊天流渲染）—— MVP-VERIFY §4.1 已验证 Bug C 仍存在。同时 `ChatCenter.tsx` 的 SSE 聊天流逻辑与页面强耦合、不可复用，无法供 CandidateChat 复用。
-- **修复面（纯前端）**：① 从 `ChatCenter.tsx` 抽取复用组件 `TaskStream.tsx`（包裹 `useTaskStream` + `StreamStatusBar` + `MessageTimeline` + 可选 `SkipToScorePanel` + 可选输入区）；② 激活 `CandidateChat.tsx`——解析 `?candidates=a,b`、无候选走 `Empty` 分支（按钮"去候选人列表选择" → `/resumes`）、有候选渲染 `<TaskStream/>` + 内联输入区；③ `Resumes.tsx` 加 `rowSelection` 多选 + 批量区"AI 对话 / 画像（N）"按钮跳 `/candidate-chat?candidates=<ids>`；④ `AgentChatRequest.context` 补 `resume_id?: string`（后端 `dict[str, Any]`，匹配 `/chat/:jdId/:resumeId` 路由）。**零后端 / schema / migration 变更**。
+- **修复面（纯前端）**：① 从 `ChatCenter.tsx` 抽取复用组件 `TaskStream.tsx`（包裹 `useTaskStream` + `StreamStatusBar` + `MessageTimeline` + 可选 `SkipToScorePanel` + 可选输入区）；② 激活 `CandidateChat.tsx`——解析 `?candidates=a,b`、无候选走 `Empty` 分支（按钮"去候选人列表选择" → `/resumes`）、有候选渲染 `<TaskStream/>` + 内联输入区；③ `Resumes.tsx` 加 `rowSelection` 多选 + 批量区"AI 对话 / 画像（N）"按钮跳 `/candidate-chat?candidates=<ids>`；④ 新建 `SkipToScorePanel.tsx`（从 ChatCenter 抽出，顺带修 `request` 返回值口径 bug：取 `.items` 而非 `.data.items`）。**零后端 / schema / migration 变更**。**注意 `AgentChatRequest.context` 保持仅 `jd_id` / `candidate_ids`** —— 中途曾补 `resume_id?: string` 供 `ChatCenter` 的 `useParams()` 使用，但 `App.tsx:70` 路由是 `<Route path="/chat" />` 无任何 URL 参数（全仓 grep `:jdId` / `chat/:` 零结果），该字段恒为 `undefined` 只会往 `run_reason` 的 prompt 注入空串噪声、污染 §9.3.19 的归因，**commit 6 已全部回退**（详见 STEP6 报告 §九 偏离 1）。
 - **踩坑**：antd v5 `<Header>`/`<Content>` 非顶层导出须用 `Layout.Header`/`Layout.Content`；`request` 直接返回 `response.data`（取 `.items` 而非 `.data.items`）；`Resume.candidate_name` 为 `string | undefined` 须兜底。
 - **测试**：TC-PR27-1（`CandidateChat` 挂载 + SSE `/agent/tasks/t1/stream` 请求 + 无 skip 面板）· TC-PR27-2（空 candidates → `Empty` + 跳 `/resumes`）· TC-PR27-3（`Resumes.entry` 渲染 2 行 → 点"AI 对话/画像" → location 含 `candidates=r1,r2`）· TC-PR27-4（回归：`ChatCenter.test.tsx` 原 TC-S5-13-1/2/4/5/9 + `CandidateChat.test.tsx` 原 TC-S5-13-6 全绿）
-- **本地门禁**：`npm test` 34 passed（31 baseline + 3 新增，TC-PR27-4 系回归项不新增函数，故非文档 §三.4 写的 35）· `npm run lint` 0 · `npm run build` 通过 · backend `pytest` 145/2 · `ruff check app/` 0
+- **本地门禁（指挥官 FF-merge 后独立复跑，非采信执行体报告）**：`npm test` **34 passed**（31 baseline + 3 新增；TC-PR27-4 系回归运行项不新增测试函数，故非 DECISION §三.4 误写的 35 —— 该处算术口径错误已认账）· `npm run lint` **0 errors / 8 warnings**（均为既有 exhaustive-deps 存量）· `npm run build` **✓ 5.32s** · backend `pytest` **145 passed / 2 skipped** · `ruff check app/ tests/` **All checks passed**
 
 ### 9.5 关键新增文件（PR-10~18 已合入 + PR-22~27 追加）
 
