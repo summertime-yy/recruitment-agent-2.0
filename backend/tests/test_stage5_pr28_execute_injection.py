@@ -23,10 +23,9 @@ commits 2-5.
 from __future__ import annotations
 
 import ast
+import json
 import pathlib
 from typing import Any
-
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -107,32 +106,58 @@ def test_pr28_run_execute_endpoint_passes_session_factory() -> None:
 
 
 # ===========================================================================
-# S3.2  red-test: dispatch must raise ToolParamError when skill_input_schema
-#                  is missing for a skill dispatch (not builtin)
+# S3.2  red-test: _format_dispatchable_tools must inject full input_schema
+#                  JSON and append HYDRATION_HINTS for hydrated skills
 # ===========================================================================
-async def test_pr28_dispatch_missing_input_schema_raises_tool_param_error() -> None:
-    """S3.2 boundary 2 red-test: commit 3 baseline fake skill has no
-    input_schema. dispatch must raise ToolParamError("... tool did not declare
-    input_schema").
+def test_pr28_format_dispatchable_tools_injects_input_schema_and_hints() -> None:
+    """S3.2 boundary 2 red-test: PR-28 commit 3 rewrites
+    `_format_dispatchable_tools` so that:
 
-    commit 1 status quo: dispatch does not accept skill_input_schema, raises
-    TypeError (red). After commit 3, dispatch accepts skill_input_schema=None
-    and raises ToolParamError.
+      - each builtin tool with `input_schema` gets a Markdown line
+        containing the schema JSON;
+      - each skill with `input_schema` (i.e. candidate-profile, etc.)
+        also gets that line;
+      - any skill in HYDRATION_HINTS gets an extra "Note: ..." line so
+        the plan LLM doesn't waste tokens filling fields that
+        hydration back-fills from the DB.
+
+    Before commit 3 the formatter only emits `- `name`` (no schema, no
+    hint). After commit 3 the strings are present.
     """
-    from app.agent.orchestrator.tool_router import ToolParamError, ToolRouter
+    from app.agent.orchestrator.engine import OrchestratorEngine
+    from app.agent.orchestrator.hydration import HYDRATION_HINTS
+    from app.agent.orchestrator.tool_router import BUILTIN_TOOLS
 
-    fake = _FakeRegistry()
-    skill = _FakeSkill()
-    # intentionally not setting input_schema (commit 3 injects)
-    fake.register("candidate-profile", skill)
-    router = ToolRouter(registry=fake)
+    class _StubSkill:
+        def __init__(self, skill_id: str) -> None:
+            self.skill_id = skill_id
+            self.task_type = None
+            self.description = f"stub {skill_id}"
+            self.input_schema = {"type": "object", "properties": {"candidate_id": {"type": "string"}}}
 
-    with pytest.raises((ToolParamError, TypeError)):
-        await router.dispatch(  # type: ignore[call-arg]
-            "candidate-profile",
-            {"candidate_id": "res_x"},
-            skill_input_schema=None,  # commit 3 baseline: None (missing)
-        )
+    class _Registry:
+        def list_dispatchable(self):
+            return [_StubSkill(sid) for sid in HYDRATION_HINTS]
+
+    eng = OrchestratorEngine.__new__(OrchestratorEngine)
+    eng.registry = _Registry()  # type: ignore[assignment]
+
+    md = eng._format_dispatchable_tools()
+    # Schema injection: any builtin with non-empty input_schema must
+    # surface in the markdown.
+    for name, spec in BUILTIN_TOOLS.items():
+        schema = spec.get("input_schema") or {}
+        if schema:
+            assert json.dumps(schema, ensure_ascii=False)[:20] in md, (
+                f"builtin tool {name!r} input_schema is not rendered into "
+                f"the dispatchable-tools markdown (PR-28 §3.2 not fixed)"
+            )
+    # HYDRATION_HINTS surfaces in the markdown: each hydrated skill gets
+    # its Chinese hint line.
+    assert "由系统从数据库自动补齐" in md, (
+        f"HYDRATION_HINTS not rendered into the dispatchable-tools "
+        f"markdown (PR-28 §3.2 not fixed). Markdown: {md[:500]}"
+    )
 
 
 # ===========================================================================

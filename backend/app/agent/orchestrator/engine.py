@@ -224,14 +224,31 @@ class OrchestratorEngine:
 
         与 ``dispatchable_tool_names`` 口径一致（BUILTIN_TOOLS + list_dispatchable），
         供 plan skill 的 USER_TEMPLATE ``{{ dispatchable_tools }}`` 占位注入。
+
+        PR-28 Q2-A（commit 3）：每个工具追加全量 ``input_schema`` JSON；对
+        ``HYDRATION_HINTS`` 登记的工具追加 HYDRATION_HINTS 说明行（避免 LLM
+        去填 hydration 该补的字段）。
         """
+        import json
+
+        from app.agent.orchestrator.hydration import HYDRATION_HINTS
+
         lines = ["可用工具列表："]
         for name in sorted(BUILTIN_TOOLS.keys()):
             desc = BUILTIN_TOOLS[name].get("description", "")
             lines.append(f"- `{name}`（内置工具）：{desc}")
+            schema = BUILTIN_TOOLS[name].get("input_schema") or {}
+            if schema:
+                lines.append(f"  - 入参 schema：`{json.dumps(schema, ensure_ascii=False)}`")
         for skill in self.registry.list_dispatchable():
             tt_note = f"（task_type: {skill.task_type}）" if skill.task_type else ""
             lines.append(f"- `{skill.skill_id}`{tt_note}：{skill.description}")
+            schema = getattr(skill, "input_schema", None) or {}
+            if schema:
+                lines.append(f"  - 入参 schema：`{json.dumps(schema, ensure_ascii=False)}`")
+            hint = HYDRATION_HINTS.get(skill.skill_id)
+            if hint:
+                lines.append(f"  - {hint}")
         return "\n".join(lines)
 
     # ---- R: Reason ----

@@ -75,6 +75,26 @@ HYDRATION_RULES: dict[str, HydrationFn] = {
 }
 
 
+# PR-28 Q2-A (commit 3): HYDRATION_HINTS is the Chinese hint rendered next
+# to a hydration-backed skill in the plan prompt.  It tells the plan LLM
+# which fields are filled in by the system from the database (so it
+# should not output them) and which minimum keys it must provide.
+# key MUST match HYDRATION_RULES exactly (TC-PR28-3 asserts the keys
+# align and candidate-profile's hint contains '由系统从数据库自动补齐').
+HYDRATION_HINTS: dict[str, str] = {
+    "candidate-profile": (
+        "注意：`parsed_content` / `existing_tags` 由系统从数据库自动补齐，**你不要填写**。"
+        "你只需提供 `candidate_id`（字符串，单个候选人的 resume_id，如 `res_xxxx`）。"
+    ),
+    "candidate-merge": (
+        "注意：每个 resume item 的 `candidate_name` / `parsed_content` / `tags` / "
+        "`duplicate_of_resume_id` 由系统从数据库自动补齐，**你不要填写**。"
+        "你只需提供 `resumes: [{resume_id: \"res_xxx\"}, {resume_id: \"res_yyy\"}]`"
+        "（**至少 2 个**，用于判定是否为同一候选人的重复简历）。"
+    ),
+}
+
+
 async def hydrate_tool_input(tool_name: str, tool_input: dict[str, Any], db: Any) -> dict[str, Any]:
     """按 HYDRATION_RULES 查找 hydrate fn 并调用；未登记的 tool_name 原样返回。"""
     fn = HYDRATION_RULES.get(tool_name)
