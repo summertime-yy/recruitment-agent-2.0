@@ -116,7 +116,6 @@ export interface AgentChatRequest {
   message: string;
   context?: {
     jd_id?: string;
-    resume_id?: string;
     candidate_ids?: string[];
   };
 }
