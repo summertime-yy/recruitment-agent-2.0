@@ -688,15 +688,43 @@ class OrchestratorEngine:
             )
             artifacts = _build_artifacts(results)
             result_payload = {"content": reflect_act_out.get("final_result", ""), "artifacts": artifacts}
+            # PR-28 commit 7 (fix 1 / DECISION §3.4①): terminal FAILED when
+            # every step failed.  all_failed is False if results is empty
+            # (empty plan) so an empty plan stays COMPLETED, not FAILED.
+            all_failed = bool(results) and not any(r.success for r in results)
             if buffer is not None:
+                # Always emit RESULT so the frontend stream closes
+                # (act.py already emitted ERROR / WARNING for the failing
+                # steps).  Keep set_terminal_ttl so the SSE buffer is
+                # cleaned up even on total failure.
                 await buffer.append(task_id, SSEEventType.RESULT, result_payload)
                 await buffer.set_terminal_ttl(task_id)
-            # 终态：写 COMPLETED（Q1 方案 B 第 3 处 - 成功）
-            await self._write_task(
-                db_updater,
-                task_id,
-                {"status": "COMPLETED", "finished_at": utcnow_aware(), "result": result_payload},
-            )
+            if all_failed:
+                # First non-empty error_message becomes the terminal message.
+                _first_err = next(
+                    (r.error_message for r in results if getattr(r, "error_message", None)),
+                    "all steps failed",
+                )
+                await self._write_task(
+                    db_updater,
+                    task_id,
+                    {
+                        "status": "FAILED",
+                        "finished_at": utcnow_aware(),
+                        "error": {
+                            "code": "ALL_STEPS_FAILED",
+                            "message": _first_err,
+                            "recoverable": False,
+                        },
+                    },
+                )
+            else:
+                # 终态：写 COMPLETED（Q1 方案 B 第 3 处 - 成功）
+                await self._write_task(
+                    db_updater,
+                    task_id,
+                    {"status": "COMPLETED", "finished_at": utcnow_aware(), "result": result_payload},
+                )
         except TimeoutError:
             if buffer is not None:
                 await buffer.append(

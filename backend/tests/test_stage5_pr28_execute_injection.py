@@ -403,6 +403,21 @@ async def test_pr28_hydration_rejects_multi_element_candidate_ids(
     )
 
 
+def test_pr28_hydration_hints_keys_match_rules() -> None:
+    """PR-28 commit 7 (fix 3 / TC-PR28-3, Q2.1 = 加): HYDRATION_HINTS and
+    HYDRATION_RULES are two hand-synced dicts with no drift guard.  This
+    assertion is the guard — every hydration rule must have a matching hint
+    and vice versa.
+    """
+    from app.agent.orchestrator.hydration import HYDRATION_HINTS, HYDRATION_RULES
+
+    assert set(HYDRATION_HINTS) == set(HYDRATION_RULES), (
+        f"HYDRATION_HINTS keys drifted from HYDRATION_RULES: "
+        f"only_in_hints={set(HYDRATION_HINTS) - set(HYDRATION_RULES)}, "
+        f"only_in_rules={set(HYDRATION_RULES) - set(HYDRATION_HINTS)}"
+    )
+
+
 # ===========================================================================
 # S3.4 commit 5: _make_db_execution_writer must persist input_params on
 # start and error_message on end (when the step ended FAILED).  Also
@@ -426,9 +441,6 @@ async def test_pr28_execution_writer_persists_input_params_and_error(
     task = build_task(task_id="task_pr28_writer", status="EXECUTING")
     db_session.add(task)
     await db_session.flush()
-
-    async def _session_factory():
-        return _AsyncSessionCM(db_session)
 
     # _make_db_execution_writer calls `async with session_factory() as db:`
     # (no await), so the factory must itself be a sync callable returning
@@ -470,18 +482,28 @@ async def test_pr28_execution_writer_persists_input_params_and_error(
     )
 
 
-async def test_pr28_background_execute_ends_task_failed_on_skill_exception(
+# ---------------------------------------------------------------------------
+# PR-28 commit 7 (fix 2): TC-PR28-5 had two defects — it used an `async def`
+# session_factory (so _background_execute hit `TypeError: coroutine object
+# does not support the asynchronous context manager protocol` → caught by the
+# generic except → INTERNAL_ERROR), and asserted only status=="FAILED" without
+# checking error.code, so it passed for the WRONG reason.  Split into 5a /
+# 5b.  5a verifies the real ALL_STEPS_FAILED terminal state; 5b guards the
+# Q4.1-A reversal of Q4.1-B (an optional failed step must NOT downgrade a
+# task that has a success step to FAILED).
+# ---------------------------------------------------------------------------
+async def test_pr28_background_execute_all_failed_terminal(
     db_session: Any,
     fake_redis: Any,
 ) -> None:
-    """PR-28 Q4-A: when _background_execute catches an unhandled exception
-    (e.g. a skill that raises), the Task row must end with status=FAILED
-    and finished_at populated.  Before commit 5 the row could be left in
-    EXECUTING because the inner _write_task in the 'else' branch was
-    not reached.
+    """PR-28 commit 7 (fix 2 / TC-PR28-5a): when every step fails, the Task
+    must end FAILED with error.code == 'ALL_STEPS_FAILED' (DECISION §3.4①).
 
-    We exercise the path: a fake tool_router that raises, plus a db_updater
-    that records every call.
+    run_act swallows dispatch exceptions and returns StepResult(success=False),
+    so a router that raises yields a failed step — that drives the real
+    all_failed branch, not the INTERNAL_ERROR except branch.  The session
+    factory is a plain sync callable returning an async context manager
+    (the correct contract, matching _make_db_execution_writer).
     """
     import asyncio
 
@@ -490,7 +512,7 @@ async def test_pr28_background_execute_ends_task_failed_on_skill_exception(
     from app.agent.orchestrator.engine import OrchestratorEngine
     from app.agent.orchestrator.event_buffer import EventBuffer
 
-    task = build_task(task_id="task_pr28_bgexc", status="EXECUTING")
+    task = build_task(task_id="task_pr28_allfail", status="EXECUTING")
     db_session.add(task)
     await db_session.flush()
 
@@ -512,7 +534,8 @@ async def test_pr28_background_execute_ends_task_failed_on_skill_exception(
 
     buffer = EventBuffer(fake_redis)
 
-    async def _sf():
+    # Correct contract: sync callable returning an async context manager.
+    def _sf():
         return _AsyncSessionCM(db_session)
 
     eng = OrchestratorEngine(
@@ -530,7 +553,7 @@ async def test_pr28_background_execute_ends_task_failed_on_skill_exception(
             }
         ]
     }
-    await eng.run_execute("task_pr28_bgexc", plan=plan, session_factory=_sf)
+    await eng.run_execute("task_pr28_allfail", plan=plan, session_factory=_sf)
     bg = [t for t in asyncio.all_tasks() if t.get_name().startswith("orch-execute-")]
     await asyncio.gather(*bg, return_exceptions=True)
 
@@ -538,4 +561,92 @@ async def test_pr28_background_execute_ends_task_failed_on_skill_exception(
     assert failed_writes, (
         f"background execute did not write a FAILED task terminal; "
         f"writes={recorded_writes!r}"
+    )
+    terminal = failed_writes[-1]
+    assert terminal.get("error", {}).get("code") == "ALL_STEPS_FAILED", (
+        f"terminal error.code must be ALL_STEPS_FAILED, got {terminal!r}"
+    )
+
+
+async def test_pr28_background_execute_optional_fail_keeps_completed(
+    db_session: Any,
+    fake_redis: Any,
+) -> None:
+    """PR-28 commit 7 (fix 2 / TC-PR28-5b, Q4.1-A): an optional step that
+    fails must NOT downgrade a task that still has a successful step.  The
+    terminal state stays COMPLETED.
+    """
+    import asyncio
+
+    from factories import build_task
+
+    from app.agent.orchestrator.engine import OrchestratorEngine
+    from app.agent.orchestrator.event_buffer import EventBuffer
+
+    task = build_task(task_id="task_pr28_optfail", status="EXECUTING")
+    db_session.add(task)
+    await db_session.flush()
+
+    recorded_writes: list = []
+
+    async def _db_updater(task_id: str, fields: dict) -> None:
+        recorded_writes.append(fields)
+
+    class _PartialRouter:
+        async def dispatch(self, tool_name, tool_input, db=None):
+            from app.agent.base_skill import SkillResult
+
+            if tool_name == "candidate-profile":
+                # optional step: fail
+                return SkillResult(
+                    success=False,
+                    output=None,
+                    error_message="optional step intentionally failed",
+                )
+            # second step: success
+            return SkillResult(success=True, output={"ok": True})
+
+    class _Registry:
+        def get(self, skill_id):
+            return None
+
+        def list_dispatchable(self):
+            return []
+
+    buffer = EventBuffer(fake_redis)
+
+    def _sf():
+        return _AsyncSessionCM(db_session)
+
+    eng = OrchestratorEngine(
+        registry=_Registry(),
+        tool_router=_PartialRouter(),
+        event_buffer=buffer,
+        db_updater=_db_updater,
+    )
+    plan = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "tool_name": "candidate-profile",
+                "tool_input": {"candidate_id": "res_x"},
+                "optional": True,
+            },
+            {
+                "step_id": "s2",
+                "tool_name": "resume-parsing",
+                "tool_input": {"resume_id": "res_y"},
+            },
+        ]
+    }
+    await eng.run_execute("task_pr28_optfail", plan=plan, session_factory=_sf)
+    bg = [t for t in asyncio.all_tasks() if t.get_name().startswith("orch-execute-")]
+    await asyncio.gather(*bg, return_exceptions=True)
+
+    completed_writes = [w for w in recorded_writes if w.get("status") == "COMPLETED"]
+    assert completed_writes, (
+        f"optional-fail + success task must stay COMPLETED; writes={recorded_writes!r}"
+    )
+    assert not any(w.get("status") == "FAILED" for w in recorded_writes), (
+        f"optional failed step must not downgrade to FAILED; writes={recorded_writes!r}"
     )
