@@ -79,4 +79,14 @@ describe('EventCards (S5-13)', () => {
     );
     expect(screen.getByText('error-content')).toBeInTheDocument();
   });
+
+  // PR-29 · 进度事件字段对齐后端契约(act.py:136 发 {step_id, percent}, 无 message)
+  test('TC-PR29-1 progress 事件 → ProgressCard 渲染 percent 文本(Updated to N%)', () => {
+    render(
+      <ConfigProvider>
+        <ProgressCard event={makeProgressEvent('p1', 100)} />
+      </ConfigProvider>,
+    );
+    expect(screen.getByText('Updated to 100%')).toBeInTheDocument();
+  });
 });
