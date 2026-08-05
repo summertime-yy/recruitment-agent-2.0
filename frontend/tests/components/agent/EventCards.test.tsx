@@ -43,7 +43,7 @@ describe('EventCards (S5-13)', () => {
     expect(screen.getByText('步骤一')).toBeInTheDocument();
     // search_resumes 既出现在 PlanCard(step.tool_name) 也出现在 ToolCallCard(tool_name)
     expect(within(screen.getByTestId('toolcall-card')).getByText('search_resumes')).toBeInTheDocument();
-    expect(screen.getByText('Updated to 100%')).toBeInTheDocument();
+    expect(screen.getByText('进度已更新至 100%')).toBeInTheDocument();
     expect(screen.getByText('result-content')).toBeInTheDocument();
     expect(screen.getByText('error-content')).toBeInTheDocument();
     expect(screen.getByText('warning-content')).toBeInTheDocument();
@@ -81,12 +81,13 @@ describe('EventCards (S5-13)', () => {
   });
 
   // PR-29 · 进度事件字段对齐后端契约(act.py:136 发 {step_id, percent}, 无 message)
-  test('TC-PR29-1 progress 事件 → ProgressCard 渲染 percent 文本(Updated to N%)', () => {
+  test('TC-PR29-1 progress 事件 → ProgressCard 进度条 aria-valuenow 反映 percent 字段', () => {
     render(
       <ConfigProvider>
         <ProgressCard event={makeProgressEvent('p1', 100)} />
       </ConfigProvider>,
     );
-    expect(screen.getByText('Updated to 100%')).toBeInTheDocument();
+    const bar = screen.getByRole('progressbar');
+    expect(bar).toHaveAttribute('aria-valuenow', '100');
   });
 });

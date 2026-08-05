@@ -7,7 +7,11 @@ export function ProgressCard({ event }: { event: SSEEvent<ProgressData> }) {
   const percent = event.data.percent;
   return (
     <CardContainer title="进度" testId="progress-card">
-      <Typography.Text>Updated to {percent}%</Typography.Text>
+      {event.data.message ? (
+        <Typography.Text>{event.data.message}</Typography.Text>
+      ) : (
+        <Typography.Text>进度已更新至 {percent}%</Typography.Text>
+      )}
       <Progress percent={Number.isFinite(percent) ? percent : 0} />
     </CardContainer>
   );

@@ -39,6 +39,7 @@ export interface ToolCallData {
 export interface ProgressData {
   step_id: string;
   percent: number;
+  message?: string; // 后端当前不发此字段，保留为可选以兼容未来扩展
 }
 
 export interface ResultData {
