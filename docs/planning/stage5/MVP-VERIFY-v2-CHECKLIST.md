@@ -48,6 +48,35 @@ docker exec recruitment-postgres psql -U recruitment -d recruitment_agent \
 **期望**：**10 行**（5 个 orchestrator internal + `candidate-merge` / `candidate-profile` / `jd-candidate-matching` / `jd-generation` / `resume-parsing`）。
 **若为 0 行** → 后端启动日志里找 `Skill sync to DB skipped:` 警告（该异常被 `try/except` 吞掉，不会导致启动失败但会静默跳过）。**这是 stop-and-report 条件**，不要硬着头皮往下跑。
 
+### §0.2b · ⚠️ 确认只有一个后端在监听 `:8000`（**必做** · 2026-07-27 事故追加）
+
+Windows 下**两个 uvicorn 可以同时 bind `:8000` 而不报错**，内核把请求**随机**分给其中之一。命中旧进程时，它跑的是**该进程启动那一刻的代码 + 当时的 `.env`**（`--reload` 只监视自己那一个进程），于是你会看到与当前代码毫无关系的错误。2026-07-27 就因此把一个 7 天前的僵尸进程（PID 3208，起于 7/29）误诊成 `LLM_BASE_URL` 配错，白查 40 分钟。详见 HANDOFF §9.4 陷阱 17。
+
+```bash
+# 1. 必须只有 1 行输出
+netstat -ano | grep LISTENING | grep :8000
+
+# 2. 若 ≥2 行，逐个查启动时间，杀掉旧的
+powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -Filter 'ProcessId=<PID>' | Select-Object ProcessId,CreationDate,CommandLine | Format-List"
+powershell.exe -NoProfile -Command "Stop-Process -Id <旧PID> -Force"
+
+# 3. 杀完后重启保留的那个，确保加载的是当前 HEAD
+```
+
+**判据**：`netstat` 只有 1 行，且其 `CreationDate` **晚于最后一次 `git merge`**。
+
+**最硬的事后指纹**（验收中途怀疑时用）：查 `tasks` 表最新行的 `created_at`。
+
+```bash
+# 期望：最新行时间 ≈ 你刚才操作的时间（分钟级）
+docker exec recruitment-postgres psql -U recruitment -d recruitment_agent \
+  -c "SELECT task_id, status, created_at FROM tasks ORDER BY created_at DESC LIMIT 3;"
+```
+
+**凡"UI 有反应但 `tasks` 表没有新行"** → 先怀疑请求打到了另一个进程，**不要先怀疑代码或配置**。
+
+> 附：`思考（reasoning completed）` 这行 SSE **不能**用来判断 reason 成功 —— 它是 `engine.py:416` 的 fallback 字面量（`reason_out.get("reasoning") or "reasoning completed"`），旧代码里也有，LLM 失败时照样出现。
+
 ### §0.3 · 播种简历（**MinIO unhealthy，建议绕过 UI 上传**）
 
 **为什么不走 UI 上传**：MinIO 容器当前 unhealthy，`ensure_buckets()` 失败也是被 `try/except` 吞的（`main.py:56-59`）。走 UI 上传大概率在文件落对象存储那步挂，而那**不是 §4 要验的东西** —— 会浪费你一轮归因。
