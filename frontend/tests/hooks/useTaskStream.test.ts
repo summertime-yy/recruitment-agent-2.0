@@ -28,7 +28,7 @@ describe('useTaskStream (S5-12)', () => {
       { id: '1', type: 'thinking', data: { content: 'thinking...' } },
       { id: '2', type: 'plan', data: { task_id: 't1', steps: [] } },
       { id: '3', type: 'tool_call', data: { step_id: 's1', tool_name: 'search_resumes', params: {} } },
-      { id: '4', type: 'progress', data: { step_id: 's1', progress: 0.5, message: 'working' } },
+      { id: '4', type: 'progress', data: { step_id: 's1', percent: 50 } },
       {
         id: '5',
         type: 'result',
@@ -50,7 +50,7 @@ describe('useTaskStream (S5-12)', () => {
     expect(byType('thinking')?.data).toMatchObject({ content: 'thinking...' });
     expect(byType('plan')?.data).toMatchObject({ task_id: 't1' });
     expect(byType('tool_call')?.data).toMatchObject({ tool_name: 'search_resumes' });
-    expect(byType('progress')?.data).toMatchObject({ progress: 0.5 });
+    expect(byType('progress')?.data).toMatchObject({ percent: 50 });
     expect(byType('result')?.data).toMatchObject({ content: 'done' });
     expect(byType('error')?.data).toMatchObject({ code: 'E1' });
     expect(byType('warning')?.data).toMatchObject({ message: 'careful' });
@@ -73,12 +73,12 @@ describe('useTaskStream (S5-12)', () => {
           if (callCount === 1) {
             return makeStream([
               { id: '1', type: 'thinking', data: { content: 'a' } },
-              { id: '2', type: 'progress', data: { step_id: 's1', progress: 0.4, message: 'm' } },
+              { id: '2', type: 'progress', data: { step_id: 's1', percent: 40 } },
             ]);
           }
           lastEventIds.push(request.headers.get('last-event-id'));
           return makeStream([
-            { id: '3', type: 'progress', data: { step_id: 's1', progress: 0.8, message: 'm2' } },
+            { id: '3', type: 'progress', data: { step_id: 's1', percent: 80 } },
             { id: '4', type: 'result', data: { content: 'done' } },
           ]);
         }),

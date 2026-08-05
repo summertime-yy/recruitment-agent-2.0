@@ -4,10 +4,10 @@ import type { SSEEvent, ProgressData } from '@/types/agent';
 import { CardContainer } from './CardContainer';
 
 export function ProgressCard({ event }: { event: SSEEvent<ProgressData> }) {
-  const percent = Math.round(event.data.progress * 100);
+  const percent = event.data.percent;
   return (
     <CardContainer title="进度" testId="progress-card">
-      <Typography.Text>{event.data.message}</Typography.Text>
+      <Typography.Text>Updated to {percent}%</Typography.Text>
       <Progress percent={Number.isFinite(percent) ? percent : 0} />
     </CardContainer>
   );

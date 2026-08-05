@@ -38,8 +38,7 @@ export interface ToolCallData {
 
 export interface ProgressData {
   step_id: string;
-  progress: number;
-  message: string;
+  percent: number;
 }
 
 export interface ResultData {

@@ -8,7 +8,7 @@
 import { describe, test, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { ConfigProvider } from 'antd';
-import { MessageTimeline, StreamStatusBar, WarningCard, ErrorCard } from '@/components/agent';
+import { MessageTimeline, StreamStatusBar, WarningCard, ErrorCard, ProgressCard } from '@/components/agent';
 import {
   makeThinkingEvent,
   makePlanEvent,
@@ -29,7 +29,7 @@ describe('EventCards (S5-13)', () => {
             makeThinkingEvent('1'),
             makePlanEvent('2'),
             makeToolCallEvent('3'),
-            makeProgressEvent('4'),
+            makeProgressEvent('4', 100),
             makeResultEvent('5'),
             makeErrorEvent('6'),
             makeWarningEvent('7'),
@@ -43,7 +43,7 @@ describe('EventCards (S5-13)', () => {
     expect(screen.getByText('步骤一')).toBeInTheDocument();
     // search_resumes 既出现在 PlanCard(step.tool_name) 也出现在 ToolCallCard(tool_name)
     expect(within(screen.getByTestId('toolcall-card')).getByText('search_resumes')).toBeInTheDocument();
-    expect(screen.getByText('progress-content')).toBeInTheDocument();
+    expect(screen.getByText('Updated to 100%')).toBeInTheDocument();
     expect(screen.getByText('result-content')).toBeInTheDocument();
     expect(screen.getByText('error-content')).toBeInTheDocument();
     expect(screen.getByText('warning-content')).toBeInTheDocument();
