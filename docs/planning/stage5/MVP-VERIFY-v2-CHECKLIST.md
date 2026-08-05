@@ -53,17 +53,19 @@ docker exec recruitment-postgres psql -U recruitment -d recruitment_agent \
 Windows 下**两个 uvicorn 可以同时 bind `:8000` 而不报错**，内核把请求**随机**分给其中之一。命中旧进程时，它跑的是**该进程启动那一刻的代码 + 当时的 `.env`**（`--reload` 只监视自己那一个进程），于是你会看到与当前代码毫无关系的错误。2026-07-27 就因此把一个 7 天前的僵尸进程（PID 3208，起于 7/29）误诊成 `LLM_BASE_URL` 配错，白查 40 分钟。详见 HANDOFF §9.4 陷阱 17。
 
 ```bash
-# 1. 必须只有 1 行输出
+# 1. 列出所有监听 :8000 的 PID
 netstat -ano | grep LISTENING | grep :8000
 
-# 2. 若 ≥2 行，逐个查启动时间，杀掉旧的
-powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -Filter 'ProcessId=<PID>' | Select-Object ProcessId,CreationDate,CommandLine | Format-List"
-powershell.exe -NoProfile -Command "Stop-Process -Id <旧PID> -Force"
+# 2. 逐个确认存活状态（已死进程的 LISTEN socket 不会被 Windows 回收，会留在 netstat 里）
+powershell.exe -NoProfile -Command "Get-Process -Id <PID> -ErrorAction SilentlyContinue | Select-Object Id,StartTime,Path | Format-List"
 
-# 3. 杀完后重启保留的那个，确保加载的是当前 HEAD
+# 3. 存活且是旧的 → 杀掉；杀完重启保留的那个，确保加载当前 HEAD
+powershell.exe -NoProfile -Command "Stop-Process -Id <旧PID> -Force"
 ```
 
-**判据**：`netstat` 只有 1 行，且其 `CreationDate` **晚于最后一次 `git merge`**。
+**判据**：`netstat` 里每个 PID 都 `Get-Process` 查一遍，**存活进程恰好 1 个**，且其 `StartTime` **晚于最后一次 `git merge`**。
+
+> **`netstat` 出现 2 行不一定是问题。** 已退出进程残留的 LISTEN socket 在 Windows 上不会被内核回收，但它**不 accept 任何连接**，内核只把 SYN 交给能服务的活 socket。2026-07-27 实测：幽灵 PID 3208（进程已 GONE）与活进程共存时，连打 12 个 `POST /agent/chat` **12/12 全部落库**、无一丢失。所以**不要**为了让 netstat 归一到 1 行去跑 `netsh int ipv4 reset` —— 那会重置所有 TCP 连接（Postgres / Redis / MinIO / 前端代理），代价远大于收益。判据看**活进程数**，不看 netstat 行数。详见 `PR28-UAT-PORT-CLEANUP-REPORT.md` §八。
 
 **最硬的事后指纹**（验收中途怀疑时用）：查 `tasks` 表最新行的 `created_at`。
 

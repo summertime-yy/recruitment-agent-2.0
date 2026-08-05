@@ -418,8 +418,9 @@ DATABASE_URL=postgresql+asyncpg://...
     - **本次实况**：`netstat -ano | grep :8000` 显示 PID 3208（`CreationDate 2026/7/29 11:07`，跑了 7 天的僵尸）与 PID 17468（当天 9:55 新启）同时 LISTENING。浏览器 §4.1 报 `错误（Connection error. [REASON_PLAN_FAILED]）`。
     - **为什么极难归因**：三条证据同时指向错误方向 —— ① `Connection error.` 不在本仓任何代码里（是 `openai` SDK `APIConnectionError` 的默认 message），第一反应是 `LLM_BASE_URL` 配错，**我据此怀疑 `/api/plan/v3` 路径多了一段、实测后撤回**（带真 key 探测：`/api/plan/v3` → `OK`，`/api/v3` → 401，配置是对的）；② CLI 直连 `run_reason`→`reflect`→`plan`→`reflect_plan` **3/3 全绿**（每次 ~22s），因为 CLI 直接 import 当前代码、完全绕过 HTTP，**必然**通，于是"配置没问题"与"浏览器报错"看似矛盾；③ SSE 里 `思考（reasoning completed）` 正常出现，误以为 reason 成功 —— 实则那是 `engine.py:416` 的 fallback 字面量 `reason_out.get("reasoning") or "reasoning completed"`，**旧代码里也有，不需要 LLM 成功**。
     - **唯一的硬指纹**：`tasks` 表最新行停在 **8 小时前**（01:58），而请求发生在 10:22 —— **新请求根本没落库**。凡"UI 有反应但 DB 无新行"，先怀疑打到了另一个进程，不要先怀疑代码。
-    - **排查命令**：`netstat -ano \| grep LISTENING \| grep :8000` 应当**只有 1 行**；若 ≥2 行，用 `powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -Filter 'ProcessId=<PID>' \| Select-Object ProcessId,CreationDate,CommandLine \| Format-List"` 看 `CreationDate`，杀掉旧的那个（`Stop-Process -Id <PID> -Force`），然后**重启**保留的那个以确保加载当前 HEAD。
-    - **验收前置纪律**（建议写入 MVP-VERIFY CHECKLIST §0）：任何浏览器验收开跑前，先确认 `:8000` 只有一个监听者、且其 `CreationDate` 晚于最后一次 `git merge`。
+    - **排查命令**：`netstat -ano \| grep LISTENING \| grep :8000` 后**逐个 PID** `powershell.exe -NoProfile -Command "Get-Process -Id <PID> -ErrorAction SilentlyContinue \| Select-Object Id,StartTime,Path \| Format-List"`，杀掉存活的旧进程（`Stop-Process -Id <PID> -Force`），然后**重启**保留的那个以确保加载当前 HEAD。
+    - **判据是"活进程恰好 1 个"，不是"netstat 恰好 1 行"** — 已退出进程残留的 LISTEN socket 在 Windows 上不会被内核回收，会一直留在 netstat 里，但它**不 accept 连接**。2026-07-27 实测：幽灵 PID 3208（`Get-Process` → GONE）与活进程 47640 共存时，连打 12 个 `POST /agent/chat`，`tasks` 表 delta **6/6 两轮**、**12/12 全部落库**。**不要**为让 netstat 归一去跑 `netsh int ipv4 reset`（会重置 Postgres/Redis/MinIO/前端代理的所有 TCP 连接，部分环境需重启系统）—— 详见 `docs/planning/stage5/PR28-UAT-PORT-CLEANUP-REPORT.md` §八 裁决。
+    - **验收前置纪律**：已写入 `MVP-VERIFY-v2-CHECKLIST.md` §0.2b（netstat + 逐 PID 存活检查 + `tasks.created_at` 事后指纹）。
     - **根因未消除**：进程侧无任何护栏。已登记 §9.3.23 建议起服时端口占用 fail-fast + `/health` 暴露 `git_sha` 与进程启动时间，让"我连的是哪个后端"一眼可查。
 
 ### §9.3.17 GET /api/v1/agent/tasks/{id} 返回 500（CLOSED · PR-25）
