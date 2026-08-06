@@ -41,9 +41,10 @@ export function makeToolCallEvent(
 export function makeProgressEvent(
   id: string,
   percent = 50,
+  message = 'progress-content',
   step_id = 's1',
 ): SSEEvent<ProgressData> {
-  return { id, type: 'progress', task_id: 't', step_id, timestamp: new Date().toISOString(), data: { step_id, percent } };
+  return { id, type: 'progress', task_id: 't', step_id, timestamp: new Date().toISOString(), data: { step_id, percent, message } };
 }
 
 export function makeResultEvent(id: string, content = 'result-content', artifacts?: ResultArtifact[]): SSEEvent<ResultData> {

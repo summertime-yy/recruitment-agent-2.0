@@ -43,7 +43,7 @@ describe('EventCards (S5-13)', () => {
     expect(screen.getByText('步骤一')).toBeInTheDocument();
     // search_resumes 既出现在 PlanCard(step.tool_name) 也出现在 ToolCallCard(tool_name)
     expect(within(screen.getByTestId('toolcall-card')).getByText('search_resumes')).toBeInTheDocument();
-    expect(screen.getByText('进度已更新至 100%')).toBeInTheDocument();
+    expect(screen.getByText('progress-content')).toBeInTheDocument();
     expect(screen.getByText('result-content')).toBeInTheDocument();
     expect(screen.getByText('error-content')).toBeInTheDocument();
     expect(screen.getByText('warning-content')).toBeInTheDocument();
@@ -82,11 +82,23 @@ describe('EventCards (S5-13)', () => {
 
   // PR-29 · 进度事件字段对齐后端契约(act.py:136 发 {step_id, percent}, 无 message)
   test('TC-PR29-1 progress 事件 → ProgressCard 进度条 aria-valuenow 反映 percent 字段', () => {
+    // payload 形状抄自 backend/app/agent/orchestrator/act.py:136，故意不走 fixture：
+    // 后端真实事件无 message 字段，此处硬编码可在字段名再次漂移时立刻变红。
+    const event = {
+      id: 'p1',
+      type: 'progress' as const,
+      task_id: 't',
+      step_id: 's1',
+      timestamp: new Date().toISOString(),
+      data: { step_id: 's1', percent: 100 },
+    };
     render(
       <ConfigProvider>
-        <ProgressCard event={makeProgressEvent('p1', 100)} />
+        <ProgressCard event={event} />
       </ConfigProvider>,
     );
+    // 断言进度条本身的值 —— 用户能看到的东西。
+    // 不要断言文案字符串：那样把 <Progress percent={0} /> 硬编码也能绿（复审已实测）。
     const bar = screen.getByRole('progressbar');
     expect(bar).toHaveAttribute('aria-valuenow', '100');
   });

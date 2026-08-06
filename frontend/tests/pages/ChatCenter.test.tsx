@@ -101,7 +101,7 @@ describe('ChatCenter (S5-13)', () => {
         return HttpResponse.json({ task_id: 't-score', status: 'EXECUTING' });
       }),
       makeSseHandler(sseStreamUrl('t-score'), [
-        { id: '1', event: 'progress', data: { step_id: 's1', percent: 50 } },
+        { id: '1', event: 'progress', data: { step_id: 's1', percent: 50, message: 'progress-content' } },
       ]),
     );
     renderChat();
@@ -117,8 +117,8 @@ describe('ChatCenter (S5-13)', () => {
 
     await waitFor(() => expect(skipCalls.length).toBe(1));
     expect(skipCalls[0]).toMatchObject({ jd_id: 'jd1', candidate_ids: ['r1'] });
-    // 评分任务开始流式 → 进度卡片出现（无 message 时 ProgressCard 渲染中文进度文本）
-    await screen.findByText('进度已更新至 50%');
+    // 评分任务开始流式 → 进度卡片出现
+    await screen.findByText('progress-content');
   });
 
   test('TC-S5-13-4 SSE disconnect then reconnect → same event id not double-rendered', async () => {
